@@ -32,6 +32,26 @@ test("production API: authentication, private visibility, suggestions, persisten
         body: body ? JSON.stringify(body) : undefined,
       });
     assert.equal((await request("admin/items")).status, 401);
+    for (const endpoint of ["sources", "signals", "sync-runs", "product"])
+      assert.equal((await request("admin/" + endpoint)).status, 401);
+    assert.equal((await request("public/signals")).status, 404);
+    assert.deepEqual(await (await request("public/product")).json(), {
+      name: "PULS",
+    });
+    assert.equal(
+      (
+        await request(
+          "admin/product",
+          "PATCH",
+          { name: "Another product", secret: "never publish" },
+          true,
+        )
+      ).status,
+      200,
+    );
+    assert.deepEqual(await (await request("public/product")).json(), {
+      name: "Another product",
+    });
     let res = await request("public/items");
     assert.deepEqual(await res.json(), []);
     const cookie = res.headers.get("set-cookie").split(";")[0];

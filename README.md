@@ -29,6 +29,14 @@ Le mode développement fonctionne localement sans clé et initialise neuf évolu
 - Boîte de suggestions avec conversion en évolution, vue des nouveautés livrées.
 - Données persistées dans SQLite, formulaires accessibles au clavier, interface adaptative.
 
+## Intégrations produit
+
+L’écran **Intégrations** configure le nom du produit et ses sources GitHub, Azure DevOps, Notion et Confluence Cloud. Les lectures à la demande alimentent une boîte de réception interne ; associez une information à une initiative/projet/feature ou créez une feature interne. Les mises à jour des sources préservent la planification Beam. Les connexions peuvent être mises en pause.
+
+Les secrets sont configurés uniquement dans l’environnement serveur (`BEAM_GITHUB_TOKEN`, `BEAM_ADO_TOKEN`, `BEAM_NOTION_TOKEN`, `BEAM_CONFLUENCE_EMAIL`, `BEAM_CONFLUENCE_TOKEN`). Aucun compte n’est nécessaire pour préparer les liens ; GitHub public peut être lu sans token. Les autres lectures nécessitent leurs accès. Les logs complets sont ouverts dans l’outil d’origine. OAuth, webhooks et synchronisation automatique ne sont pas implémentés.
+
+Voir [le périmètre, la configuration et l’architecture](docs/integrations.md). Les intégrations sont disponibles dans l’administration Node, pas sur GitHub Pages.
+
 ## Production
 
 ```sh

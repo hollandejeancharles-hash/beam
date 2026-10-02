@@ -28,6 +28,7 @@ import {
   ArrowUpRight,
   ExternalLink,
 } from "./icons";
+import Integrations, { SignalLinks } from "./components/Integrations";
 import Gantt from "./components/Gantt";
 import { TYPES, progressValue } from "../shared/planning";
 import "./style.css";
@@ -83,7 +84,7 @@ function App() {
     [page, setPage] = useState(
       (publicMode
         ? ["gantt", "kanban"]
-        : ["gantt", "kanban", "feedback", "changelog"]
+        : ["gantt", "kanban", "feedback", "changelog", "integrations"]
       ).includes(location.hash.slice(1))
         ? location.hash.slice(1)
         : "gantt",
@@ -105,7 +106,9 @@ function App() {
     [auth, setAuth] = useState(false),
     [key, setKey] = useState(sessionStorage.getItem("beam_key") || ""),
     [sort, setSort] = useState("priority"),
-    [typeFilter, setTypeFilter] = useState("all");
+    [typeFilter, setTypeFilter] = useState("all"),
+    [product, setProduct] = useState({ name: "PULS" }),
+    [signals, setSignals] = useState([]);
   async function api(path, options = {}) {
     const response = await fetch("/api/" + path, {
       ...options,
@@ -130,10 +133,17 @@ function App() {
         if (!response.ok)
           throw Error("La roadmap est temporairement indisponible.");
         setItems(await response.json());
+        const p = await fetch(import.meta.env.BASE_URL + "product.json");
+        if (p.ok) setProduct(await p.json());
       } else {
         setItems(await api((publicMode ? "public" : "admin") + "/items"));
       }
-      if (!publicMode) setSuggestions(await api("admin/suggestions"));
+      if (!pagesMode)
+        setProduct(await api((publicMode ? "public" : "admin") + "/product"));
+      if (!publicMode) {
+        setSuggestions(await api("admin/suggestions"));
+        setSignals(await api("admin/signals"));
+      }
       setAuth(false);
     } catch (e) {
       setError(e.message);
@@ -261,7 +271,7 @@ function App() {
           <div className="workspace">
             <span className="puls-logo">P</span>
             <div>
-              <strong>PULS</strong>
+              <strong>{product.name}</strong>
               <small>Product workspace</small>
             </div>
           </div>
@@ -298,6 +308,13 @@ function App() {
               <Radio size={17} />
               Nouveautés
             </button>
+            <button
+              className={page === "integrations" ? "active" : ""}
+              onClick={() => setPage("integrations")}
+            >
+              <Map size={17} />
+              Intégrations
+            </button>
           </nav>
           <div className="sidebar-bottom">
             <div className="portal-card">
@@ -309,7 +326,7 @@ function App() {
               <p>
                 Votre roadmap, accessible à
                 <br />
-                la communauté PULS.
+                la communauté {product.name}.
               </p>
               <a href={publicPath} target="_blank" rel="noreferrer">
                 Ouvrir le portail <ArrowUpRight size={15} />
@@ -318,7 +335,7 @@ function App() {
             <div className="profile">
               <span className="avatar">JC</span>
               <div>
-                <strong>Équipe PULS</strong>
+                <strong>Équipe {product.name}</strong>
                 <small>Espace administrateur</small>
               </div>
               {key && (
@@ -342,7 +359,8 @@ function App() {
         <header className="topbar">
           {publicMode ? (
             <a className="public-brand" href={publicPath}>
-              <span className="puls-logo">P</span>PULS <span>/</span> Roadmap
+              <span className="puls-logo">{product.name[0]}</span>
+              {product.name} <span>/</span> Roadmap
             </a>
           ) : (
             <div className="breadcrumbs">
@@ -352,9 +370,11 @@ function App() {
                   ? "Planification"
                   : page === "kanban"
                     ? "Kanban"
-                    : page === "feedback"
-                      ? "Suggestions"
-                      : "Nouveautés"}
+                    : page === "integrations"
+                      ? "Intégrations"
+                      : page === "feedback"
+                        ? "Suggestions"
+                        : "Nouveautés"}
               </span>
             </div>
           )}
@@ -365,7 +385,7 @@ function App() {
                 ? "Roadmap publique"
                 : publicMode
                   ? "En direct de l’équipe"
-                  : "Tout est synchronisé"}
+                  : "Espace produit"}
             </span>
             {publicMode ? (
               <span className="powered">
@@ -384,31 +404,41 @@ function App() {
           <section className="page-heading">
             <div>
               <h1>
-                {page === "feedback"
-                  ? "Suggestions"
-                  : page === "changelog"
-                    ? "Nouveautés"
-                    : page === "kanban"
-                      ? "Kanban"
-                      : publicMode
-                        ? "Planification PULS"
-                        : "Planification"}
+                {page === "integrations"
+                  ? "Intégrations"
+                  : page === "feedback"
+                    ? "Suggestions"
+                    : page === "changelog"
+                      ? "Nouveautés"
+                      : page === "kanban"
+                        ? "Kanban"
+                        : publicMode
+                          ? "Planification " + product.name
+                          : "Planification"}
               </h1>
               <p>
-                {page === "feedback"
-                  ? "Les retours de votre communauté, réunis au même endroit."
-                  : page === "changelog"
-                    ? "Les dernières évolutions disponibles dans PULS."
-                    : publicMode
-                      ? pagesMode
-                        ? "Les initiatives, projets et features de PULS dans le temps."
-                        : "Suivez les évolutions de PULS et votez pour vos priorités."
-                      : page === "kanban"
-                        ? "Suivez l’exécution de vos initiatives, projets et features par statut."
-                        : "Suivez vos initiatives, projets et features sur une même chronologie."}
+                {page === "integrations"
+                  ? "Reliez les outils de votre produit et transformez leurs informations en décisions de roadmap."
+                  : page === "feedback"
+                    ? "Les retours de votre communauté, réunis au même endroit."
+                    : page === "changelog"
+                      ? "Les dernières évolutions disponibles dans " +
+                        product.name +
+                        "."
+                      : publicMode
+                        ? pagesMode
+                          ? "Les initiatives, projets et features de " +
+                            product.name +
+                            " dans le temps."
+                          : "Suivez les évolutions de " +
+                            product.name +
+                            " et votez pour vos priorités."
+                        : page === "kanban"
+                          ? "Suivez l’exécution de vos initiatives, projets et features par statut."
+                          : "Suivez vos initiatives, projets et features sur une même chronologie."}
               </p>
             </div>
-            {!pagesMode && (
+            {!pagesMode && page !== "integrations" && (
               <button
                 className="button primary"
                 onClick={() =>
@@ -440,7 +470,7 @@ function App() {
               </button>
             </nav>
           )}
-          {page !== "feedback" && (
+          {page !== "feedback" && page !== "integrations" && (
             <>
               <div className="section-title">
                 <div>
@@ -451,7 +481,9 @@ function App() {
                         ? "Vue Gantt"
                         : "Tableau de suivi"}
                   </h2>
-                  <span className="pill">{publicMode ? "Public" : "PULS"}</span>
+                  <span className="pill">
+                    {publicMode ? "Public" : product.name}
+                  </span>
                 </div>
                 <span className="subtle">
                   {publicMode
@@ -586,6 +618,16 @@ function App() {
                 Réessayer
               </button>
             </div>
+          ) : page === "integrations" && !publicMode ? (
+            <Integrations
+              api={api}
+              items={items}
+              product={product}
+              onProduct={setProduct}
+              onRefresh={refresh}
+              onError={setToast}
+              onSignals={setSignals}
+            />
           ) : page === "gantt" ? (
             <Gantt
               items={filtered}
@@ -783,7 +825,7 @@ function App() {
               <span className="footer-mark">
                 <Mark />
               </span>
-              PULS · Product roadmap
+              {product.name} · Product roadmap
             </span>
             <span>
               <b>beam.</b>
@@ -858,6 +900,7 @@ function App() {
               </strong>
             </div>
           </div>
+          {!publicMode && <SignalLinks signals={signals} item={selected} />}
           {!pagesMode && (
             <div className="modal-actions">
               {!publicMode ? (
@@ -1139,7 +1182,7 @@ function App() {
         <Modal title="Partager la roadmap" close={() => setShare(false)}>
           <div className="share-illustration">
             <Globe size={38} />
-            <span>Roadmap PULS</span>
+            <span>Roadmap {product.name}</span>
           </div>
           <p className="modal-copy">
             Un lien, toute votre roadmap. Vos utilisateurs découvrent les
@@ -1195,7 +1238,7 @@ function App() {
                   body: JSON.stringify(Object.fromEntries(data)),
                 });
                 setSuggest(false);
-                setToast("Merci ! Votre idée a été transmise à l’équipe PULS.");
+                setToast("Merci ! Votre idée a été transmise à l’équipe.");
               } catch (e) {
                 setToast(e.message);
               } finally {
@@ -1204,7 +1247,8 @@ function App() {
             }}
           >
             <p className="modal-copy">
-              Dites-nous ce qui rendrait PULS encore plus utile au quotidien.
+              Dites-nous ce qui rendrait {product.name} encore plus utile au
+              quotidien.
             </p>
             <label>
               Votre idée

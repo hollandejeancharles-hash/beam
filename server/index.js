@@ -2,12 +2,14 @@ import http from "node:http";
 import { mkdirSync, readFileSync, existsSync } from "node:fs";
 import { resolve, extname } from "node:path";
 import { randomUUID, timingSafeEqual } from "node:crypto";
+import { createIntegrations } from "./integrations.js";
 import { createStore, seed } from "./store.js";
 const prod = process.env.NODE_ENV === "production";
 if (prod && !process.env.BEAM_ADMIN_TOKEN)
   throw Error("BEAM_ADMIN_TOKEN est requis en production");
 mkdirSync("data", { recursive: true });
 const store = createStore(process.env.BEAM_DB || "data/beam.sqlite");
+const integrations = createIntegrations(store);
 if (process.env.BEAM_SEED === "true" || !prod) seed(store);
 const vite = prod
   ? null
@@ -99,6 +101,17 @@ const server = http.createServer(async (req, res) => {
       return send(401, { error: "Clé d’accès incorrecte" });
     }
     if (req.method === "GET") {
+      if (
+        url.pathname === "/api/public/product" ||
+        url.pathname === "/api/admin/product"
+      )
+        return send(200, integrations.product());
+      if (url.pathname === "/api/admin/sources")
+        return send(200, integrations.list());
+      if (url.pathname === "/api/admin/signals")
+        return send(200, integrations.signals());
+      if (url.pathname === "/api/admin/sync-runs")
+        return send(200, integrations.runs());
       if (url.pathname === "/api/public/items")
         return send(200, store.list(true, visitor));
       if (url.pathname === "/api/admin/items")
@@ -124,6 +137,30 @@ const server = http.createServer(async (req, res) => {
         return send(413, { error: "Contenu trop volumineux" });
     }
     const body = raw ? JSON.parse(raw) : {};
+    if (url.pathname === "/api/admin/product" && req.method === "PATCH")
+      return send(200, integrations.saveProduct(body));
+    if (url.pathname === "/api/admin/sources" && req.method === "POST")
+      return send(201, integrations.save(body));
+    const sourceSetting = url.pathname.match(
+      /^\/api\/admin\/sources\/([a-f0-9-]+)$/,
+    );
+    if (sourceSetting && req.method === "PATCH")
+      return send(200, integrations.enable(sourceSetting[1], body.enabled));
+    const sync = url.pathname.match(
+      /^\/api\/admin\/sources\/([a-f0-9-]+)\/sync$/,
+    );
+    if (sync && req.method === "POST")
+      return send(200, await integrations.sync(sync[1]));
+    const signal = url.pathname.match(
+      /^\/api\/admin\/signals\/([a-f0-9-]+)\/(link|promote)$/,
+    );
+    if (signal && req.method === "POST")
+      return send(
+        200,
+        signal[2] === "promote"
+          ? integrations.promote(signal[1])
+          : integrations.link(signal[1], body.item_id, body.remove),
+      );
     if (url.pathname === "/api/admin/items" && req.method === "POST")
       return send(201, { id: store.save(body) });
     const match = url.pathname.match(/^\/api\/admin\/items\/([a-f0-9-]+)$/);
