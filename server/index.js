@@ -1,0 +1,158 @@
+import http from "node:http";
+import { mkdirSync, readFileSync, existsSync } from "node:fs";
+import { resolve, extname } from "node:path";
+import { randomUUID, timingSafeEqual } from "node:crypto";
+import { createStore, seed } from "./store.js";
+const prod = process.env.NODE_ENV === "production";
+if (prod && !process.env.BEAM_ADMIN_TOKEN)
+  throw Error("BEAM_ADMIN_TOKEN est requis en production");
+mkdirSync("data", { recursive: true });
+const store = createStore(process.env.BEAM_DB || "data/beam.sqlite");
+if (process.env.BEAM_SEED === "true" || !prod) seed(store);
+const vite = prod
+  ? null
+  : await (
+      await import("vite")
+    ).createServer({ server: { middlewareMode: true }, appType: "spa" });
+const token = process.env.BEAM_ADMIN_TOKEN;
+const authorized = (req) =>
+  (!token && !prod) ||
+  (() => {
+    const a = Buffer.from(
+      req.headers.authorization?.replace(/^Bearer /, "") || "",
+    );
+    const b = Buffer.from(token || "");
+    return a.length === b.length && timingSafeEqual(a, b);
+  })();
+const attempts = new Map();
+function limited(key, max) {
+  const now = Date.now();
+  let entry = attempts.get(key);
+  if (!entry || now - entry.start > 60000) {
+    entry = { start: now, count: 0 };
+    attempts.set(key, entry);
+  }
+  if (attempts.size > 10000)
+    for (const [k, v] of attempts)
+      if (now - v.start > 60000) attempts.delete(k);
+  return ++entry.count > max;
+}
+const server = http.createServer(async (req, res) => {
+  const url = new URL(req.url, "http://localhost");
+  if (!url.pathname.startsWith("/api/")) {
+    if (vite) return vite.middlewares(req, res);
+    const path = resolve("dist", "." + decodeURIComponent(url.pathname));
+    if (!path.startsWith(resolve("dist") + "/") && path !== resolve("dist")) {
+      res.writeHead(403);
+      return res.end();
+    }
+    const file =
+      existsSync(path) && extname(path) ? path : resolve("dist/index.html");
+    try {
+      res.setHeader(
+        "Content-Type",
+        {
+          ".html": "text/html",
+          ".js": "application/javascript",
+          ".css": "text/css",
+          ".svg": "image/svg+xml",
+        }[extname(file)] || "application/octet-stream",
+      );
+      res.end(readFileSync(file));
+    } catch {
+      res.writeHead(404);
+      res.end();
+    }
+    return;
+  }
+  res.setHeader("Content-Type", "application/json");
+  res.setHeader("Cache-Control", "no-store");
+  res.setHeader("X-Content-Type-Options", "nosniff");
+  const send = (status, data) => {
+    res.writeHead(status);
+    res.end(JSON.stringify(data));
+  };
+  try {
+    let visitor = req.headers.cookie?.match(
+      /(?:^|; )beam_visitor=([a-f0-9-]{36})(?:;|$)/,
+    )?.[1];
+    if (!visitor) {
+      visitor = randomUUID();
+      res.setHeader(
+        "Set-Cookie",
+        `beam_visitor=${visitor}; Path=/; HttpOnly; SameSite=Lax; Max-Age=31536000${prod ? "; Secure" : ""}`,
+      );
+    }
+    const admin = url.pathname.startsWith("/api/admin");
+    if (
+      req.method !== "GET" &&
+      limited(req.socket.remoteAddress || "unknown", 60)
+    )
+      return send(429, {
+        error: "Trop de requêtes. Réessayez dans une minute.",
+      });
+    if (admin && !authorized(req)) {
+      if (limited("auth:" + req.socket.remoteAddress, 20))
+        return send(429, {
+          error: "Trop de tentatives. Réessayez dans une minute.",
+        });
+      return send(401, { error: "Clé d’accès incorrecte" });
+    }
+    if (req.method === "GET") {
+      if (url.pathname === "/api/public/items")
+        return send(200, store.list(true, visitor));
+      if (url.pathname === "/api/admin/items")
+        return send(200, store.list(false, visitor));
+      if (url.pathname === "/api/admin/suggestions")
+        return send(
+          200,
+          store.db
+            .prepare("SELECT * FROM suggestions ORDER BY created DESC")
+            .all(),
+        );
+      return send(404, { error: "Introuvable" });
+    }
+    if (
+      req.headers.origin &&
+      req.headers.origin !== `${prod ? "https" : "http"}://${req.headers.host}`
+    )
+      return send(403, { error: "Origine refusée" });
+    let raw = "";
+    for await (const chunk of req) {
+      raw += chunk;
+      if (raw.length > 20000)
+        return send(413, { error: "Contenu trop volumineux" });
+    }
+    const body = raw ? JSON.parse(raw) : {};
+    if (url.pathname === "/api/admin/items" && req.method === "POST")
+      return send(201, { id: store.save(body) });
+    const match = url.pathname.match(/^\/api\/admin\/items\/([a-f0-9-]+)$/);
+    if (match) {
+      if (req.method === "PATCH")
+        return send(200, { id: store.save(body, match[1]) });
+      if (req.method === "DELETE") {
+        store.remove(match[1]);
+        return send(200, { ok: true });
+      }
+    }
+    const vote = url.pathname.match(
+      /^\/api\/public\/items\/([a-f0-9-]+)\/vote$/,
+    );
+    if (vote && req.method === "POST") {
+      store.vote(vote[1], visitor);
+      return send(200, { ok: true });
+    }
+    if (url.pathname === "/api/public/suggestions" && req.method === "POST") {
+      store.suggest(body.title, body.description);
+      return send(201, { ok: true });
+    }
+    send(404, { error: "Introuvable" });
+  } catch (error) {
+    send(400, { error: error.message });
+  }
+});
+server.listen(
+  Number(process.env.PORT) || 5173,
+  process.env.HOST || "127.0.0.1",
+  () => console.log("Beam http://localhost:" + (process.env.PORT || 5173)),
+);
