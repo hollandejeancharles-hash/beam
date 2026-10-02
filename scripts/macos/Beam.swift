@@ -31,7 +31,9 @@ final class BeamDelegate: NSObject, NSApplicationDelegate, WKNavigationDelegate,
     var window: NSWindow?
     var webView: WKWebView?
     var statusItem: NSStatusItem!
+    var statusMenu: NSMenu?
     var server: Process?
+    var capturePending = false
     var starting = false
     var destination = "#gantt"
     let base = "http://127.0.0.1:5173/"
@@ -41,15 +43,19 @@ final class BeamDelegate: NSObject, NSApplicationDelegate, WKNavigationDelegate,
         statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.squareLength)
         let icon = beamMark(20); icon.isTemplate = true
         statusItem.button?.image = icon
-        statusItem.button?.toolTip = "Beam — votre espace produit local"
+        statusItem.button?.toolTip = "Beam — noter rapidement"
+        statusItem.button?.target = self
+        statusItem.button?.action = #selector(statusClick)
+        statusItem.button?.sendAction(on: [.leftMouseUp, .rightMouseUp])
         let menu = NSMenu()
         menu.addItem(withTitle: "Ouvrir Beam", action: #selector(openBeam), keyEquivalent: "")
+        menu.addItem(withTitle: "Capturer une note", action: #selector(captureNote), keyEquivalent: "")
         menu.addItem(withTitle: "Ouvrir les notes", action: #selector(openNotes), keyEquivalent: "")
         menu.addItem(NSMenuItem.separator())
         let local = NSMenuItem(title: "Sur ce Mac · accès local uniquement", action: nil, keyEquivalent: ""); local.isEnabled = false; menu.addItem(local)
         menu.addItem(withTitle: "Quitter Beam", action: #selector(quit), keyEquivalent: "q")
         for item in menu.items { item.target = self }
-        statusItem.menu = menu
+        statusMenu = menu
         installAppMenu()
         // The previous browser launcher is replaced by the dedicated-window app.
         let previous = NSRunningApplication.runningApplications(withBundleIdentifier: "local.beam.launcher")
@@ -65,6 +71,8 @@ final class BeamDelegate: NSObject, NSApplicationDelegate, WKNavigationDelegate,
         let root = NSMenu()
         let app = NSMenuItem(); root.addItem(app)
         let appMenu = NSMenu(); app.submenu = appMenu
+        appMenu.addItem(withTitle: "Capturer une note", action: #selector(captureNote), keyEquivalent: "").target = self
+        appMenu.addItem(NSMenuItem.separator())
         appMenu.addItem(withTitle: "Quitter Beam", action: #selector(quit), keyEquivalent: "q").target = self
         let edit = NSMenuItem(title: "Édition", action: nil, keyEquivalent: ""); root.addItem(edit)
         let editMenu = NSMenu(title: "Édition"); edit.submenu = editMenu
@@ -77,6 +85,31 @@ final class BeamDelegate: NSObject, NSApplicationDelegate, WKNavigationDelegate,
         if window != nil { present() } else { openBeam() }; return false
     }
     func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool { false }
+    @objc func statusClick() {
+        if NSApplication.shared.currentEvent?.type == .rightMouseUp {
+            statusItem.menu = statusMenu
+            statusItem.button?.performClick(nil)
+            statusItem.menu = nil
+        } else { captureNote() }
+    }
+    @objc func captureNote() {
+        capturePending = true
+        if let view = webView, let url = view.url, isLocal(url), !view.isLoading {
+            present(); deliverCapture(remaining: 50)
+        } else { open(destination) }
+    }
+    func deliverCapture(remaining: Int) {
+        guard capturePending, let view = webView else { return }
+        view.evaluateJavaScript("typeof window.__beamCaptureNote === 'function' && window.__beamCaptureNote()") { result, _ in
+            if result as? Bool == true { self.capturePending = false }
+            else if remaining > 0 {
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) { self.deliverCapture(remaining: remaining - 1) }
+            } else { self.capturePending = false }
+        }
+    }
+    func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
+        if capturePending { deliverCapture(remaining: 50) }
+    }
     @objc func openBeam() { open("#gantt") }
     @objc func openNotes() { open("#notes") }
     @objc func quit() { NSApplication.shared.terminate(nil) }
@@ -154,6 +187,7 @@ final class BeamDelegate: NSObject, NSApplicationDelegate, WKNavigationDelegate,
         let target = URL(string: base + destination)!
         if webView?.url != target { webView?.load(URLRequest(url: target)) }
         present()
+        if capturePending && webView?.isLoading == false { deliverCapture(remaining: 50) }
     }
     func isLocal(_ url: URL) -> Bool {
         url.scheme == "http" && ["127.0.0.1", "localhost"].contains(url.host ?? "") && url.port == 5173

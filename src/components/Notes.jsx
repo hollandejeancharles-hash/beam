@@ -48,8 +48,22 @@ export function QuickNote({ api, items, onError }) {
         if (!document.querySelector("[role=dialog]")) setOpen(true);
       }
     };
+    // Native menu-bar capture: reuse the current screen and preserve any draft.
+    const capture = () => {
+      const otherDialog = document.querySelector(
+        '[role="dialog"]:not([aria-label="Capture rapide"])',
+      );
+      if (otherDialog) return false;
+      setOpen(true);
+      requestAnimationFrame(() => input.current?.focus());
+      return true;
+    };
+    window.__beamCaptureNote = capture;
     window.addEventListener("keydown", h);
-    return () => window.removeEventListener("keydown", h);
+    return () => {
+      window.removeEventListener("keydown", h);
+      if (window.__beamCaptureNote === capture) delete window.__beamCaptureNote;
+    };
   }, []);
   const close = () => {
     setOpen(false);

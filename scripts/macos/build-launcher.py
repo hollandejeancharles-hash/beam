@@ -37,9 +37,13 @@ with tempfile.TemporaryDirectory(prefix='beam-mac-') as scratch:
     subprocess.run(['codesign', '--verify', '--deep', '--strict', str(app)], check=True)
     output.parent.mkdir(parents=True, exist_ok=True)
     shutil.copytree(app, output, dirs_exist_ok=True)
-    # Finder can retain metadata from the previous generated bundle.
-    for path in [output, *output.rglob('*')]:
+    # Remove only signing-incompatible Finder metadata from the generated app.
+    for attempt in range(3):
         for attribute in ['com.apple.FinderInfo', 'com.apple.ResourceFork']:
-            subprocess.run(['xattr', '-d', attribute, str(path)], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-    subprocess.run(['codesign', '--verify', '--deep', '--strict', str(output)], check=True)
+            subprocess.run(['xattr', '-dr', attribute, str(output)], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        verified = subprocess.run(['codesign', '--verify', '--deep', '--strict', str(output)], capture_output=True, text=True)
+        if verified.returncode == 0:
+            break
+    else:
+        raise SystemExit(verified.stderr)
 print(output)
