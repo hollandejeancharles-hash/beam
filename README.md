@@ -91,3 +91,11 @@ Le bouton **Noter** reste disponible sur tous les écrans de l’espace administ
 Le carnet **Notes** propose une vue « À suivre », le regroupement par intention, personne ou sujet, la recherche, la correction du texte et du classement, la clôture et l’archivage réversible. Les notes sont enregistrées dans SQLite et protégées par l’accès administrateur. Elles ne sont jamais incluses dans la roadmap publique ou dans l’export GitHub Pages.
 
 L’interprétation actuelle repose sur des règles locales transparentes : intentions courantes en français, noms après certains verbes, `@personne`, `#sujet`, aujourd’hui/demain, jours de semaine et dates `AAAA-MM-JJ`, rapprochement des titres de roadmap. Un jour de semaine désigne sa prochaine occurrence. Une note ambiguë reste une note ; les propositions sont modifiables. Aucun appel à un service IA, aucune notification programmée et aucune modification automatique de la roadmap. GitHub Pages reste la vitrine publique ; le carnet nécessite le serveur Beam.
+
+### Lanceur Mac : Dock et barre de menus
+
+`python3 scripts/macos/build-launcher.py` construit `../outputs/Beam.app` avec le logo Beam. Un clic ouvre la roadmap locale dans le navigateur par défaut et démarre le serveur si nécessaire. La barre de menus propose « Ouvrir Beam », « Ouvrir les notes » et « Quitter le lanceur Beam ». Pour le garder dans le Dock, glissez `Beam.app` dans la partie Applications du Dock.
+
+Le lanceur conserve la base `data/beam.sqlite` du dépôt et écoute exclusivement sur `127.0.0.1:5173`. Il nécessite Node.js 24 et les dépendances du dépôt déjà installées. Il ne modifie pas le Dock, les réglages macOS ou les éléments d’ouverture de session. Quitter le lanceur arrête uniquement le serveur qu’il a lui-même démarré ; il laisse un serveur préexistant fonctionner. En cas de problème, consulter `data/launcher.log`.
+
+L’app peut être déplacée, mais le chemin du dépôt et celui de Node sont enregistrés lors de sa construction : reconstruisez le lanceur après avoir déplacé le dépôt ou changé l’installation Node. Compilation native avec les outils Apple existants ; signature ad hoc locale, sans distribution ni notarisation.
