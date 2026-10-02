@@ -7,7 +7,14 @@
     "priority": "medium",
     "status": "planned",
     "visibility": "public",
-    "quarter": "T1 2027"
+    "quarter": "T1 2027",
+    "type": "feature",
+    "parent_id": null,
+    "dependency_id": null,
+    "start_date": null,
+    "end_date": null,
+    "progress": 0,
+    "owner": ""
   },
   {
     "id": "4a13af59-b210-48eb-bd45-f86d15fdb9c0",
@@ -17,7 +24,14 @@
     "priority": "medium",
     "status": "planned",
     "visibility": "public",
-    "quarter": "T1 2027"
+    "quarter": "T1 2027",
+    "type": "feature",
+    "parent_id": null,
+    "dependency_id": null,
+    "start_date": null,
+    "end_date": null,
+    "progress": 0,
+    "owner": ""
   },
   {
     "id": "96084d33-46a9-43cd-84c4-52832f914a74",
@@ -27,7 +41,14 @@
     "priority": "medium",
     "status": "planned",
     "visibility": "public",
-    "quarter": "T1 2027"
+    "quarter": "T1 2027",
+    "type": "feature",
+    "parent_id": null,
+    "dependency_id": null,
+    "start_date": null,
+    "end_date": null,
+    "progress": 0,
+    "owner": ""
   },
   {
     "id": "89af48c6-12d6-4bb7-8b3d-f4833065cc61",
@@ -37,7 +58,14 @@
     "priority": "high",
     "status": "done",
     "visibility": "public",
-    "quarter": "T4 2026"
+    "quarter": "T4 2026",
+    "type": "feature",
+    "parent_id": null,
+    "dependency_id": null,
+    "start_date": null,
+    "end_date": null,
+    "progress": 100,
+    "owner": ""
   },
   {
     "id": "86e38c44-6745-4d23-8b45-c20b59d30ccd",
@@ -47,7 +75,14 @@
     "priority": "medium",
     "status": "done",
     "visibility": "public",
-    "quarter": "T4 2026"
+    "quarter": "T4 2026",
+    "type": "feature",
+    "parent_id": null,
+    "dependency_id": null,
+    "start_date": null,
+    "end_date": null,
+    "progress": 100,
+    "owner": ""
   },
   {
     "id": "7353caa2-3a6f-423a-9799-69c26d8adea6",
@@ -57,7 +92,14 @@
     "priority": "low",
     "status": "done",
     "visibility": "public",
-    "quarter": "T4 2026"
+    "quarter": "T4 2026",
+    "type": "feature",
+    "parent_id": null,
+    "dependency_id": null,
+    "start_date": null,
+    "end_date": null,
+    "progress": 100,
+    "owner": ""
   },
   {
     "id": "d911021c-5d8c-4648-8d43-a9b5dc03a7b0",
@@ -67,7 +109,14 @@
     "priority": "high",
     "status": "progress",
     "visibility": "public",
-    "quarter": "T4 2026"
+    "quarter": "T4 2026",
+    "type": "feature",
+    "parent_id": null,
+    "dependency_id": null,
+    "start_date": null,
+    "end_date": null,
+    "progress": 0,
+    "owner": ""
   },
   {
     "id": "3aa774b1-806c-4668-ab0f-f47a1735ace0",
@@ -77,7 +126,14 @@
     "priority": "medium",
     "status": "progress",
     "visibility": "public",
-    "quarter": "T4 2026"
+    "quarter": "T4 2026",
+    "type": "feature",
+    "parent_id": null,
+    "dependency_id": null,
+    "start_date": null,
+    "end_date": null,
+    "progress": 0,
+    "owner": ""
   },
   {
     "id": "6938c2d1-31d6-4187-a395-b9faeea4c25e",
@@ -87,7 +143,14 @@
     "priority": "high",
     "status": "progress",
     "visibility": "public",
-    "quarter": "T1 2027"
+    "quarter": "T1 2027",
+    "type": "feature",
+    "parent_id": null,
+    "dependency_id": null,
+    "start_date": null,
+    "end_date": null,
+    "progress": 0,
+    "owner": ""
   },
   {
     "id": "f5354467-a287-41a4-81ff-ac5f931361ad",
@@ -97,6 +160,13 @@
     "priority": "high",
     "status": "done",
     "visibility": "public",
-    "quarter": "T4 2026"
+    "quarter": "T4 2026",
+    "type": "feature",
+    "parent_id": null,
+    "dependency_id": null,
+    "start_date": null,
+    "end_date": null,
+    "progress": 100,
+    "owner": ""
   }
 ]

@@ -12,6 +12,7 @@ import {
   ArrowUp,
   Trash2,
   LogOut,
+  GanttChart,
 } from "lucide-react";
 import {
   Search,
@@ -27,6 +28,8 @@ import {
   ArrowUpRight,
   ExternalLink,
 } from "./icons";
+import Gantt from "./components/Gantt";
+import { TYPES, progressValue } from "../shared/planning";
 import "./style.css";
 const pagesMode = __PAGES__;
 const publicPath = pagesMode ? import.meta.env.BASE_URL : "/roadmap";
@@ -52,6 +55,13 @@ const CAT = [
   "Intégrations",
 ];
 const blank = {
+  type: "feature",
+  parent_id: null,
+  start_date: null,
+  end_date: null,
+  progress: 0,
+  owner: "",
+  dependency_id: null,
   title: "",
   description: "",
   category: "Éditeur",
@@ -70,7 +80,14 @@ function Mark() {
 function App() {
   const publicMode = pagesMode || location.pathname === "/roadmap";
   const [items, setItems] = useState([]),
-    [page, setPage] = useState("roadmap"),
+    [page, setPage] = useState(
+      (publicMode
+        ? ["gantt", "kanban"]
+        : ["gantt", "kanban", "feedback", "changelog"]
+      ).includes(location.hash.slice(1))
+        ? location.hash.slice(1)
+        : "gantt",
+    ),
     [view, setView] = useState("board"),
     [query, setQuery] = useState(""),
     [category, setCategory] = useState("all"),
@@ -87,7 +104,8 @@ function App() {
     [saving, setSaving] = useState(false),
     [auth, setAuth] = useState(false),
     [key, setKey] = useState(sessionStorage.getItem("beam_key") || ""),
-    [sort, setSort] = useState("priority");
+    [sort, setSort] = useState("priority"),
+    [typeFilter, setTypeFilter] = useState("all");
   async function api(path, options = {}) {
     const response = await fetch("/api/" + path, {
       ...options,
@@ -123,6 +141,13 @@ function App() {
       setLoading(false);
     }
   }
+  useEffect(() => {
+    history.replaceState(
+      null,
+      "",
+      location.pathname + location.search + "#" + page,
+    );
+  }, [page]);
   useEffect(() => {
     refresh();
   }, []);
@@ -194,6 +219,7 @@ function App() {
             .toLowerCase()
             .includes(query.toLowerCase())) &&
         (category === "all" || i.category === category) &&
+        (typeFilter === "all" || (i.type || "feature") === typeFilter) &&
         (priority === "all" || i.priority === priority) &&
         (page !== "changelog" || i.status === "done"),
     )
@@ -203,11 +229,25 @@ function App() {
         : { high: 0, medium: 1, low: 2 }[a.priority] -
           { high: 0, medium: 1, low: 2 }[b.priority],
     );
-  const counts = {
-    planned: items.filter((i) => i.status === "planned").length,
-    progress: items.filter((i) => i.status === "progress").length,
-    done: items.filter((i) => i.status === "done").length,
-  };
+  async function schedule(item, dates) {
+    try {
+      await api("admin/items/" + item.id, {
+        method: "PATCH",
+        body: JSON.stringify({
+          ...dates,
+          quarter:
+            "T" +
+            (Math.floor((Number(dates.start_date.slice(5, 7)) - 1) / 3) + 1) +
+            " " +
+            dates.start_date.slice(0, 4),
+        }),
+      });
+      await refresh();
+      setToast("Planification enregistrée");
+    } catch (error) {
+      setToast(error.message);
+    }
+  }
   return (
     <div className={"app " + (publicMode ? "public" : "")}>
       {!publicMode && (
@@ -228,11 +268,18 @@ function App() {
           <div className="nav-caption">ESPACE PRODUIT</div>
           <nav>
             <button
-              className={page === "roadmap" ? "active" : ""}
-              onClick={() => setPage("roadmap")}
+              className={page === "gantt" ? "active" : ""}
+              onClick={() => setPage("gantt")}
             >
-              <Map size={17} />
-              Roadmap<span className="nav-count">{items.length}</span>
+              <GanttChart size={17} />
+              Planification<span className="nav-count">{items.length}</span>
+            </button>
+            <button
+              className={page === "kanban" ? "active" : ""}
+              onClick={() => setPage("kanban")}
+            >
+              <LayoutGrid size={17} />
+              Kanban
             </button>
             <button
               className={page === "feedback" ? "active" : ""}
@@ -301,11 +348,13 @@ function App() {
             <div className="breadcrumbs">
               Espace produit <ChevronRight size={13} />{" "}
               <span>
-                {page === "roadmap"
-                  ? "Roadmap"
-                  : page === "feedback"
-                    ? "Suggestions"
-                    : "Nouveautés"}
+                {page === "gantt"
+                  ? "Planification"
+                  : page === "kanban"
+                    ? "Kanban"
+                    : page === "feedback"
+                      ? "Suggestions"
+                      : "Nouveautés"}
               </span>
             </div>
           )}
@@ -339,9 +388,11 @@ function App() {
                   ? "Suggestions"
                   : page === "changelog"
                     ? "Nouveautés"
-                    : publicMode
-                      ? "Roadmap PULS"
-                      : "Roadmap"}
+                    : page === "kanban"
+                      ? "Kanban"
+                      : publicMode
+                        ? "Planification PULS"
+                        : "Planification"}
               </h1>
               <p>
                 {page === "feedback"
@@ -350,9 +401,11 @@ function App() {
                     ? "Les dernières évolutions disponibles dans PULS."
                     : publicMode
                       ? pagesMode
-                        ? "Découvrez les priorités et les prochaines évolutions de PULS."
+                        ? "Les initiatives, projets et features de PULS dans le temps."
                         : "Suivez les évolutions de PULS et votez pour vos priorités."
-                      : "Planifiez les évolutions de PULS et suivez leur progression."}
+                      : page === "kanban"
+                        ? "Suivez l’exécution de vos initiatives, projets et features par statut."
+                        : "Suivez vos initiatives, projets et features sur une même chronologie."}
               </p>
             </div>
             {!pagesMode && (
@@ -363,10 +416,30 @@ function App() {
                 }
               >
                 <Plus size={17} />
-                {publicMode ? "Proposer une idée" : "Nouvelle évolution"}
+                {publicMode ? "Proposer une idée" : "Nouvel élément"}
               </button>
             )}
           </section>
+          {publicMode && (
+            <nav className="screen-tabs" aria-label="Vues de la roadmap">
+              <button
+                className={page === "gantt" ? "active" : ""}
+                onClick={() => setPage("gantt")}
+                aria-current={page === "gantt" ? "page" : undefined}
+              >
+                <GanttChart size={16} />
+                Planification
+              </button>
+              <button
+                className={page === "kanban" ? "active" : ""}
+                onClick={() => setPage("kanban")}
+                aria-current={page === "kanban" ? "page" : undefined}
+              >
+                <LayoutGrid size={16} />
+                Kanban
+              </button>
+            </nav>
+          )}
           {page !== "feedback" && (
             <>
               <div className="section-title">
@@ -374,7 +447,9 @@ function App() {
                   <h2>
                     {page === "changelog"
                       ? "Dernières améliorations"
-                      : "Roadmap produit"}
+                      : page === "gantt"
+                        ? "Vue Gantt"
+                        : "Tableau de suivi"}
                   </h2>
                   <span className="pill">{publicMode ? "Public" : "PULS"}</span>
                 </div>
@@ -393,7 +468,7 @@ function App() {
                     <input
                       id="search"
                       aria-label="Rechercher une évolution"
-                      placeholder="Rechercher une évolution…"
+                      placeholder="Rechercher un projet, une feature…"
                       value={query}
                       onChange={(e) => setQuery(e.target.value)}
                     />
@@ -407,9 +482,9 @@ function App() {
                   >
                     <SlidersHorizontal size={15} />
                     Filtres
-                    {(priority !== "all" || category !== "all") && (
-                      <span className="filter-dot" />
-                    )}
+                    {(priority !== "all" ||
+                      category !== "all" ||
+                      typeFilter !== "all") && <span className="filter-dot" />}
                   </button>
                 </div>
                 <div className="toolbar-right">
@@ -423,28 +498,44 @@ function App() {
                       <option value="votes">Par popularité</option>
                     )}
                   </select>
-                  <div className="view-toggle">
-                    <button
-                      aria-label="Vue tableau"
-                      aria-pressed={view === "board"}
-                      className={view === "board" ? "chosen" : ""}
-                      onClick={() => setView("board")}
-                    >
-                      <LayoutGrid size={15} />
-                    </button>
-                    <button
-                      aria-label="Vue liste"
-                      aria-pressed={view === "list"}
-                      className={view === "list" ? "chosen" : ""}
-                      onClick={() => setView("list")}
-                    >
-                      <List size={17} />
-                    </button>
-                  </div>
+                  {page !== "gantt" && (
+                    <div className="view-toggle">
+                      <button
+                        aria-label="Vue tableau"
+                        aria-pressed={view === "board"}
+                        className={view === "board" ? "chosen" : ""}
+                        onClick={() => setView("board")}
+                      >
+                        <LayoutGrid size={15} />
+                      </button>
+                      <button
+                        aria-label="Vue liste"
+                        aria-pressed={view === "list"}
+                        className={view === "list" ? "chosen" : ""}
+                        onClick={() => setView("list")}
+                      >
+                        <List size={17} />
+                      </button>
+                    </div>
+                  )}
                 </div>
               </div>
               {filter && (
                 <div className="filters">
+                  <label>
+                    Type
+                    <select
+                      value={typeFilter}
+                      onChange={(e) => setTypeFilter(e.target.value)}
+                    >
+                      <option value="all">Tous les types</option>
+                      {Object.entries(TYPES).map(([key, label]) => (
+                        <option key={key} value={key}>
+                          {label}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
                   <label>
                     Catégorie
                     <select
@@ -475,6 +566,7 @@ function App() {
                     className="text-button"
                     onClick={() => {
                       setCategory("all");
+                      setTypeFilter("all");
                       setPriority("all");
                       setQuery("");
                     }}
@@ -494,6 +586,15 @@ function App() {
                 Réessayer
               </button>
             </div>
+          ) : page === "gantt" ? (
+            <Gantt
+              items={filtered}
+              allItems={items}
+              readOnly={publicMode}
+              onOpen={setSelected}
+              onCreate={() => setEdit({ ...blank })}
+              onSchedule={schedule}
+            />
           ) : page === "feedback" ? (
             <div className="suggestion-list">
               {suggestions.length ? (
@@ -697,8 +798,13 @@ function App() {
         </div>
       )}
       {selected && (
-        <Modal title="L’évolution en détail" close={() => setSelected(null)}>
+        <Modal
+          title="Détails de l’élément"
+          side
+          close={() => setSelected(null)}
+        >
           <div className="detail-meta">
+            <span className="tag">{TYPES[selected.type || "feature"]}</span>
             <span className="tag">{selected.category}</span>
             <span className="pill">{ST[selected.status].label}</span>
           </div>
@@ -719,6 +825,38 @@ function App() {
                 {selected.visibility === "public" ? "Publique" : "Interne"}
               </strong>
             </span>
+          </div>
+          <div className="planning-details">
+            <div>
+              <span>Responsable</span>
+              <strong>{selected.owner || "Non assigné"}</strong>
+            </div>
+            <div>
+              <span>Avancement</span>
+              <strong>{progressValue(selected, items)} %</strong>
+            </div>
+            <div>
+              <span>Début</span>
+              <strong>{selected.start_date || "À définir"}</strong>
+            </div>
+            <div>
+              <span>Fin</span>
+              <strong>{selected.end_date || "À définir"}</strong>
+            </div>
+            <div>
+              <span>Rattaché à</span>
+              <strong>
+                {items.find((i) => i.id === selected.parent_id)?.title ||
+                  "Élément indépendant"}
+              </strong>
+            </div>
+            <div>
+              <span>Dépend de</span>
+              <strong>
+                {items.find((i) => i.id === selected.dependency_id)?.title ||
+                  "Aucune dépendance"}
+              </strong>
+            </div>
           </div>
           {!pagesMode && (
             <div className="modal-actions">
@@ -753,10 +891,37 @@ function App() {
       )}
       {edit && (
         <Modal
-          title={edit.id ? "Modifier l’évolution" : "Nouvelle évolution"}
+          title={edit.id ? "Modifier l’élément" : "Nouvel élément"}
+          side
           close={() => setEdit(null)}
         >
           <form onSubmit={save}>
+            <div className="form-grid">
+              <label>
+                Type d’élément
+                <select
+                  value={edit.type || "feature"}
+                  onChange={(e) =>
+                    setEdit({ ...edit, type: e.target.value, parent_id: null })
+                  }
+                >
+                  {Object.entries(TYPES).map(([key, label]) => (
+                    <option key={key} value={key}>
+                      {label}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <label>
+                Responsable
+                <input
+                  maxLength={80}
+                  value={edit.owner || ""}
+                  placeholder="Nom ou équipe"
+                  onChange={(e) => setEdit({ ...edit, owner: e.target.value })}
+                />
+              </label>
+            </div>
             <label>
               Titre
               <input
@@ -781,6 +946,121 @@ function App() {
               />
             </label>
             <div className="form-grid">
+              <label>
+                Date de début
+                <input
+                  type="date"
+                  value={edit.start_date || ""}
+                  min="2000-01-01"
+                  max="2099-12-31"
+                  onInput={(e) => {
+                    const date = e.target.value;
+                    setEdit({
+                      ...edit,
+                      start_date: date || null,
+                      quarter: date
+                        ? "T" +
+                          (Math.floor((Number(date.slice(5, 7)) - 1) / 3) + 1) +
+                          " " +
+                          date.slice(0, 4)
+                        : edit.quarter,
+                    });
+                  }}
+                />
+              </label>
+              <label>
+                Date de fin
+                <input
+                  type="date"
+                  min={edit.start_date || "2000-01-01"}
+                  max="2099-12-31"
+                  value={edit.end_date || ""}
+                  onInput={(e) =>
+                    setEdit({ ...edit, end_date: e.target.value || null })
+                  }
+                />
+              </label>
+              <label>
+                Avancement (%)
+                <input
+                  type="number"
+                  min="0"
+                  max="100"
+                  step="1"
+                  value={edit.status === "done" ? 100 : edit.progress || 0}
+                  disabled={
+                    edit.status === "done" ||
+                    items.some((i) => i.parent_id === edit.id)
+                  }
+                  onChange={(e) =>
+                    setEdit({ ...edit, progress: Number(e.target.value) })
+                  }
+                />
+              </label>
+              <label>
+                Horizon estimé
+                <input
+                  placeholder="T1 2027"
+                  required
+                  pattern="T[1-4] 20[0-9]{2}"
+                  value={edit.quarter}
+                  onChange={(e) =>
+                    setEdit({ ...edit, quarter: e.target.value })
+                  }
+                />
+              </label>
+            </div>
+            <p className="fine-print">
+              Sans dates précises, le Gantt affiche votre trimestre comme
+              horizon estimé. L’avancement d’un parent est calculé depuis ses
+              enfants.
+            </p>
+            {(edit.type || "feature") !== "initiative" && (
+              <label>
+                {edit.type === "project"
+                  ? "Initiative parente"
+                  : "Projet parent"}
+                <select
+                  value={edit.parent_id || ""}
+                  onChange={(e) =>
+                    setEdit({ ...edit, parent_id: e.target.value || null })
+                  }
+                >
+                  <option value="">Élément indépendant</option>
+                  {items
+                    .filter(
+                      (i) =>
+                        i.id !== edit.id &&
+                        i.type ===
+                          (edit.type === "project" ? "initiative" : "project"),
+                    )
+                    .map((i) => (
+                      <option key={i.id} value={i.id}>
+                        {i.title}
+                      </option>
+                    ))}
+                </select>
+              </label>
+            )}
+            <label>
+              Dépend de
+              <select
+                value={edit.dependency_id || ""}
+                onChange={(e) =>
+                  setEdit({ ...edit, dependency_id: e.target.value || null })
+                }
+              >
+                <option value="">Aucune dépendance</option>
+                {items
+                  .filter((i) => i.id !== edit.id)
+                  .map((i) => (
+                    <option key={i.id} value={i.id}>
+                      {i.title}
+                    </option>
+                  ))}
+              </select>
+            </label>
+            <div className="form-grid">
               {[
                 [
                   "status",
@@ -789,11 +1069,6 @@ function App() {
                 ],
                 ["priority", "Priorité", Object.entries(PR)],
                 ["category", "Catégorie", CAT.map((c) => [c, c])],
-                [
-                  "quarter",
-                  "Horizon",
-                  ["T4 2026", "T1 2027", "T2 2027"].map((c) => [c, c]),
-                ],
                 [
                   "visibility",
                   "Visibilité",
@@ -1001,7 +1276,7 @@ function App() {
     </div>
   );
 }
-function Modal({ title, close, children }) {
+function Modal({ title, close, children, side = false }) {
   useEffect(() => {
     const previous = document.activeElement;
     const root = document.querySelector(".modal");
@@ -1034,13 +1309,13 @@ function Modal({ title, close, children }) {
   }, []);
   return (
     <div
-      className="modal-backdrop"
+      className={"modal-backdrop" + (side ? " panel-backdrop" : "")}
       onMouseDown={(e) => {
         if (e.target === e.currentTarget) close?.();
       }}
     >
       <section
-        className="modal"
+        className={"modal" + (side ? " side-panel" : "")}
         role="dialog"
         aria-modal="true"
         aria-label={title}

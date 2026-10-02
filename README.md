@@ -18,7 +18,10 @@ Le mode développement fonctionne localement sans clé et initialise neuf évolu
 
 ## Fonctionnalités
 
-- Roadmap en tableau ou liste, statuts À venir / En cours / Livré.
+- Gantt à l’accueil : initiatives, projets et features avec hiérarchie repliable.
+- Dates précises, responsables, avancement, dépendance et horizons trimestriels estimés.
+- Déplacement et redimensionnement des barres datées ; dates et avancement des parents calculés depuis leurs enfants en l’absence de dates propres.
+- Kanban sur un écran distinct, en tableau ou liste, statuts À venir / En cours / Livré.
 - Création, modification, suppression, changement de statut par glisser-déposer ou formulaire.
 - Priorités, catégories, horizons et recherche ; tri par priorité ou popularité.
 - Évolutions publiques ou internes, filtrées côté serveur.
@@ -38,7 +41,7 @@ Le serveur refuse de démarrer en production sans `BEAM_ADMIN_TOKEN`. L’admini
 
 Variables : `BEAM_ADMIN_TOKEN`, `HOST` (127.0.0.1 par défaut), `PORT` (5173), `BEAM_DB` (`data/beam.sqlite`), `BEAM_SEED=true` (exemples optionnels, initialisés une seule fois). Le répertoire parent d’un chemin personnalisé doit exister. Sauvegarder SQLite avec une procédure compatible avec le mode WAL (base et journaux, ou sauvegarde SQLite).
 
-Les votes identifient un navigateur via un cookie HttpOnly, SameSite=Lax, Secure en production : ils ne constituent pas une vérification d’identité. La limitation de requêtes est locale au processus et à l’adresse de connexion ; derrière un proxy, prévoir aussi une protection adaptée au niveau du proxy. Cette première version utilise une clé administrateur partagée, sans comptes individuels ni intégration automatique au CMS PULS. Les horizons proposés sont T4 2026 à T2 2027.
+Les votes identifient un navigateur via un cookie HttpOnly, SameSite=Lax, Secure en production : ils ne constituent pas une vérification d’identité. La limitation de requêtes est locale au processus et à l’adresse de connexion ; derrière un proxy, prévoir aussi une protection adaptée au niveau du proxy. Cette première version utilise une clé administrateur partagée, sans comptes individuels ni intégration automatique au CMS PULS. Les horizons acceptent les trimestres de 2000 à 2099.
 
 ## Vérification
 
@@ -47,7 +50,7 @@ npm test
 npm run build
 ```
 
-Les tests couvrent la confidentialité des évolutions internes, l’authentification, les validations, les votes, les suggestions, la suppression et l’initialisation unique des exemples. Le test HTTP lance un serveur isolé sur le port 5184 avec une base temporaire.
+Les tests couvrent la confidentialité des évolutions internes, l’authentification, les validations de dates, la migration des données, la hiérarchie, les dépendances, les calculs de planning, les votes, les suggestions, la suppression et l’initialisation unique des exemples. Le test HTTP lance un serveur isolé sur le port 5184 avec une base temporaire.
 
 ## Architecture
 
