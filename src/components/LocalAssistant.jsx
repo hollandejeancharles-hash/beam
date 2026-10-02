@@ -80,7 +80,8 @@ export default function LocalAssistant({
       className={
         "local-assistant" +
         (settingsOnly ? " assistant-settings" : "") +
-        (singleNote ? " assistant-note-detail" : "")
+        (singleNote ? " assistant-note-detail" : "") +
+        (feature ? " assistant-feature-detail" : "")
       }
       aria-label="Assistant local"
     >
@@ -92,7 +93,9 @@ export default function LocalAssistant({
               ? "Classement assisté"
               : singleNote
                 ? "Suite proposée"
-                : "Assistant local"}
+                : feature
+                  ? "Analyse des sources"
+                  : "Assistant local"}
           </strong>
           <small>
             {!status
@@ -111,26 +114,44 @@ export default function LocalAssistant({
           type="button"
           className="button"
           aria-expanded={expanded}
-          onClick={() => setExpanded(!expanded)}
+          onClick={() => {
+            setExpanded(!expanded);
+            if (
+              feature &&
+              !expanded &&
+              !shown.length &&
+              status?.enabled &&
+              status?.available &&
+              status?.installed
+            )
+              action(() =>
+                api("admin/ai/analyze", {
+                  method: "POST",
+                  body: JSON.stringify({ scope: "feature", id: entity.id }),
+                }),
+              );
+          }}
         >
           {expanded
             ? "Refermer"
             : settingsOnly
               ? "Réglages"
               : feature
-                ? "Proposer des mises à jour"
+                ? shown.length
+                  ? "Voir les propositions"
+                  : "Analyser"
                 : "Propositions"}
         </button>
       </div>
       {expanded && (
         <div className="assistant-content">
-          {!singleNote && (
+          {!singleNote && !feature && (
             <p className="assistant-help">
               Vos notes et les sources associées sont analysées sur ce Mac.
               Chaque changement de roadmap attend votre validation.
             </p>
           )}
-          {status && !singleNote && (
+          {status && !singleNote && (!feature || !status.enabled) && (
             <div className="assistant-controls">
               <button
                 type="button"

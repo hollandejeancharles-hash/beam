@@ -146,7 +146,7 @@ export function SignalLinks({ signals, item, api, onSignals }) {
     >
       <div className="feature-source-head">
         <h3>
-          Sources associées <span>{linked.length}</span>
+          Sources <span>{linked.length}</span>
         </h3>
         <button
           type="button"
@@ -155,13 +155,14 @@ export function SignalLinks({ signals, item, api, onSignals }) {
           onClick={() => setExpanded(!expanded)}
         >
           <Plus size={14} />
-          {expanded ? "Fermer" : "Associer une information"}
+          {expanded ? "Fermer" : "Associer"}
         </button>
       </div>
-      <p className="feature-source-help">
-        Tickets, pull requests, versions et documents liés à cet élément. Ces
-        liens restent internes.
-      </p>
+      {expanded && (
+        <p className="feature-source-help">
+          Tickets, PR et documents · Liens internes à votre espace.
+        </p>
+      )}
       {error && (
         <p role="alert" className="source-error">
           {error}
@@ -188,9 +189,7 @@ export function SignalLinks({ signals, item, api, onSignals }) {
         </div>
       ))}
       {!linked.length && !expanded && (
-        <p className="feature-source-help">
-          Aucune information associée pour le moment.
-        </p>
+        <p className="feature-source-help">Aucune source liée.</p>
       )}
       {expanded && (
         <div className="feature-source-picker">

@@ -3826,3 +3826,58 @@ footer b {
 .notes-v2-capture-footer .icon-button {
   flex-shrink: 0;
 }
+/* Feature context follows the same quiet rhythm as its properties. */
+.side-panel .feature-source-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 10px;
+}
+.side-panel .feature-source-head h3 {
+  font-size: 12px;
+  margin: 0;
+}
+.side-panel .feature-source-head .button {
+  font-size: 11px;
+  padding: 6px 9px;
+}
+.side-panel .feature-source-help {
+  font-size: 11px;
+  margin: 8px 0;
+  color: var(--muted);
+}
+.assistant-feature-detail {
+  border: 0;
+  border-top: 1px solid var(--line);
+  border-radius: 0;
+  background: transparent;
+  margin: 18px 0 0;
+  padding-top: 16px;
+}
+.assistant-feature-detail .assistant-heading {
+  padding: 0;
+  gap: 9px;
+}
+.assistant-feature-detail .assistant-heading strong {
+  font-size: 12px;
+}
+.assistant-feature-detail .assistant-heading small {
+  font-size: 10px;
+}
+.assistant-feature-detail .assistant-heading .button {
+  font-size: 11px;
+  padding: 6px 9px;
+}
+.assistant-feature-detail .assistant-content {
+  padding: 12px 0 0;
+}
+.assistant-feature-detail .assistant-review {
+  border-top: 0;
+}
+.assistant-feature-detail .assistant-proposal {
+  background: #191a20;
+}
+.assistant-feature-detail .assistant-controls {
+  margin: 8px 0;
+}
