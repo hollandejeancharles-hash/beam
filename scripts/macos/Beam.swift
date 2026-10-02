@@ -1,5 +1,6 @@
 import AppKit
 import Foundation
+import WebKit
 
 func beamMark(_ size: CGFloat, background: Bool = false) -> NSImage {
     NSImage(size: NSSize(width: size, height: size), flipped: false) { rect in
@@ -26,7 +27,9 @@ if CommandLine.arguments.count == 3 && CommandLine.arguments[1] == "--render-ico
     exit(0)
 }
 
-final class BeamDelegate: NSObject, NSApplicationDelegate {
+final class BeamDelegate: NSObject, NSApplicationDelegate, WKNavigationDelegate, WKUIDelegate {
+    var window: NSWindow?
+    var webView: WKWebView?
     var statusItem: NSStatusItem!
     var server: Process?
     var starting = false
@@ -44,12 +47,36 @@ final class BeamDelegate: NSObject, NSApplicationDelegate {
         menu.addItem(withTitle: "Ouvrir les notes", action: #selector(openNotes), keyEquivalent: "")
         menu.addItem(NSMenuItem.separator())
         let local = NSMenuItem(title: "Sur ce Mac · accès local uniquement", action: nil, keyEquivalent: ""); local.isEnabled = false; menu.addItem(local)
-        menu.addItem(withTitle: "Quitter le lanceur Beam", action: #selector(quit), keyEquivalent: "q")
+        menu.addItem(withTitle: "Quitter Beam", action: #selector(quit), keyEquivalent: "q")
         for item in menu.items { item.target = self }
         statusItem.menu = menu
-        openBeam()
+        installAppMenu()
+        // The previous browser launcher is replaced by the dedicated-window app.
+        let previous = NSRunningApplication.runningApplications(withBundleIdentifier: "local.beam.launcher")
+        previous.forEach { $0.terminate() }
+        finishMigration(previous, remaining: 40)
     }
-    func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows flag: Bool) -> Bool { openBeam(); return false }
+    func finishMigration(_ previous: [NSRunningApplication], remaining: Int) {
+        if previous.allSatisfy({ $0.isTerminated }) || remaining == 0 {
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) { self.openBeam() }
+        } else { DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) { self.finishMigration(previous, remaining: remaining - 1) } }
+    }
+    func installAppMenu() {
+        let root = NSMenu()
+        let app = NSMenuItem(); root.addItem(app)
+        let appMenu = NSMenu(); app.submenu = appMenu
+        appMenu.addItem(withTitle: "Quitter Beam", action: #selector(quit), keyEquivalent: "q").target = self
+        let edit = NSMenuItem(title: "Édition", action: nil, keyEquivalent: ""); root.addItem(edit)
+        let editMenu = NSMenu(title: "Édition"); edit.submenu = editMenu
+        for (title, action, key) in [("Annuler", "undo:", "z"), ("Couper", "cut:", "x"), ("Copier", "copy:", "c"), ("Coller", "paste:", "v"), ("Tout sélectionner", "selectAll:", "a")] {
+            editMenu.addItem(withTitle: title, action: Selector(action), keyEquivalent: key)
+        }
+        NSApplication.shared.mainMenu = root
+    }
+    func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows flag: Bool) -> Bool {
+        if window != nil { present() } else { openBeam() }; return false
+    }
+    func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool { false }
     @objc func openBeam() { open("#gantt") }
     @objc func openNotes() { open("#notes") }
     @objc func quit() { NSApplication.shared.terminate(nil) }
@@ -101,7 +128,51 @@ final class BeamDelegate: NSObject, NSApplicationDelegate {
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.25) { self.waitForServer(remaining - 1) }
         }
     }
-    func show() { starting = false; NSWorkspace.shared.open(URL(string: base + destination)!) }
+    func present() {
+        window?.makeKeyAndOrderFront(nil)
+        NSApplication.shared.activate(ignoringOtherApps: true)
+    }
+    func show() {
+        starting = false
+        if webView == nil {
+            let config = WKWebViewConfiguration()
+            config.websiteDataStore = .default()
+            let view = WKWebView(frame: .zero, configuration: config)
+            view.navigationDelegate = self; view.uiDelegate = self
+            view.autoresizingMask = [.width, .height]
+            view.underPageBackgroundColor = NSColor(calibratedRed: 0.063, green: 0.067, blue: 0.078, alpha: 1)
+            let frame = NSRect(x: 0, y: 0, width: 1280, height: 820)
+            let shell = NSWindow(contentRect: frame, styleMask: [.titled, .closable, .miniaturizable, .resizable], backing: .buffered, defer: false)
+            shell.title = "Beam"; shell.isReleasedWhenClosed = false
+            shell.minSize = NSSize(width: 640, height: 480)
+            shell.appearance = NSAppearance(named: .darkAqua)
+            shell.backgroundColor = view.underPageBackgroundColor
+            shell.setFrameAutosaveName("BeamWorkspace")
+            shell.contentView = view; shell.center()
+            window = shell; webView = view
+        }
+        let target = URL(string: base + destination)!
+        if webView?.url != target { webView?.load(URLRequest(url: target)) }
+        present()
+    }
+    func isLocal(_ url: URL) -> Bool {
+        url.scheme == "http" && ["127.0.0.1", "localhost"].contains(url.host ?? "") && url.port == 5173
+    }
+    func webView(_ webView: WKWebView, decidePolicyFor navigationAction: WKNavigationAction, decisionHandler: @escaping (WKNavigationActionPolicy) -> Void) {
+        guard let url = navigationAction.request.url else { decisionHandler(.cancel); return }
+        if isLocal(url) { decisionHandler(.allow) }
+        else {
+            if ["https", "http", "mailto"].contains(url.scheme ?? "") { NSWorkspace.shared.open(url) }
+            decisionHandler(.cancel)
+        }
+    }
+    func webView(_ webView: WKWebView, createWebViewWith configuration: WKWebViewConfiguration, for navigationAction: WKNavigationAction, windowFeatures: WKWindowFeatures) -> WKWebView? {
+        if let url = navigationAction.request.url, ["http", "https", "mailto"].contains(url.scheme ?? "") { NSWorkspace.shared.open(url) }
+        return nil
+    }
+    func webView(_ webView: WKWebView, didFailProvisionalNavigation navigation: WKNavigation!, withError error: Error) {
+        if (error as NSError).code != NSURLErrorCancelled { fail("La fenêtre n’a pas pu charger Beam. Réouvrez Beam depuis la barre de menus pour réessayer.") }
+    }
     func fail(_ message: String) {
         starting = false
         if let process = server, process.isRunning { process.terminate() }; server = nil
@@ -117,4 +188,4 @@ let application = NSApplication.shared
 let delegate = BeamDelegate()
 application.delegate = delegate
 application.setActivationPolicy(.regular)
-application.run()
+withExtendedLifetime(delegate) { application.run() }

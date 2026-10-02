@@ -94,8 +94,10 @@ L’interprétation actuelle repose sur des règles locales transparentes : inte
 
 ### Lanceur Mac : Dock et barre de menus
 
-`python3 scripts/macos/build-launcher.py` construit `../outputs/Beam.app` avec le logo Beam. Un clic ouvre la roadmap locale dans le navigateur par défaut et démarre le serveur si nécessaire. La barre de menus propose « Ouvrir Beam », « Ouvrir les notes » et « Quitter le lanceur Beam ». Pour le garder dans le Dock, glissez `Beam.app` dans la partie Applications du Dock.
+`python3 scripts/macos/build-launcher.py` construit `../outputs/Beam.app` avec le logo Beam. Un clic ouvre la roadmap locale dans une fenêtre Mac dédiée, sans onglets ni barre d’adresse, et démarre le serveur si nécessaire. La barre de menus propose « Ouvrir Beam », « Ouvrir les notes » et « Quitter Beam ». Pour le garder dans le Dock, glissez `Beam.app` dans la partie Applications du Dock.
 
 Le lanceur conserve la base `data/beam.sqlite` du dépôt et écoute exclusivement sur `127.0.0.1:5173`. Il nécessite Node.js 24 et les dépendances du dépôt déjà installées. Il ne modifie pas le Dock, les réglages macOS ou les éléments d’ouverture de session. Quitter le lanceur arrête uniquement le serveur qu’il a lui-même démarré ; il laisse un serveur préexistant fonctionner. En cas de problème, consulter `data/launcher.log`.
 
 L’app peut être déplacée, mais le chemin du dépôt et celui de Node sont enregistrés lors de sa construction : reconstruisez le lanceur après avoir déplacé le dépôt ou changé l’installation Node. Compilation native avec les outils Apple existants ; signature ad hoc locale, sans distribution ni notarisation.
+
+La fenêtre utilise WebKit et conserve ses données de navigation localement. Les notes et la roadmap retrouvent la même base SQLite. Fermer la fenêtre garde Beam disponible dans la barre de menus ; cliquer dans le Dock la réaffiche sans recharger la page. Les liens externes et le portail partagé ouvrent le navigateur habituel. Les raccourcis Copier/Coller et ceux de Beam restent disponibles.
