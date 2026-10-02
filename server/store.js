@@ -14,6 +14,7 @@ export function createStore(path) {
       .map((column) => column.name),
   );
   for (const [name, definition] of Object.entries({
+    position: "INTEGER NOT NULL DEFAULT 0",
     archived: "INTEGER NOT NULL DEFAULT 0",
     type: "TEXT NOT NULL DEFAULT 'feature'",
     parent_id: "TEXT",
@@ -40,7 +41,7 @@ export function createStore(path) {
     list(publicOnly = false, visitor = "") {
       return db
         .prepare(
-          `SELECT i.*, (SELECT count(*) FROM votes WHERE item=i.id) AS votes, EXISTS(SELECT 1 FROM votes WHERE item=i.id AND visitor=?) AS voted FROM items i ${publicOnly ? "WHERE visibility='public' AND archived=0" : ""} ORDER BY created DESC`,
+          `SELECT i.*, (SELECT count(*) FROM votes WHERE item=i.id) AS votes, EXISTS(SELECT 1 FROM votes WHERE item=i.id AND visitor=?) AS voted FROM items i ${publicOnly ? "WHERE visibility='public' AND archived=0" : ""} ORDER BY position ASC, created DESC, id`,
         )
         .all(visitor)
         .map((item) => {
@@ -119,9 +120,54 @@ export function createStore(path) {
         v.owner.trim(),
         v.dependency_id,
       );
+      if (old)
+        db.prepare("UPDATE items SET position=? WHERE id=?").run(
+          old.position || 0,
+          id,
+        );
+      if (!old) {
+        const max = db
+          .prepare(
+            "SELECT max(position) AS n FROM items WHERE id<>? AND parent_id IS ?",
+          )
+          .get(id, v.parent_id);
+        db.prepare("UPDATE items SET position=? WHERE id=?").run(
+          (max.n ?? -1) + 1,
+          id,
+        );
+      }
       if (old?.archived)
         db.prepare("UPDATE items SET archived=1 WHERE id=?").run(id);
       return id;
+    },
+    reorder(id, targetId, after = false) {
+      if (typeof after !== "boolean" || id === targetId)
+        throw Error("Déplacement invalide");
+      const all = db
+          .prepare(
+            "SELECT * FROM items WHERE archived=0 ORDER BY position,created DESC,id",
+          )
+          .all(),
+        source = all.find((i) => i.id === id),
+        target = all.find((i) => i.id === targetId);
+      if (!source || !target || source.parent_id !== target.parent_id)
+        throw Error("Déplacez l’élément parmi les éléments du même parent");
+      const siblings = all.filter(
+        (i) => i.parent_id === source.parent_id && i.id !== id,
+      );
+      const index =
+        siblings.findIndex((i) => i.id === targetId) + (after ? 1 : 0);
+      siblings.splice(index, 0, source);
+      db.exec("BEGIN IMMEDIATE");
+      try {
+        siblings.forEach((i, index) =>
+          db.prepare("UPDATE items SET position=? WHERE id=?").run(index, i.id),
+        );
+        db.exec("COMMIT");
+      } catch (e) {
+        db.exec("ROLLBACK");
+        throw e;
+      }
     },
     archive(id, archived) {
       if (typeof archived !== "boolean") throw Error("Archivage invalide");

@@ -34,13 +34,16 @@ export default function Gantt({
   onOpen,
   onCreate,
   onSchedule,
+  onReorder,
 }) {
   const today = isoDate(Date.now()),
     [anchor, setAnchor] = useState(monthStart(Date.now())),
     [zoom, setZoom] = useState("months"),
     [collapsed, setCollapsed] = useState(new Set()),
     [draft, setDraft] = useState(null),
-    [pending, setPending] = useState(false);
+    [pending, setPending] = useState(false),
+    [rowDrag, setRowDrag] = useState(null),
+    [dropTarget, setDropTarget] = useState(null);
   const [META, setMeta] = useState(window.innerWidth < 700 ? 220 : 360);
   useEffect(() => {
     const update = () => setMeta(window.innerWidth < 700 ? 220 : 360);
@@ -330,12 +333,100 @@ export default function Gantt({
                     (depth ? " gantt-child-row" : "")
                   }
                   key={item.id}
+                  onDragOver={(e) => {
+                    if (
+                      rowDrag &&
+                      rowDrag.id !== item.id &&
+                      (rowDrag.parent_id || null) === (item.parent_id || null)
+                    ) {
+                      e.preventDefault();
+                      e.dataTransfer.dropEffect = "move";
+                      const after =
+                        e.clientY >
+                        e.currentTarget.getBoundingClientRect().top + ROW / 2;
+                      setDropTarget({ id: item.id, after });
+                    }
+                  }}
+                  onDrop={async (e) => {
+                    e.preventDefault();
+                    const target = dropTarget;
+                    if (!readOnly && rowDrag && target?.id === item.id) {
+                      setPending(true);
+                      try {
+                        await onReorder?.(rowDrag.id, item.id, target.after);
+                      } finally {
+                        setPending(false);
+                        setRowDrag(null);
+                        setDropTarget(null);
+                      }
+                    }
+                  }}
+                  data-drop={
+                    dropTarget?.id === item.id
+                      ? dropTarget.after
+                        ? "after"
+                        : "before"
+                      : undefined
+                  }
                   style={{ top: index * ROW, height: ROW }}
                 >
                   <div
                     className="gantt-meta"
                     style={{ width: META, paddingLeft: 12 + depth * 28 }}
                   >
+                    {!readOnly && (
+                      <button
+                        type="button"
+                        className="gantt-row-grip"
+                        draggable={!pending}
+                        disabled={pending}
+                        aria-label={"Réordonner " + item.title}
+                        title="Glisser pour réordonner · Alt + ↑ / ↓"
+                        onDragStart={(e) => {
+                          setRowDrag(item);
+                          e.dataTransfer.effectAllowed = "move";
+                          e.dataTransfer.setData("text/plain", item.id);
+                        }}
+                        onDragEnd={() => {
+                          setRowDrag(null);
+                          setDropTarget(null);
+                        }}
+                        onKeyDown={async (e) => {
+                          if (
+                            e.altKey &&
+                            ["ArrowUp", "ArrowDown"].includes(e.key)
+                          ) {
+                            e.preventDefault();
+                            const siblings = rows
+                              .map((r) => r.item)
+                              .filter(
+                                (i) =>
+                                  (i.parent_id || null) ===
+                                  (item.parent_id || null),
+                              );
+                            const index = siblings.findIndex(
+                              (i) => i.id === item.id,
+                            );
+                            const target =
+                              siblings[index + (e.key === "ArrowUp" ? -1 : 1)];
+                            if (target) {
+                              setPending(true);
+                              try {
+                                await onReorder?.(
+                                  item.id,
+                                  target.id,
+                                  e.key === "ArrowDown",
+                                );
+                              } finally {
+                                setPending(false);
+                              }
+                            }
+                          }
+                        }}
+                      >
+                        ⠿
+                      </button>
+                    )}
                     {hasChildren ? (
                       <button
                         className="icon-button gantt-collapse"
@@ -512,8 +603,9 @@ export default function Gantt({
       </div>
       {!readOnly && (
         <p className="gantt-help">
-          Cliquez sur un élément pour le modifier. Déplacez une barre datée ou
-          ajustez ses extrémités pour replanifier.
+          Glissez la poignée d’une ligne pour réordonner son groupe. Cliquez sur
+          un élément pour le modifier. Déplacez une barre datée ou ajustez ses
+          extrémités pour replanifier.
         </p>
       )}
     </section>

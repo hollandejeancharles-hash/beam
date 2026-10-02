@@ -101,3 +101,28 @@ test("archives hide public entries, preserve votes and remain archived after edi
   );
   s.db.close();
 });
+test("manual order persists editing and rejects reparenting during reorder", () => {
+  const s = createStore(":memory:");
+  const a = s.save({ ...item, title: "A" }),
+    b = s.save({ ...item, title: "B" }),
+    c = s.save({ ...item, title: "C" });
+  s.reorder(c, a, false);
+  assert.deepEqual(
+    s.list().map((i) => i.id),
+    [c, a, b],
+  );
+  s.save({ title: "Updated" }, c);
+  assert.equal(s.list()[0].id, c);
+  const parent = s.save({ ...item, type: "initiative" }),
+    child = s.save({ ...item, parent_id: parent });
+  assert.throws(() => s.reorder(child, a));
+  s.reorder(b, c, true);
+  assert.deepEqual(
+    s
+      .list()
+      .filter((i) => !i.parent_id && i.id !== parent)
+      .map((i) => i.id),
+    [c, b, a],
+  );
+  s.db.close();
+});

@@ -121,3 +121,7 @@ Ouvrir un sujet pour lire sa synthèse, ses questions et ses sources datées, pu
 ### Profil utilisateur
 
 Cliquer sur l’avatar en bas du menu pour modifier le nom affiché, le rôle, l’email facultatif et la photo. La photo est recadrée au centre, redimensionnée et stockée dans le profil privé SQLite. Sans photo, Beam affiche les initiales du nom. Ce profil local ne crée pas de compte et n’est jamais exporté vers GitHub Pages.
+
+### Ordre personnalisé du Gantt
+
+Glisser la poignée à gauche d’une ligne pour la placer avant ou après un autre élément du même parent. Les enfants restent sous leur parent. L’ordre est conservé dans SQLite et retrouvé avec le tri **Ordre personnalisé** ; un déplacement réactive automatiquement ce tri. Au clavier, placer le focus sur la poignée puis utiliser **Alt + ↑ / ↓**. Le déplacement des barres continue de modifier les dates.

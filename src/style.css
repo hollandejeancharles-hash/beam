@@ -4001,3 +4001,26 @@ footer b {
   display: block;
   margin-top: 9px;
 }
+.gantt-row-grip {
+  border: 0;
+  background: transparent;
+  color: #686c7b;
+  cursor: grab;
+  padding: 4px 2px;
+  flex-shrink: 0;
+  font-size: 17px;
+  line-height: 1;
+}
+.gantt-row-grip:hover,
+.gantt-row-grip:focus-visible {
+  color: #c6b9f1;
+}
+.gantt-row-grip:active {
+  cursor: grabbing;
+}
+.gantt-row[data-drop="before"] {
+  border-top: 2px solid #a393da;
+}
+.gantt-row[data-drop="after"] {
+  border-bottom: 2px solid #a393da;
+}

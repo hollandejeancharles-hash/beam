@@ -118,7 +118,7 @@ function App() {
     }),
     [profileOpen, setProfileOpen] = useState(false),
     [key, setKey] = useState(sessionStorage.getItem("beam_key") || ""),
-    [sort, setSort] = useState("priority"),
+    [sort, setSort] = useState("manual"),
     [typeFilter, setTypeFilter] = useState("all"),
     [product, setProduct] = useState({ name: "PULS" }),
     [signals, setSignals] = useState([]),
@@ -301,10 +301,12 @@ function App() {
         (page !== "changelog" || i.status === "done"),
     )
     .sort((a, b) =>
-      sort === "votes"
-        ? b.votes - a.votes
-        : { high: 0, medium: 1, low: 2 }[a.priority] -
-          { high: 0, medium: 1, low: 2 }[b.priority],
+      sort === "manual"
+        ? (a.position || 0) - (b.position || 0)
+        : sort === "votes"
+          ? b.votes - a.votes
+          : { high: 0, medium: 1, low: 2 }[a.priority] -
+            { high: 0, medium: 1, low: 2 }[b.priority],
     );
   async function schedule(item, dates) {
     try {
@@ -708,6 +710,7 @@ function App() {
                       value={sort}
                       onChange={(e) => setSort(e.target.value)}
                     >
+                      <option value="manual">Ordre personnalisé</option>
                       <option value="priority">Par priorité</option>
                       {!pagesMode && (
                         <option value="votes">Par popularité</option>
@@ -845,6 +848,18 @@ function App() {
               onOpen={setSelected}
               onCreate={() => setEdit({ ...blank })}
               onSchedule={schedule}
+              onReorder={async (id, target_id, after) => {
+                try {
+                  await api("admin/items/reorder", {
+                    method: "POST",
+                    body: JSON.stringify({ id, target_id, after }),
+                  });
+                  setSort("manual");
+                  await refresh();
+                } catch (e) {
+                  setToast(e.message);
+                }
+              }}
             />
           ) : page === "feedback" ? (
             <div className="suggestion-list">

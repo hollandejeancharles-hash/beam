@@ -270,6 +270,10 @@ const server = http.createServer(async (req, res) => {
           ? integrations.promote(signal[1])
           : integrations.link(signal[1], body.item_id, body.remove),
       );
+    if (url.pathname === "/api/admin/items/reorder" && req.method === "POST") {
+      store.reorder(body.id, body.target_id, body.after);
+      return send(200, { ok: true });
+    }
     if (url.pathname === "/api/admin/items" && req.method === "POST")
       return send(201, { id: store.save(body) });
     const archiveItem = url.pathname.match(

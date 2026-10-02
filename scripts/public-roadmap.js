@@ -9,6 +9,7 @@ export function publicRoadmap(items) {
     .filter((item) => item.visibility === "public" && !item.archived)
     .map((item) => ({
       id: item.id,
+      position: item.position || 0,
       title: item.title,
       description: item.description,
       category: item.category,
