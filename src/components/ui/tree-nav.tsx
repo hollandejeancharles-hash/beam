@@ -149,15 +149,15 @@ export function TreeNav({
         className="pointer-events-none absolute inset-y-0 start-0 w-5"
       >
         <span
-          className="absolute top-0 w-px bg-neutral-200 dark:bg-neutral-800"
+          className="tree-rail absolute top-0 w-px bg-neutral-200 dark:bg-neutral-800"
           style={{ insetInlineStart: RAIL_X - 0.5, height: end }}
         />
         <span
-          className="absolute size-1 rounded-full bg-neutral-200 dark:bg-neutral-800"
+          className="tree-terminal absolute size-1 rounded-full bg-neutral-200 dark:bg-neutral-800"
           style={{ insetInlineStart: RAIL_X - 2, top: end - 2 }}
         />
         <motion.span
-          className="absolute top-0 w-px origin-top bg-neutral-900 will-change-transform dark:bg-neutral-100"
+          className="tree-accent absolute top-0 w-px origin-top bg-neutral-900 will-change-transform dark:bg-neutral-100"
           style={{
             insetInlineStart: RAIL_X - 0.5,
             height: end,
@@ -166,7 +166,7 @@ export function TreeNav({
           }}
         />
         <motion.span
-          className="absolute top-0 rounded-[1px] bg-neutral-900 will-change-transform dark:bg-neutral-100"
+          className="tree-marker absolute top-0 rounded-[1px] bg-neutral-900 will-change-transform dark:bg-neutral-100"
           style={{
             insetInlineStart: RAIL_X - MARKER / 2,
             width: MARKER,

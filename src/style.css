@@ -4085,3 +4085,13 @@ footer b {
 .beam-kanban [data-kanban-card] h3 {
   font-weight: 500;
 }
+
+/* Beam's sidebar stays dark independently of the system theme. */
+.sidebar .tree-rail,
+.sidebar .tree-terminal {
+  background: #343540;
+}
+.sidebar .tree-accent,
+.sidebar .tree-marker {
+  background: #b9b0ec;
+}

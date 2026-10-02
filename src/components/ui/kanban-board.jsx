@@ -31,10 +31,10 @@ const GAP = 8;
 const LIFT_SPRING = { type: "spring", stiffness: 520, damping: 34, mass: 0.7 };
 const FLOW_SPRING = { type: "spring", stiffness: 420, damping: 36, mass: 0.9 };
 const PRIORITY_STYLES = {
-  urgent: "bg-rose-50 text-rose-600 dark:bg-rose-500/12 dark:text-rose-300",
-  high: "bg-amber-50 text-amber-700 dark:bg-amber-500/12 dark:text-amber-300",
-  normal: "bg-blue-50 text-blue-600 dark:bg-blue-500/12 dark:text-blue-300",
-  low: "bg-neutral-100 text-neutral-500 dark:bg-white/[0.07] dark:text-neutral-400",
+  urgent: "bg-rose-50 text-rose-600 beam-dark:bg-rose-500/12 beam-dark:text-rose-300",
+  high: "bg-amber-50 text-amber-700 beam-dark:bg-amber-500/12 beam-dark:text-amber-300",
+  normal: "bg-blue-50 text-blue-600 beam-dark:bg-blue-500/12 beam-dark:text-blue-300",
+  low: "bg-neutral-100 text-neutral-500 beam-dark:bg-white/[0.07] beam-dark:text-neutral-400",
 };
 const PRIORITY_LABELS = {
   urgent: "Urgent",
@@ -404,7 +404,7 @@ const KanbanBoard = React.forwardRef(function KanbanBoard2(
       }}
       className={cn(
         // a board is dragged, not read: stop drags painting text selection
-        "w-full select-none text-neutral-950 antialiased dark:text-neutral-50",
+        "w-full select-none text-neutral-950 antialiased beam-dark:text-neutral-50",
         className,
       )}
       {...props}
@@ -434,8 +434,8 @@ const KanbanBoard = React.forwardRef(function KanbanBoard2(
                 }}
                 className={cn(
                   "group/col w-[286px] shrink-0 rounded-[16px] p-3 transition-colors duration-200",
-                  "bg-neutral-100/70 dark:bg-white/[0.04]",
-                  isTarget && "bg-neutral-200/60 dark:bg-white/[0.08]",
+                  "bg-neutral-100/70 beam-dark:bg-white/[0.04]",
+                  isTarget && "bg-neutral-200/60 beam-dark:bg-white/[0.08]",
                   SQUIRCLE,
                 )}
               >
@@ -498,7 +498,7 @@ const KanbanBoard = React.forwardRef(function KanbanBoard2(
                   className={cn(
                     "mt-2 flex w-full items-center gap-1.5 rounded-[10px] px-2 py-2 text-[12.5px] font-medium",
                     "text-neutral-500 transition-colors hover:bg-black/[0.04] hover:text-neutral-800",
-                    "dark:text-neutral-400 dark:hover:bg-white/[0.06] dark:hover:text-neutral-100",
+                    "beam-dark:text-neutral-400 beam-dark:hover:bg-white/[0.06] beam-dark:hover:text-neutral-100",
                     SQUIRCLE,
                   )}
                 >
@@ -599,7 +599,7 @@ function ScrollRail({ trackRef }) {
         setHeld(true);
         scrollTo(e.clientX);
       }}
-      className="mt-3 h-[6px] w-full cursor-pointer rounded-full bg-black/[0.05] dark:bg-white/[0.07]"
+      className="mt-3 h-[6px] w-full cursor-pointer rounded-full bg-black/[0.05] beam-dark:bg-white/[0.07]"
     >
       <div
         style={{
@@ -609,8 +609,8 @@ function ScrollRail({ trackRef }) {
         className={cn(
           "h-full rounded-full transition-colors",
           held
-            ? "bg-black/40 dark:bg-white/50"
-            : "bg-black/20 hover:bg-black/30 dark:bg-white/25 dark:hover:bg-white/40",
+            ? "bg-black/40 beam-dark:bg-white/50"
+            : "bg-black/20 hover:bg-black/30 beam-dark:bg-white/25 beam-dark:hover:bg-white/40",
         )}
       />
     </div>
@@ -635,7 +635,7 @@ function ColumnHeader({ col, count }) {
         transition={FLOW_SPRING}
         className={cn(
           "grid h-[18px] min-w-[18px] place-items-center rounded-[6px] px-1 text-[11px] font-medium tabular-nums",
-          "bg-black/[0.06] text-neutral-500 dark:bg-white/[0.09] dark:text-neutral-400",
+          "bg-black/[0.06] text-neutral-500 beam-dark:bg-white/[0.09] beam-dark:text-neutral-400",
           SQUIRCLE,
         )}
       >
@@ -653,8 +653,8 @@ function IconButton({ label, children }) {
         // always there, quiet until you reach for it
         "grid h-6 w-6 place-items-center rounded-[7px] transition-colors duration-150",
         "text-neutral-400 hover:bg-black/[0.06] hover:text-neutral-800 active:bg-black/[0.1]",
-        "dark:text-neutral-500 dark:hover:bg-white/[0.1] dark:hover:text-neutral-100",
-        "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-neutral-900/25 dark:focus-visible:ring-white/30",
+        "beam-dark:text-neutral-500 beam-dark:hover:bg-white/[0.1] beam-dark:hover:text-neutral-100",
+        "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-neutral-900/25 beam-dark:focus-visible:ring-white/30",
         SQUIRCLE,
       )}
     >
@@ -674,7 +674,7 @@ function Placeholder({ height }) {
       style={{ height }}
       className={cn(
         "origin-top rounded-[12px] border border-dashed",
-        "border-neutral-300 bg-black/[0.02] dark:border-white/15 dark:bg-white/[0.03]",
+        "border-neutral-300 bg-black/[0.02] beam-dark:border-white/15 beam-dark:bg-white/[0.03]",
         SQUIRCLE,
       )}
     />
@@ -704,8 +704,8 @@ function Card({
       whileHover={reduceMotion ? void 0 : { y: -1 }}
       className={cn(
         "cursor-grab touch-none active:cursor-grabbing",
-        "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-neutral-900/25 dark:focus-visible:ring-white/30",
-        grabbed && "ring-2 ring-neutral-900/40 dark:ring-white/50",
+        "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-neutral-900/25 beam-dark:focus-visible:ring-white/30",
+        grabbed && "ring-2 ring-neutral-900/40 beam-dark:ring-white/50",
         "rounded-[12px]",
         SQUIRCLE,
       )}
@@ -719,7 +719,7 @@ function CardShell({ task, floating }) {
     <div
       className={cn(
         "rounded-[12px] border p-3",
-        "border-black/[0.06] bg-white dark:border-white/[0.08] dark:bg-neutral-900",
+        "border-black/[0.06] bg-white beam-dark:border-white/[0.08] beam-dark:bg-neutral-900",
         floating
           ? "shadow-[0_16px_32px_-12px_rgb(0_0_0/0.28)]"
           : "shadow-[0_1px_2px_rgb(0_0_0/0.05)]",
@@ -745,7 +745,7 @@ function CardShell({ task, floating }) {
             className={cn(
               CHIP,
               "font-normal",
-              "bg-neutral-100 text-neutral-600 dark:bg-white/[0.07] dark:text-neutral-300",
+              "bg-neutral-100 text-neutral-600 beam-dark:bg-white/[0.07] beam-dark:text-neutral-300",
               SQUIRCLE,
             )}
           >
@@ -760,14 +760,14 @@ function CardShell({ task, floating }) {
       </p>
 
       {task.note && (
-        <p className="m-0 mt-1 text-[12px] font-normal leading-snug text-neutral-500 dark:text-neutral-400">
+        <p className="m-0 mt-1 text-[12px] font-normal leading-snug text-neutral-500 beam-dark:text-neutral-400">
           {task.note}
         </p>
       )}
 
       {(task.assignees?.length || task.due || task.progress != null) && (
         <>
-          <div className="mt-3 h-px bg-black/[0.06] dark:bg-white/[0.08]" />
+          <div className="mt-3 h-px bg-black/[0.06] beam-dark:bg-white/[0.08]" />
           <div className="mt-2.5 flex items-center justify-between gap-2">
             <div className="flex items-center gap-2.5">
               {task.due && (
@@ -775,8 +775,8 @@ function CardShell({ task, floating }) {
                   className={cn(
                     "inline-flex items-center gap-1 text-[11.5px] font-normal tabular-nums",
                     task.dueSoon
-                      ? "text-amber-600 dark:text-amber-400"
-                      : "text-neutral-500 dark:text-neutral-400",
+                      ? "text-amber-600 beam-dark:text-amber-400"
+                      : "text-neutral-500 beam-dark:text-neutral-400",
                   )}
                 >
                   <CalendarDays
@@ -797,7 +797,7 @@ function CardShell({ task, floating }) {
   );
 }
 function Tooltip({ label, children }) {
-  const skin = "bg-neutral-900 dark:bg-neutral-100";
+  const skin = "bg-neutral-900 beam-dark:bg-neutral-100";
   return (
     <span className="group/tip relative flex">
       {children}
@@ -813,7 +813,7 @@ function Tooltip({ label, children }) {
         <span
           className={cn(
             "block whitespace-nowrap rounded-[7px] px-2 py-1 text-[11px] font-medium leading-none",
-            "text-white dark:text-neutral-900",
+            "text-white beam-dark:text-neutral-900",
             skin,
             "shadow-[0_6px_16px_-4px_rgb(0_0_0/0.3)]",
             SQUIRCLE,
@@ -845,8 +845,8 @@ function AvatarStack({ people }) {
               aria-label={p.name}
               className={cn(
                 "grid h-[22px] w-[22px] place-items-center overflow-hidden rounded-full",
-                "ring-2 ring-white dark:ring-neutral-900",
-                "focus-visible:outline-none focus-visible:ring-neutral-900 dark:focus-visible:ring-white",
+                "ring-2 ring-white beam-dark:ring-neutral-900",
+                "focus-visible:outline-none focus-visible:ring-neutral-900 beam-dark:focus-visible:ring-white",
               )}
             >
               {p.avatar ? (
@@ -871,8 +871,8 @@ function AvatarStack({ people }) {
               className={cn(
                 "grid h-[22px] w-[22px] place-items-center rounded-full text-[10px] font-medium",
                 "bg-neutral-200 text-neutral-600 ring-2 ring-white",
-                "dark:bg-white/15 dark:text-neutral-200 dark:ring-neutral-900",
-                "focus-visible:outline-none focus-visible:ring-neutral-900 dark:focus-visible:ring-white",
+                "beam-dark:bg-white/15 beam-dark:text-neutral-200 beam-dark:ring-neutral-900",
+                "focus-visible:outline-none focus-visible:ring-neutral-900 beam-dark:focus-visible:ring-white",
               )}
             >
               +{rest.length}
@@ -929,7 +929,7 @@ function ProgressRing({ value }) {
           r={r}
           fill="none"
           strokeWidth="2"
-          className="stroke-black/[0.09] dark:stroke-white/15"
+          className="stroke-black/[0.09] beam-dark:stroke-white/15"
         />
         <motion.circle
           cx="8"
@@ -945,11 +945,11 @@ function ProgressRing({ value }) {
           className={
             done
               ? "stroke-emerald-500"
-              : "stroke-neutral-900 dark:stroke-neutral-100"
+              : "stroke-neutral-900 beam-dark:stroke-neutral-100"
           }
         />
       </svg>
-      <span className="text-[11.5px] font-normal tabular-nums text-neutral-500 dark:text-neutral-400">
+      <span className="text-[11.5px] font-normal tabular-nums text-neutral-500 beam-dark:text-neutral-400">
         {v}%
       </span>
     </span>
