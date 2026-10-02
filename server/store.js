@@ -7,6 +7,9 @@ export function createStore(path) {
   db.exec(
     `PRAGMA journal_mode=WAL; CREATE TABLE IF NOT EXISTS metadata(key TEXT PRIMARY KEY,value TEXT); CREATE TABLE IF NOT EXISTS items(id TEXT PRIMARY KEY,title TEXT NOT NULL,description TEXT NOT NULL,category TEXT NOT NULL,priority TEXT NOT NULL,status TEXT NOT NULL,visibility TEXT NOT NULL,quarter TEXT NOT NULL,created TEXT NOT NULL); CREATE TABLE IF NOT EXISTS votes(item TEXT,visitor TEXT,PRIMARY KEY(item,visitor)); CREATE TABLE IF NOT EXISTS suggestions(id TEXT PRIMARY KEY,title TEXT,description TEXT,created TEXT);`,
   );
+  db.exec(
+    "CREATE TABLE IF NOT EXISTS source_associations(source TEXT,item_id TEXT,confidence TEXT NOT NULL,reason TEXT NOT NULL,evidence TEXT NOT NULL,locked INTEGER NOT NULL DEFAULT 0,PRIMARY KEY(source,item_id))",
+  );
   const columns = new Set(
     db
       .prepare("PRAGMA table_info(items)")
@@ -275,6 +278,7 @@ export function createStore(path) {
           );
         }
       }
+      db.prepare("DELETE FROM source_associations WHERE item_id=?").run(id);
       db.prepare("DELETE FROM items WHERE id=?").run(id);
       db.prepare("DELETE FROM votes WHERE item=?").run(id);
     },

@@ -131,3 +131,11 @@ Glisser la poignée à gauche d’une ligne pour la placer avant ou après un au
 Les cartes se déplacent entre les états et se réordonnent dans chaque colonne, avec une carte flottante et un emplacement animé. Un clic ouvre le détail ; le bouton en pied de colonne crée un élément dans cet état. Au clavier : Entrée ouvre, Espace sélectionne, les flèches déplacent, Espace valide, Échap annule. Les gestes respectent la préférence de réduction des animations.
 
 L’ordre du Kanban est sauvegardé séparément du Gantt, sans modifier les rattachements. Les filtres préservent les éléments masqués. Le portail public et les archives restent en consultation. Adaptation du composant fourni, sans ses données de démonstration.
+
+### Rapprochement automatique des sources
+
+Quand l’assistant local est actif, Beam rapproche les notes et pièces jointes (texte des PDF, puis synthèse locale des pièces visuelles) ainsi que les tickets, PR et documents importés avec les initiatives, projets et features existants. Le serveur traite les sources nouvelles ou modifiées par petits lots, toutes les minutes. Une modification du titre, de la description ou du rattachement d’un élément relance aussi le rapprochement. Aucun cloud n’intervient.
+
+Un lien précis est associé automatiquement, avec une justification et un extrait vérifié dans le contenu fourni. Un rapprochement ambigu apparaît dans « À vérifier » et reste exclu de l’analyse tant qu’il n’est pas confirmé. Vous pouvez confirmer ou écarter un lien dans le détail de l’élément ou de la source. Les corrections manuelles sont conservées. Le bouton « Analyser » recherche les sources pertinentes avant de préparer ses propositions : aucune association préalable n’est nécessaire. Seules les propositions de modification de roadmap attendent une validation.
+
+Le rapprochement local est borné à 12 sources par lot et à un contexte de 52 000 caractères. Une roadmap dépassant à elle seule 42 000 caractères signale sa limite plutôt que tronquer silencieusement ses éléments. Les liens, extraits et notes restent privés et sont exclus de GitHub Pages.

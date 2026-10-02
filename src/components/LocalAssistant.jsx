@@ -147,8 +147,8 @@ export default function LocalAssistant({
         <div className="assistant-content">
           {!singleNote && !feature && (
             <p className="assistant-help">
-              Vos notes et les sources associées sont analysées sur ce Mac.
-              Chaque changement de roadmap attend votre validation.
+              Vos notes et les sources pertinentes sont repérées et analysées
+              sur ce Mac. Chaque changement de roadmap attend votre validation.
             </p>
           )}
           {status && !singleNote && (!feature || !status.enabled) && (
@@ -260,7 +260,7 @@ export default function LocalAssistant({
           {!settingsOnly && !shown.length && (
             <p className="assistant-help">
               {feature
-                ? "Associez une note ou un ticket à cette feature, puis lancez l’analyse."
+                ? "L’IA recherche les notes, tickets et documents pertinents avant d’analyser cet élément. Les liens ambigus restent à vérifier."
                 : singleNote
                   ? "Lancez l’analyse pour suggérer un classement et identifier les suites à donner à cette note."
                   : "Les propositions de vos notes apparaîtront ici."}

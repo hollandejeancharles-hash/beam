@@ -197,7 +197,10 @@ test("feature analysis uses only explicitly associated notes and signals", async
   const t = setup();
   try {
     t.ai.configure(true);
-    assert.throws(() => t.ai.enqueue("feature", t.id), /Associez/);
+    assert.throws(
+      () => t.ai.enqueue("feature", t.id),
+      /Aucune source pertinente/,
+    );
     t.notes.save({ classification: { linked: [t.id] } }, t.n.id);
     t.notes.save({ text: "Note indépendante" });
     const r = await ready(t.ai, t.ai.enqueue("feature", t.id).id);

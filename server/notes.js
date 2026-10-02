@@ -1,3 +1,4 @@
+import { matchesFor, decideMatch } from "./associations.js";
 import { randomUUID } from "node:crypto";
 import { interpretNote, NOTE_KINDS } from "../shared/notes.js";
 export function createNotes(store) {
@@ -9,6 +10,22 @@ export function createNotes(store) {
     ...n,
     ...JSON.parse(n.details),
     details: undefined,
+    linked: [
+      ...new Set([
+        ...JSON.parse(n.details).linked.filter(
+          (id) =>
+            !db
+              .prepare(
+                "SELECT 1 FROM source_associations WHERE source=? AND item_id=? AND ((confidence='rejected' AND locked=1) OR confidence='review')",
+              )
+              .get("note:" + n.id, id),
+        ),
+        ...matchesFor(db, "note:" + n.id)
+          .filter((m) => m.confidence === "clear")
+          .map((m) => m.item_id),
+      ]),
+    ],
+    automatic_links: matchesFor(db, "note:" + n.id),
     attachments: db
       .prepare("SELECT name FROM sqlite_master WHERE name='note_attachments'")
       .get()
@@ -47,6 +64,15 @@ export function createNotes(store) {
           ),
         ),
       };
+      if (automatic) {
+        const rejected = db
+          .prepare(
+            "SELECT item_id FROM source_associations WHERE source=? AND ((confidence='rejected' AND locked=1) OR confidence='review')",
+          )
+          .all("note:" + id)
+          .map((m) => m.item_id);
+        details.linked = details.linked.filter((id) => !rejected.includes(id));
+      }
       details.manual_fields = automatic
         ? locked
         : [...new Set([...locked, ...Object.keys(input.classification || {})])];
@@ -69,6 +95,17 @@ export function createNotes(store) {
       const state = input.state || old?.state || "open";
       if (!["open", "done", "archived"].includes(state))
         throw Error("État invalide");
+      if (!automatic && input.classification?.linked) {
+        for (const match of db
+          .prepare("SELECT * FROM source_associations WHERE source=?")
+          .all("note:" + id))
+          decideMatch(
+            db,
+            "note:" + id,
+            match.item_id,
+            input.classification.linked.includes(match.item_id),
+          );
+      }
       const now = new Date().toISOString();
       db.prepare("INSERT OR REPLACE INTO notes VALUES(?,?,?,?,?,?)").run(
         id,

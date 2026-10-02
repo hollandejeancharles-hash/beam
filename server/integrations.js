@@ -1,3 +1,4 @@
+import { matchesFor, decideMatch } from "./associations.js";
 import { randomUUID } from "node:crypto";
 class SourceError extends Error {}
 export const PROVIDERS = {
@@ -482,12 +483,20 @@ export function createIntegrations(
         .map((s) => ({
           ...s,
           extra: JSON.parse(s.extra),
-          links: db
-            .prepare(
-              "SELECT l.item_id FROM signal_links l JOIN items i ON i.id=l.item_id WHERE signal_id=?",
-            )
-            .all(s.id)
-            .map((x) => x.item_id),
+          automatic_links: matchesFor(db, "signal:" + s.id),
+          links: [
+            ...new Set([
+              ...matchesFor(db, "signal:" + s.id)
+                .filter((m) => m.confidence === "clear")
+                .map((m) => m.item_id),
+              ...db
+                .prepare(
+                  "SELECT l.item_id FROM signal_links l JOIN items i ON i.id=l.item_id WHERE signal_id=?",
+                )
+                .all(s.id)
+                .map((x) => x.item_id),
+            ]),
+          ],
         }));
     },
     runs() {
@@ -508,6 +517,7 @@ export function createIntegrations(
           ? "DELETE FROM signal_links WHERE signal_id=? AND item_id=?"
           : "INSERT OR IGNORE INTO signal_links VALUES(?,?)",
       ).run(signal_id, item_id);
+      decideMatch(db, "signal:" + signal_id, item_id, !remove);
       return { ok: true };
     },
     promote(signal_id) {
@@ -518,7 +528,11 @@ export function createIntegrations(
           "SELECT item_id FROM signal_links l JOIN items i ON i.id=l.item_id WHERE signal_id=? LIMIT 1",
         )
         .get(signal_id);
-      if (existing) return { id: existing.item_id };
+      const automatic = matchesFor(db, "signal:" + signal_id).find(
+        (m) => m.confidence === "clear",
+      );
+      if (existing || automatic)
+        return { id: existing?.item_id || automatic.item_id };
       const d = new Date(),
         quarter = `T${Math.floor(d.getUTCMonth() / 3) + 1} ${d.getUTCFullYear()}`;
       const id = store.save({

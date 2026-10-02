@@ -1,3 +1,4 @@
+import { createAssociations } from "./associations.js";
 import { createProfile } from "./profile.js";
 import { createTopics } from "./topics.js";
 import { createAttachments } from "./attachments.js";
@@ -21,10 +22,16 @@ const notes = createNotes(store);
 const attachments = createAttachments(store);
 await startLocalAI();
 const ai = createAI(store, notes, integrations);
+const associations = createAssociations(store, notes, integrations, ai);
+ai.setDiscovery((id) => associations.refresh({ force: true, itemId: id }));
 ai.resume();
 const topics = createTopics(store, notes, integrations, ai);
-setTimeout(() => void topics.refresh(), 5000).unref();
-setInterval(() => void topics.refresh(), 60000).unref();
+const organizeSources = async () => {
+  await associations.refresh();
+  if (!ai.busy()) await topics.refresh();
+};
+setTimeout(() => void organizeSources(), 5000).unref();
+setInterval(() => void organizeSources(), 60000).unref();
 if (process.env.BEAM_SEED === "true") seed(store);
 const vite = prod
   ? null
@@ -133,6 +140,8 @@ const server = http.createServer(async (req, res) => {
     if (req.method === "GET") {
       if (url.pathname === "/api/admin/profile")
         return send(200, profile.get());
+      if (url.pathname === "/api/admin/associations")
+        return send(200, associations.list());
       if (url.pathname === "/api/admin/topics") return send(200, topics.list());
       if (url.pathname === "/api/admin/ai/status")
         return send(200, await ai.status());
@@ -183,6 +192,20 @@ const server = http.createServer(async (req, res) => {
     const body = raw ? JSON.parse(raw) : {};
     if (url.pathname === "/api/admin/profile" && req.method === "PATCH")
       return send(200, await profile.save(body));
+    if (
+      url.pathname === "/api/admin/associations/refresh" &&
+      req.method === "POST"
+    ) {
+      void associations.refresh({ force: true, itemId: body.item_id });
+      return send(202, { ok: true });
+    }
+    if (
+      url.pathname === "/api/admin/associations/decide" &&
+      req.method === "POST"
+    ) {
+      associations.decide(body.source, body.item_id, body.accept);
+      return send(200, associations.list());
+    }
     if (url.pathname === "/api/admin/topics" && req.method === "POST")
       return send(201, topics.create(body.title));
     if (url.pathname === "/api/admin/topics/refresh" && req.method === "POST") {

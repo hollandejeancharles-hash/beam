@@ -4095,3 +4095,89 @@ footer b {
 .sidebar .tree-marker {
   background: #b9b0ec;
 }
+
+.auto-sources {
+  margin: 10px 0 14px;
+}
+.auto-source-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  color: var(--muted);
+  font-size: 11px;
+}
+.auto-source-heading > span {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.auto-source-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 10px 0;
+  border-bottom: 1px solid var(--line);
+}
+.auto-source-row details {
+  flex: 1;
+  min-width: 0;
+}
+.auto-source-row summary {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  cursor: pointer;
+}
+.auto-source-row summary > span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.auto-source-row summary small {
+  margin-left: auto;
+  white-space: nowrap;
+  color: var(--muted);
+  font-size: 10px;
+}
+.auto-sources p,
+.auto-sources blockquote {
+  font-size: 11px;
+  color: var(--muted);
+  line-height: 1.5;
+  margin: 8px 0;
+}
+.auto-sources blockquote {
+  border-left: 2px solid #7770e555;
+  padding-left: 10px;
+}
+.auto-source-review > summary {
+  font-size: 12px;
+  cursor: pointer;
+  color: #beb4e7;
+  margin-top: 12px;
+}
+.auto-source-candidate {
+  padding: 12px 0;
+  border-bottom: 1px solid var(--line);
+}
+.auto-source-candidate strong {
+  font-size: 12px;
+}
+.auto-source-candidate > div {
+  display: flex;
+  gap: 12px;
+}
+.auto-source-candidate .button {
+  font-size: 11px;
+  padding: 6px 10px;
+}
+.feature-source-linked {
+  flex-wrap: wrap;
+}
+.automatic-link-reason {
+  order: 3;
+  width: 100%;
+  margin: 0 0 5px;
+  font-size: 11px;
+  color: var(--muted);
+}

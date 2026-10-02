@@ -1,3 +1,4 @@
+import AutoSources from "./AutoSources";
 import React, { useEffect, useState } from "react";
 
 import {
@@ -65,6 +66,7 @@ const kinds = {
   document: { label: "Document", icon: FileText },
 };
 export function SignalLinks({ signals, item, api, onSignals }) {
+  const [automaticNoteCount, setAutomaticNoteCount] = useState(0);
   const [expanded, setExpanded] = useState(false);
   const [query, setQuery] = useState("");
   const [kind, setKind] = useState("all");
@@ -146,7 +148,7 @@ export function SignalLinks({ signals, item, api, onSignals }) {
     >
       <div className="feature-source-head">
         <h3>
-          Sources <span>{linked.length}</span>
+          Sources <span>{linked.length + automaticNoteCount}</span>
         </h3>
         <button
           type="button"
@@ -155,7 +157,7 @@ export function SignalLinks({ signals, item, api, onSignals }) {
           onClick={() => setExpanded(!expanded)}
         >
           <Plus size={14} />
-          {expanded ? "Fermer" : "Associer"}
+          {expanded ? "Fermer" : "Ajouter un lien"}
         </button>
       </div>
       {expanded && (
@@ -168,15 +170,39 @@ export function SignalLinks({ signals, item, api, onSignals }) {
           {error}
         </p>
       )}
+      <AutoSources
+        item={item}
+        api={api}
+        onSignals={onSignals}
+        onNoteCount={setAutomaticNoteCount}
+      />
       {linked.map((s) => (
         <div className="feature-source-linked" key={s.id}>
           <a href={s.url} target="_blank" rel="noreferrer">
             <span>
               {kinds[s.kind]?.label} · {s.source_label} · {s.state}
+              {s.automatic_links?.some(
+                (m) =>
+                  m.item_id === item.id &&
+                  !m.locked &&
+                  m.confidence === "clear",
+              )
+                ? " · Lié par l’IA"
+                : ""}
             </span>
             <strong>{s.title}</strong>
             <ArrowUpRight size={13} />
           </a>
+          {s.automatic_links?.find((m) => m.item_id === item.id && !m.locked)
+            ?.reason && (
+            <p className="automatic-link-reason">
+              {
+                s.automatic_links.find(
+                  (m) => m.item_id === item.id && !m.locked,
+                ).reason
+              }
+            </p>
+          )}
           <button
             type="button"
             className="icon-button"
@@ -188,8 +214,10 @@ export function SignalLinks({ signals, item, api, onSignals }) {
           </button>
         </div>
       ))}
-      {!linked.length && !expanded && (
-        <p className="feature-source-help">Aucune source liée.</p>
+      {!linked.length && !automaticNoteCount && !expanded && (
+        <p className="feature-source-help">
+          Les nouvelles sources seront rapprochées automatiquement.
+        </p>
       )}
       {expanded && (
         <div className="feature-source-picker">
@@ -338,6 +366,25 @@ export default function Integrations({
   useEffect(() => {
     load();
   }, []);
+  useEffect(() => {
+    if (tab !== "inbox") return;
+    let alive = true;
+    const timer = setInterval(async () => {
+      try {
+        const next = await api("admin/signals");
+        if (!alive) return;
+        setSignals(next);
+        onSignals(next);
+        setSelected((current) =>
+          current ? next.find((s) => s.id === current.id) || current : null,
+        );
+      } catch {}
+    }, 8000);
+    return () => {
+      alive = false;
+      clearInterval(timer);
+    };
+  }, [tab]);
   useEffect(() => {
     if (!config && !selected) return;
     const previous = document.activeElement,
@@ -838,11 +885,88 @@ export default function Integrations({
             <p className="signal-body">
               {selected.body || "Aucun extrait disponible."}
             </p>
-            <h3>Relier à la roadmap</h3>
+            <h3>Liens vers la roadmap</h3>
+            <p className="feature-source-help">
+              L’IA repère les éléments concernés. Les liens incertains attendent
+              votre confirmation.
+            </p>
+            {(selected.automatic_links || [])
+              .filter((m) => m.confidence === "review")
+              .map((m) => (
+                <div className="auto-source-candidate" key={m.item_id}>
+                  <strong>
+                    {items.find((i) => i.id === m.item_id)?.title} · À vérifier
+                  </strong>
+                  <p className="feature-source-help">{m.reason}</p>
+                  <div>
+                    <button
+                      className="button"
+                      disabled={!!busy}
+                      onClick={() =>
+                        action("confirm-match", async () => {
+                          await api("admin/associations/decide", {
+                            method: "POST",
+                            body: JSON.stringify({
+                              source: "signal:" + selected.id,
+                              item_id: m.item_id,
+                              accept: true,
+                            }),
+                          });
+                          setSelected(
+                            (await api("admin/signals")).find(
+                              (s) => s.id === selected.id,
+                            ),
+                          );
+                        })
+                      }
+                    >
+                      Confirmer
+                    </button>
+                    <button
+                      className="text-button"
+                      disabled={!!busy}
+                      onClick={() =>
+                        action("reject-match", async () => {
+                          await api("admin/associations/decide", {
+                            method: "POST",
+                            body: JSON.stringify({
+                              source: "signal:" + selected.id,
+                              item_id: m.item_id,
+                              accept: false,
+                            }),
+                          });
+                          setSelected(
+                            (await api("admin/signals")).find(
+                              (s) => s.id === selected.id,
+                            ),
+                          );
+                        })
+                      }
+                    >
+                      Écarter
+                    </button>
+                  </div>
+                </div>
+              ))}
             <div className="signal-existing">
               {selected.links.map((id) => (
                 <span key={id}>
-                  {items.find((i) => i.id === id)?.title}
+                  <span
+                    title={
+                      selected.automatic_links?.find((m) => m.item_id === id)
+                        ?.reason
+                    }
+                  >
+                    {items.find((i) => i.id === id)?.title}
+                    {selected.automatic_links?.some(
+                      (m) =>
+                        m.item_id === id &&
+                        !m.locked &&
+                        m.confidence === "clear",
+                    )
+                      ? " · IA"
+                      : ""}
+                  </span>
                   <button
                     className="icon-button"
                     aria-label="Détacher la source"
