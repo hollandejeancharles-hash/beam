@@ -1,12 +1,11 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
+import { Flag, Target } from "lucide-react";
 import {
   ChevronLeft,
   ChevronRight,
-  CalendarDays,
-  Flag,
   ChevronDown,
-  Target,
-} from "lucide-react";
+  Planning as CalendarDays,
+} from "../icons";
 import { Plus } from "../icons";
 import {
   DAY,
@@ -353,8 +352,21 @@ export default function Gantt({
                       <span className="gantt-collapse" />
                     )}
                     <span
-                      className={"kind-mark " + (item.type || "feature")}
-                      aria-label={TYPES[item.type || "feature"]}
+                      className={
+                        "kind-mark " +
+                        (item.type || "feature") +
+                        " status-" +
+                        item.status
+                      }
+                      aria-label={
+                        TYPES[item.type || "feature"] +
+                        " · " +
+                        {
+                          planned: "À venir",
+                          progress: "En cours",
+                          done: "Livré",
+                        }[item.status]
+                      }
                     />
                     <button className="gantt-name" onClick={() => onOpen(item)}>
                       <strong>{item.title}</strong>

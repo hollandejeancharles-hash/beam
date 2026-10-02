@@ -1,19 +1,20 @@
 import React, { useEffect, useState } from "react";
+
 import {
+  Integration as Plug,
+  Map as Package,
+  Commit as GitCommitHorizontal,
   Github,
-  Plug,
   RefreshCw,
   GitPullRequest,
   FileText,
   Ticket,
-  Package,
-  GitCommitHorizontal,
   Activity,
-  X,
+  Close as X,
   ArrowUpRight,
   Link2,
-  Check,
-} from "lucide-react";
+  CheckCheck as Check,
+} from "../icons";
 import { Plus, Search } from "../icons";
 const providers = {
   github: {

@@ -29,6 +29,14 @@ Le mode développement fonctionne localement sans clé et initialise neuf évolu
 - Boîte de suggestions avec conversion en évolution, vue des nouveautés livrées.
 - Données persistées dans SQLite, formulaires accessibles au clavier, interface adaptative.
 
+## Navigation et recherche
+
+Le menu latéral utilise le composant TreeNav fourni, avec un repère animé et un accès aux initiatives/projets existants. Le bouton en haut à gauche le replie en une barre d’icônes (et le masque sur mobile) ; ce choix est conservé dans le navigateur. Les points du Gantt suivent le statut : gris À venir, ambre En cours, vert Livré.
+
+La palette fournie s’ouvre avec **⌘K / Ctrl+K** ou la recherche. Elle retrouve les éléments, ouvre les écrans et combine les filtres type, état et priorité sous forme de chips, appliqués ensemble. Flèches et Entrée sélectionnent ; Retour arrière retire un choix ; Échap efface puis referme. Les composants sont dans `src/components/ui`, compilés en TSX par Vite et stylés avec Tailwind 4 (sans son reset global).
+
+Le fond Beams fourni couvre les écrans administrateur et public. Il utilise un canvas adapté au viewport et au ratio de pixels, s’arrête dans un onglet caché et devient statique avec la réduction des animations. Les icônes Planification (CalendarDays), Intégrations (PlugZap) et les contrôles associés proviennent de Lucide Animated référencé sur 21st.dev.
+
 ## Intégrations produit
 
 L’écran **Intégrations** configure le nom du produit et ses sources GitHub, Azure DevOps, Notion et Confluence Cloud. Les lectures à la demande alimentent une boîte de réception interne ; associez une information à une initiative/projet/feature ou créez une feature interne. Les mises à jour des sources préservent la planification Beam. Les connexions peuvent être mises en pause.

@@ -2450,3 +2450,328 @@ footer b {
 .integration-panel .text-button {
   margin: 14px 0;
 }
+/* Shared supplied UI components: navigation, command palette, and Beams. */
+.app {
+  position: relative;
+  isolation: isolate;
+  background: transparent;
+}
+.beams-background {
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  overflow: hidden;
+  pointer-events: none;
+  background: #0b0e16;
+}
+.beams-background canvas {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  filter: blur(15px);
+}
+.beams-veil {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(120deg, #0b0e1645, #0b0e1690 55%, #0b0e1635);
+}
+.sidebar {
+  z-index: 15;
+  background: #12151dda;
+  backdrop-filter: blur(18px);
+  overflow-y: auto;
+  transition:
+    width 0.2s ease,
+    padding 0.2s ease;
+}
+.topbar {
+  background: #12151dad;
+  backdrop-filter: blur(18px);
+}
+.gantt {
+  background: #151822b8;
+}
+.gantt-meta,
+.gantt-meta-head {
+  background: #191c27f5;
+}
+.gantt-head {
+  background: #181b26f2;
+}
+.integration-product,
+.integration-card {
+  background: #171b25cf;
+}
+.source-list article {
+  background: #131722bf;
+}
+.sidebar nav .tree-nav {
+  position: relative;
+  margin: 0;
+  padding: 0 0 0 24px;
+  list-style: none;
+  width: 100%;
+  gap: 4px;
+}
+.sidebar .tree-nav a {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  height: 36px;
+  padding-right: 8px;
+  font-size: 12px;
+}
+.sidebar .tree-nav .tree-icon {
+  display: flex;
+  align-items: center;
+  flex-shrink: 0;
+}
+.sidebar .tree-label {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.sidebar .tree-nav .tree-badge {
+  margin-left: auto;
+  font-size: 10px;
+  color: #bbb5d7;
+  background: #3b35494d;
+}
+.sidebar .tree-nav a[aria-current="page"] {
+  color: #eeecfa;
+}
+.sidebar .tree-nav > span:last-of-type {
+  height: 36px !important;
+  background: #b4a2ed12;
+}
+.sidebar-projects {
+  margin-top: 28px;
+  max-height: 30vh;
+  overflow-y: auto;
+}
+.sidebar-projects .tree-nav {
+  padding-left: 24px;
+  list-style: none;
+  margin: 0;
+}
+.sidebar-toggle {
+  margin-right: 15px;
+  flex-shrink: 0;
+}
+.breadcrumbs {
+  flex: 1;
+}
+.global-search {
+  width: 30px;
+}
+.brand-word {
+  display: inline-flex;
+  align-items: center;
+}
+.brand-word .brand-dot {
+  margin-left: 0;
+}
+.sidebar-collapsed .sidebar {
+  width: 72px;
+  padding: 22px 9px 0;
+}
+.sidebar-collapsed main {
+  margin-left: 72px;
+  width: calc(100% - 72px);
+}
+.sidebar-collapsed .brand {
+  padding: 0;
+  justify-content: center;
+  margin-bottom: 27px;
+}
+.sidebar-collapsed .brand-word,
+.sidebar-collapsed .workspace,
+.sidebar-collapsed .nav-caption,
+.sidebar-collapsed .sidebar-bottom,
+.sidebar-collapsed .sidebar-projects {
+  display: none;
+}
+.sidebar-collapsed .sidebar nav .tree-nav {
+  padding: 0;
+}
+.sidebar-collapsed .tree-nav > span {
+  display: none;
+}
+.sidebar-collapsed .tree-nav a {
+  padding: 0 !important;
+  justify-content: center;
+  height: 40px;
+  margin-bottom: 5px;
+}
+.sidebar-collapsed .tree-label,
+.sidebar-collapsed .tree-badge {
+  display: none;
+}
+.sidebar-collapsed .tree-nav a[aria-current="page"] {
+  background: #9387d52b;
+}
+.sidebar-collapsed .tree-icon svg {
+  width: 19px;
+  height: 19px;
+}
+.search-trigger {
+  display: flex;
+  align-items: center;
+  text-align: left;
+  gap: 9px;
+  color: #a2a5b3;
+  min-width: 275px;
+  font-size: 12px;
+}
+.search-trigger > span:not(.animated-icon) {
+  flex: 1;
+}
+.search-trigger kbd {
+  margin-left: auto;
+}
+.kind-mark.status-planned {
+  background: #939bb0;
+  border-color: #b0b7c9;
+}
+.kind-mark.status-progress {
+  background: #d8b66b;
+  border-color: #e1c586;
+}
+.kind-mark.status-done {
+  background: #7eaf92;
+  border-color: #9dc8ac;
+}
+.command-dialog {
+  width: 560px;
+  max-width: calc(100vw - 32px);
+  padding: 0 !important;
+  overflow: hidden;
+  background: #141720;
+  border: 1px solid #383b4b;
+}
+.command-dialog .modal-header {
+  padding: 17px 18px;
+  margin: 0;
+  border-bottom: 1px solid #303442;
+}
+.command-dialog .modal-header h2 {
+  font-size: 13px;
+}
+.command-dialog .beam-command {
+  max-width: none;
+}
+.command-dialog .beam-command input {
+  padding: 4px !important;
+  margin: 0;
+  border: 0 !important;
+  background: transparent !important;
+  box-shadow: none;
+  outline: none !important;
+  min-height: 26px;
+}
+.command-dialog .beam-command button {
+  border: 0;
+}
+.command-dialog .beam-command > div {
+  box-shadow: none;
+  border-radius: 0;
+}
+.command-dialog .beam-command ul {
+  padding: 0 !important;
+}
+.command-dialog .beam-command li {
+  min-height: 38px;
+}
+.command-dialog .beam-command li > .animated-icon {
+  display: inline-flex;
+}
+.command-dialog .beam-command [role="option"] .animated-icon {
+  vertical-align: middle;
+}
+.command-dialog .beam-command [role="listbox"] {
+  max-height: 320px;
+}
+@media (max-width: 650px) {
+  .sidebar {
+    padding: 13px 12px;
+    gap: 8px;
+    overflow: visible;
+  }
+  .sidebar nav .tree-nav {
+    padding: 0;
+    display: flex;
+    flex-direction: row;
+    gap: 3px;
+  }
+  .sidebar .tree-nav > span,
+  .sidebar .tree-label,
+  .sidebar .tree-badge,
+  .sidebar .sidebar-projects {
+    display: none;
+  }
+  .sidebar .tree-nav a {
+    padding: 8px !important;
+    height: 34px;
+  }
+  .sidebar .tree-nav a[aria-current="page"] {
+    background: #9387d529;
+  }
+  .sidebar-collapsed .sidebar {
+    display: none;
+  }
+  .sidebar-collapsed main {
+    margin: 0;
+    width: 100%;
+  }
+  .sidebar-toggle {
+    margin-right: 9px;
+  }
+  .topbar {
+    padding: 0 16px;
+  }
+  .top-actions {
+    gap: 10px;
+  }
+  .breadcrumbs {
+    gap: 5px;
+    min-width: 0;
+    font-size: 11px;
+  }
+  .search-trigger {
+    min-width: 0;
+    width: 100%;
+  }
+  .sidebar nav {
+    min-width: 0;
+  }
+  .sidebar .brand {
+    font-size: 22px;
+  }
+  .sidebar .brand-mark {
+    width: 20px;
+  }
+  .command-dialog {
+    max-height: 85vh;
+    overflow: auto;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .sidebar {
+    transition: none;
+  }
+}
+
+.search-trigger > .animated-icon {
+  flex: none;
+}
+.search-trigger > span:not(.animated-icon) {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.search-trigger {
+  padding: 9px 12px;
+  max-width: 340px;
+}

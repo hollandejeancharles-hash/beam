@@ -1,19 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { createRoot } from "react-dom/client";
-import {
-  ArrowRight,
-  ChevronRight,
-  Check,
-  Clock3,
-  Circle,
-  List,
-  Lock,
-  X,
-  ArrowUp,
-  Trash2,
-  LogOut,
-  GanttChart,
-} from "lucide-react";
+import { Check, Clock3, Circle, List, Trash2, LogOut } from "lucide-react";
 import {
   Search,
   LayoutGrid,
@@ -27,10 +14,23 @@ import {
   CheckCheck,
   ArrowUpRight,
   ExternalLink,
+  Planning,
+  Close as X,
+  ChevronRight,
+  ArrowRight,
+  Lock,
+  ArrowUp,
+  Integration,
+  PanelClose,
+  PanelOpen,
 } from "./icons";
+import { TreeNav } from "./components/ui/tree-nav";
+import { BeamsBackground } from "./components/ui/beams-background";
+import RoadmapSearch from "./components/RoadmapSearch";
+import "./ui.css";
 import Integrations, { SignalLinks } from "./components/Integrations";
 import Gantt from "./components/Gantt";
-import { TYPES, progressValue } from "../shared/planning";
+import { TYPES, progressValue, hierarchyRows } from "../shared/planning";
 import "./style.css";
 const pagesMode = __PAGES__;
 const publicPath = pagesMode ? import.meta.env.BASE_URL : "/roadmap";
@@ -108,7 +108,12 @@ function App() {
     [sort, setSort] = useState("priority"),
     [typeFilter, setTypeFilter] = useState("all"),
     [product, setProduct] = useState({ name: "PULS" }),
-    [signals, setSignals] = useState([]);
+    [signals, setSignals] = useState([]),
+    [commandOpen, setCommandOpen] = useState(false),
+    [statusFilter, setStatusFilter] = useState("all"),
+    [sidebarCollapsed, setSidebarCollapsed] = useState(
+      localStorage.getItem("beam_sidebar_collapsed") === "true",
+    );
   async function api(path, options = {}) {
     const response = await fetch("/api/" + path, {
       ...options,
@@ -152,6 +157,9 @@ function App() {
     }
   }
   useEffect(() => {
+    localStorage.setItem("beam_sidebar_collapsed", String(sidebarCollapsed));
+  }, [sidebarCollapsed]);
+  useEffect(() => {
     history.replaceState(
       null,
       "",
@@ -173,10 +181,13 @@ function App() {
         setEdit(null);
         setShare(false);
         setSuggest(false);
+        setCommandOpen(false);
       }
       if ((e.metaKey || e.ctrlKey) && e.key === "k") {
         e.preventDefault();
-        document.querySelector("#search")?.focus();
+        if (document.querySelector("[role=dialog]:not(.command-dialog)"))
+          return;
+        setCommandOpen((open) => !open);
       }
     };
     window.addEventListener("keydown", handle);
@@ -230,6 +241,7 @@ function App() {
             .includes(query.toLowerCase())) &&
         (category === "all" || i.category === category) &&
         (typeFilter === "all" || (i.type || "feature") === typeFilter) &&
+        (statusFilter === "all" || i.status === statusFilter) &&
         (priority === "all" || i.priority === priority) &&
         (page !== "changelog" || i.status === "done"),
     )
@@ -259,14 +271,23 @@ function App() {
     }
   }
   return (
-    <div className={"app " + (publicMode ? "public" : "")}>
+    <div
+      className={
+        "app " +
+        (publicMode ? "public " : "") +
+        (!publicMode && sidebarCollapsed ? "sidebar-collapsed" : "")
+      }
+    >
+      <BeamsBackground intensity="subtle" />
       {!publicMode && (
-        <aside className="sidebar">
-          <a className="brand" href="/">
+        <aside className="sidebar" aria-label="Menu latéral">
+          <a className="brand" href="/" aria-label="Beam — accueil">
             <span className="brand-mark">
               <Mark />
             </span>
-            beam<span className="brand-dot">.</span>
+            <span className="brand-word">
+              beam<span className="brand-dot">.</span>
+            </span>
           </a>
           <div className="workspace">
             <span className="puls-logo">P</span>
@@ -276,46 +297,74 @@ function App() {
             </div>
           </div>
           <div className="nav-caption">ESPACE PRODUIT</div>
-          <nav>
-            <button
-              className={page === "gantt" ? "active" : ""}
-              onClick={() => setPage("gantt")}
-            >
-              <GanttChart size={17} />
-              Planification<span className="nav-count">{items.length}</span>
-            </button>
-            <button
-              className={page === "kanban" ? "active" : ""}
-              onClick={() => setPage("kanban")}
-            >
-              <LayoutGrid size={17} />
-              Kanban
-            </button>
-            <button
-              className={page === "feedback" ? "active" : ""}
-              onClick={() => setPage("feedback")}
-            >
-              <MessageSquare size={17} />
-              Suggestions
-              {suggestions.length > 0 && (
-                <span className="nav-count">{suggestions.length}</span>
-              )}
-            </button>
-            <button
-              className={page === "changelog" ? "active" : ""}
-              onClick={() => setPage("changelog")}
-            >
-              <Radio size={17} />
-              Nouveautés
-            </button>
-            <button
-              className={page === "integrations" ? "active" : ""}
-              onClick={() => setPage("integrations")}
-            >
-              <Map size={17} />
-              Intégrations
-            </button>
+          <nav aria-label="Navigation de Beam">
+            <TreeNav
+              activeHref={"#" + page}
+              items={[
+                {
+                  label: "Planification",
+                  href: "#gantt",
+                  badge: String(items.length),
+                  icon: <Planning size={17} />,
+                },
+                {
+                  label: "Kanban",
+                  href: "#kanban",
+                  icon: <LayoutGrid size={17} />,
+                },
+                {
+                  label: "Suggestions",
+                  href: "#feedback",
+                  badge: suggestions.length
+                    ? String(suggestions.length)
+                    : undefined,
+                  icon: <MessageSquare size={17} />,
+                },
+                {
+                  label: "Nouveautés",
+                  href: "#changelog",
+                  icon: <Radio size={17} />,
+                },
+                {
+                  label: "Intégrations",
+                  href: "#integrations",
+                  icon: <Integration size={17} />,
+                },
+              ]}
+              onSelect={(item, event) => {
+                event.preventDefault();
+                setPage(item.href.slice(1));
+              }}
+            />
           </nav>
+          {items.some(
+            (i) => i.type === "initiative" || i.type === "project",
+          ) && (
+            <div className="sidebar-projects">
+              <div className="nav-caption">STRUCTURE PRODUIT</div>
+              <TreeNav
+                items={hierarchyRows(items)
+                  .filter(({ item }) => item.type !== "feature")
+                  .map(({ item, depth }) => ({
+                    label: item.title,
+                    href: "#element-" + item.id,
+                    depth,
+                    icon:
+                      item.type === "initiative" ? (
+                        <Planning size={14} />
+                      ) : (
+                        <Map size={14} />
+                      ),
+                  }))}
+                onSelect={(item, event) => {
+                  event.preventDefault();
+                  setSelected(
+                    items.find((i) => "#element-" + i.id === item.href),
+                  );
+                }}
+              />
+            </div>
+          )}
           <div className="sidebar-bottom">
             <div className="portal-card">
               <span className="portal-symbol">
@@ -357,6 +406,24 @@ function App() {
       )}
       <main>
         <header className="topbar">
+          {!publicMode && (
+            <button
+              className="icon-button sidebar-toggle"
+              aria-label={
+                sidebarCollapsed
+                  ? "Déplier le menu latéral"
+                  : "Replier le menu latéral"
+              }
+              aria-expanded={!sidebarCollapsed}
+              onClick={() => setSidebarCollapsed(!sidebarCollapsed)}
+            >
+              {sidebarCollapsed ? (
+                <PanelOpen size={19} />
+              ) : (
+                <PanelClose size={19} />
+              )}
+            </button>
+          )}
           {publicMode ? (
             <a className="public-brand" href={publicPath}>
               <span className="puls-logo">{product.name[0]}</span>
@@ -379,6 +446,14 @@ function App() {
             </div>
           )}
           <div className="top-actions">
+            <button
+              className="icon-button global-search"
+              aria-label="Recherche et commandes"
+              aria-keyshortcuts="Meta+K Control+K"
+              onClick={() => setCommandOpen(true)}
+            >
+              <Search size={16} />
+            </button>
             <span className="live">
               <i />
               {pagesMode
@@ -457,7 +532,7 @@ function App() {
                 onClick={() => setPage("gantt")}
                 aria-current={page === "gantt" ? "page" : undefined}
               >
-                <GanttChart size={16} />
+                <Planning size={16} />
                 Planification
               </button>
               <button
@@ -495,17 +570,16 @@ function App() {
               </div>
               <div className="toolbar">
                 <div className="toolbar-left">
-                  <label className="search">
+                  <button
+                    className="search search-trigger"
+                    id="search"
+                    onClick={() => setCommandOpen(true)}
+                    aria-label="Rechercher un élément ou une commande"
+                  >
                     <Search size={16} />
-                    <input
-                      id="search"
-                      aria-label="Rechercher une évolution"
-                      placeholder="Rechercher un projet, une feature…"
-                      value={query}
-                      onChange={(e) => setQuery(e.target.value)}
-                    />
+                    <span>Rechercher un élément…</span>
                     <kbd>⌘ K</kbd>
-                  </label>
+                  </button>
                   <button
                     className={
                       "button filter-button " + (filter ? "selected" : "")
@@ -514,7 +588,8 @@ function App() {
                   >
                     <SlidersHorizontal size={15} />
                     Filtres
-                    {(priority !== "all" ||
+                    {(statusFilter !== "all" ||
+                      priority !== "all" ||
                       category !== "all" ||
                       typeFilter !== "all") && <span className="filter-dot" />}
                   </button>
@@ -569,6 +644,20 @@ function App() {
                     </select>
                   </label>
                   <label>
+                    État
+                    <select
+                      value={statusFilter}
+                      onChange={(e) => setStatusFilter(e.target.value)}
+                    >
+                      <option value="all">Tous les états</option>
+                      {Object.entries(ST).map(([id, value]) => (
+                        <option key={id} value={id}>
+                          {value.label}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                  <label>
                     Catégorie
                     <select
                       value={category}
@@ -599,6 +688,7 @@ function App() {
                     onClick={() => {
                       setCategory("all");
                       setTypeFilter("all");
+                      setStatusFilter("all");
                       setPriority("all");
                       setQuery("");
                     }}
@@ -838,6 +928,43 @@ function App() {
           <Check size={16} />
           {toast}
         </div>
+      )}
+      {commandOpen && (
+        <Modal
+          title="Recherche et commandes"
+          close={() => setCommandOpen(false)}
+          className="command-dialog"
+        >
+          <RoadmapSearch
+            onClose={() => setCommandOpen(false)}
+            items={items}
+            publicMode={publicMode}
+            onApply={(clauses) => {
+              for (const { command, values } of clauses) {
+                if (command.id.startsWith("open:"))
+                  setSelected(items.find((i) => i.id === command.id.slice(5)));
+                else if (command.id.startsWith("nav:"))
+                  setPage(command.id.slice(4));
+                else if (command.id === "reset") {
+                  setCategory("all");
+                  setPriority("all");
+                  setTypeFilter("all");
+                  setStatusFilter("all");
+                  setQuery("");
+                } else if (command.id.startsWith("filter:")) {
+                  if (command.id === "filter:type") setTypeFilter(values[0].id);
+                  if (command.id === "filter:status")
+                    setStatusFilter(values[0].id);
+                  if (command.id === "filter:priority")
+                    setPriority(values[0].id);
+                  setFilter(true);
+                  if (!["gantt", "kanban"].includes(page)) setPage("gantt");
+                }
+              }
+              setCommandOpen(false);
+            }}
+          />
+        </Modal>
       )}
       {selected && (
         <Modal
@@ -1320,7 +1447,7 @@ function App() {
     </div>
   );
 }
-function Modal({ title, close, children, side = false }) {
+function Modal({ title, close, children, side = false, className = "" }) {
   useEffect(() => {
     const previous = document.activeElement;
     const root = document.querySelector(".modal");
@@ -1328,7 +1455,7 @@ function Modal({ title, close, children, side = false }) {
       [...root.querySelectorAll("button,input,textarea,select,a[href]")].filter(
         (el) => !el.disabled,
       );
-    focusables()[0]?.focus();
+    (root.querySelector("[role=combobox]") || focusables()[0])?.focus();
     const handle = (e) => {
       if (e.key !== "Tab") return;
       const elements = focusables(),
@@ -1359,7 +1486,7 @@ function Modal({ title, close, children, side = false }) {
       }}
     >
       <section
-        className={"modal" + (side ? " side-panel" : "")}
+        className={"modal " + className + (side ? " side-panel" : "")}
         role="dialog"
         aria-modal="true"
         aria-label={title}
