@@ -3893,6 +3893,9 @@ footer b {
 }
 .living-topics-head {
   display: flex;
+  gap: 16px;
+  flex-wrap: wrap;
+  padding-block: 8px;
   justify-content: space-between;
   align-items: center;
   color: var(--muted);
@@ -4245,9 +4248,17 @@ footer b {
 }
 .living-topics-head > .ai-progress {
   margin-left: auto;
+  gap: 10px;
 }
 .living-topics-head .ai-progress-label {
   font-size: 11px;
+  line-height: 1.4;
+}
+.living-topics-head > button {
+  flex-shrink: 0;
+}
+.living-topics-head .ai-spinner {
+  flex-shrink: 0;
 }
 @keyframes ai-spin {
   to {
