@@ -29,13 +29,17 @@ import "./style.css";
 const pagesMode = __PAGES__;
 const publicPath = pagesMode ? import.meta.env.BASE_URL : "/roadmap";
 const ST = {
-  planned: { label: "À venir", subtitle: "La suite prend forme", icon: Circle },
+  planned: {
+    label: "À venir",
+    subtitle: "Évolutions planifiées",
+    icon: Circle,
+  },
   progress: {
     label: "En cours",
-    subtitle: "On y travaille, pour vous",
+    subtitle: "En développement",
     icon: Clock3,
   },
-  done: { label: "Livré", subtitle: "À vous de jouer", icon: CheckCheck },
+  done: { label: "Livré", subtitle: "Disponible dans PULS", icon: CheckCheck },
 };
 const PR = { high: "Haute", medium: "Normale", low: "Basse" };
 const CAT = [
@@ -57,7 +61,7 @@ const blank = {
 function Mark() {
   return (
     <svg viewBox="0 0 40 40" aria-hidden="true">
-      <path d="M5 9h10l20 11-20 11H5l20-11z" fill="currentColor" />
+      <path d="M5 28 17 8h6L11 28zm10 4L29 8h6L21 32z" fill="currentColor" />
     </svg>
   );
 }
@@ -252,9 +256,9 @@ function App() {
                 <Globe size={19} />
                 <span />
               </span>
-              <strong>La suite s’écrit ensemble.</strong>
+              <strong>Portail public</strong>
               <p>
-                Partagez votre vision avec
+                Votre roadmap, accessible à
                 <br />
                 la communauté PULS.
               </p>
@@ -328,31 +332,25 @@ function App() {
         <div className="content">
           <section className="page-heading">
             <div>
-              <div className="eyebrow">
-                <span />
-                {publicMode
-                  ? "CONSTRUISONS LA SUITE, ENSEMBLE"
-                  : "LE CAP EST DONNÉ"}
-              </div>
               <h1>
                 {page === "feedback"
-                  ? "Vos idées. Notre prochaine étape."
+                  ? "Suggestions"
                   : page === "changelog"
-                    ? "Du nouveau dans PULS."
+                    ? "Nouveautés"
                     : publicMode
-                      ? "La suite de PULS."
-                      : "Une vision. Du mouvement."}
+                      ? "Roadmap PULS"
+                      : "Roadmap"}
               </h1>
               <p>
                 {page === "feedback"
                   ? "Les retours de votre communauté, réunis au même endroit."
                   : page === "changelog"
-                    ? "Chaque amélioration, une nouvelle possibilité."
+                    ? "Les dernières évolutions disponibles dans PULS."
                     : publicMode
                       ? pagesMode
                         ? "Découvrez les priorités et les prochaines évolutions de PULS."
-                        : "Découvrez ce qui arrive. Faites entendre ce qui compte pour vous."
-                      : "Les idées deviennent des avancées. Dessinez la suite de PULS."}
+                        : "Suivez les évolutions de PULS et votez pour vos priorités."
+                      : "Planifiez les évolutions de PULS et suivez leur progression."}
               </p>
             </div>
             {!pagesMode && (
@@ -367,67 +365,6 @@ function App() {
               </button>
             )}
           </section>
-          {page === "roadmap" && (
-            <section className="overview">
-              <div className="overview-intro">
-                <span className="mini-label">NOTRE HORIZON</span>
-                <strong>
-                  Un CMS qui vous <br />
-                  laisse créer<span>.</span>
-                </strong>
-                <span className="overview-note">
-                  Moins de friction. Plus de possibilités.
-                </span>
-                <div className="beam-art">
-                  <i />
-                  <i />
-                  <i />
-                  <i />
-                  <i />
-                </div>
-              </div>
-              <div className="metrics">
-                {Object.entries(ST).map(([s, info]) => (
-                  <button
-                    key={s}
-                    className={"metric " + s}
-                    onClick={() =>
-                      document.getElementById("column-" + s)?.scrollIntoView({
-                        behavior: "smooth",
-                        block: "nearest",
-                        inline: "center",
-                      })
-                    }
-                  >
-                    <span className="metric-label">
-                      <info.icon size={15} />
-                      {info.label}
-                    </span>
-                    <strong>{String(counts[s]).padStart(2, "0")}</strong>
-                    <small>
-                      {s === "planned"
-                        ? "idées à concrétiser"
-                        : s === "progress"
-                          ? "évolutions en mouvement"
-                          : "améliorations disponibles"}
-                      <ArrowUpRight size={14} />
-                    </small>
-                    <div className="metric-line">
-                      <i
-                        style={{
-                          width:
-                            Math.max(
-                              8,
-                              (counts[s] / Math.max(items.length, 1)) * 100,
-                            ) + "%",
-                        }}
-                      />
-                    </div>
-                  </button>
-                ))}
-              </div>
-            </section>
-          )}
           {page !== "feedback" && (
             <>
               <div className="section-title">
@@ -442,9 +379,9 @@ function App() {
                 <span className="subtle">
                   {publicMode
                     ? pagesMode
-                      ? "Les priorités de PULS, en toute transparence."
+                      ? ""
                       : "Votre voix compte. Votez pour vos priorités."
-                    : "Une direction claire, à chaque étape."}
+                    : ""}
                 </span>
               </div>
               <div className="toolbar">
@@ -743,10 +680,10 @@ function App() {
               <span className="footer-mark">
                 <Mark />
               </span>
-              Les bonnes idées méritent une direction.
+              PULS · Product roadmap
             </span>
             <span>
-              Fait pour avancer. <b>beam.</b>
+              <b>beam.</b>
             </span>
           </footer>
         </div>
@@ -814,7 +751,7 @@ function App() {
       )}
       {edit && (
         <Modal
-          title={edit.id ? "Modifier l’évolution" : "Une nouvelle direction"}
+          title={edit.id ? "Modifier l’évolution" : "Nouvelle évolution"}
           close={() => setEdit(null)}
         >
           <form onSubmit={save}>
@@ -922,10 +859,10 @@ function App() {
         </Modal>
       )}
       {share && (
-        <Modal title="Une vision qui se partage." close={() => setShare(false)}>
+        <Modal title="Partager la roadmap" close={() => setShare(false)}>
           <div className="share-illustration">
             <Globe size={38} />
-            <span>La suite de PULS.</span>
+            <span>Roadmap PULS</span>
           </div>
           <p className="modal-copy">
             Un lien, toute votre roadmap. Vos utilisateurs découvrent les
@@ -969,10 +906,7 @@ function App() {
         </Modal>
       )}
       {suggest && (
-        <Modal
-          title="Et si la prochaine idée venait de vous ?"
-          close={() => setSuggest(false)}
-        >
+        <Modal title="Proposer une idée" close={() => setSuggest(false)}>
           <form
             onSubmit={async (e) => {
               e.preventDefault();
