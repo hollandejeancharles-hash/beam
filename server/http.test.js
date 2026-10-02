@@ -32,9 +32,45 @@ test("production API: authentication, private visibility, suggestions, persisten
         body: body ? JSON.stringify(body) : undefined,
       });
     assert.equal((await request("admin/items")).status, 401);
-    for (const endpoint of ["sources", "signals", "sync-runs", "product"])
+    for (const endpoint of [
+      "sources",
+      "signals",
+      "sync-runs",
+      "product",
+      "notes",
+    ])
       assert.equal((await request("admin/" + endpoint)).status, 401);
     assert.equal((await request("public/signals")).status, 404);
+    assert.equal((await request("public/notes")).status, 404);
+    assert.equal(
+      (await request("admin/notes", "POST", { text: "Privé" })).status,
+      401,
+    );
+    const noteResponse = await request(
+      "admin/notes",
+      "POST",
+      { text: "Relancer Sarah demain" },
+      true,
+    );
+    assert.equal(noteResponse.status, 201);
+    const note = await noteResponse.json();
+    assert.equal(note.kind, "followup");
+    assert.equal(
+      (
+        await request(
+          "admin/notes/" + note.id,
+          "PATCH",
+          { state: "done" },
+          true,
+        )
+      ).status,
+      200,
+    );
+    assert.equal(
+      (await (await request("admin/notes", "GET", undefined, true)).json())[0]
+        .state,
+      "done",
+    );
     assert.deepEqual(await (await request("public/product")).json(), {
       name: "PULS",
     });

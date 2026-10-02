@@ -83,3 +83,11 @@ GitHub Pages n’exécute pas Node/SQLite. Sur cette version, les boutons d’ad
 Pour actualiser le portail : modifier les évolutions dans Beam localement, exécuter `npm run export:roadmap`, relire `public/roadmap.json`, puis envoyer ce fichier sur `main`. L’export ne conserve que les champs autorisés des évolutions publiques et n’inclut jamais la base SQLite ni les données de visiteur. On peut aussi modifier directement `public/roadmap.json` sur GitHub. Une évolution rendue interne localement disparaît du portail seulement après un nouvel export et déploiement ; les données précédemment publiées restent dans l’historique Git.
 
 Pour disposer de votes, suggestions et modifications synchronisés sur le site hébergé par Pages, il faudra connecter un serveur ou une base de données externe avec authentification adaptée.
+
+### Notes privées
+
+Le bouton **Noter** reste disponible sur tous les écrans de l’espace administrateur. **⌘⇧N / Ctrl⇧N** ouvre la capture ; **⌘Entrée / CtrlEntrée** enregistre et laisse le champ prêt pour la note suivante. Fermer la capture conserve le brouillon dans ce navigateur.
+
+Le carnet **Notes** propose une vue « À suivre », le regroupement par intention, personne ou sujet, la recherche, la correction du texte et du classement, la clôture et l’archivage réversible. Les notes sont enregistrées dans SQLite et protégées par l’accès administrateur. Elles ne sont jamais incluses dans la roadmap publique ou dans l’export GitHub Pages.
+
+L’interprétation actuelle repose sur des règles locales transparentes : intentions courantes en français, noms après certains verbes, `@personne`, `#sujet`, aujourd’hui/demain, jours de semaine et dates `AAAA-MM-JJ`, rapprochement des titres de roadmap. Un jour de semaine désigne sa prochaine occurrence. Une note ambiguë reste une note ; les propositions sont modifiables. Aucun appel à un service IA, aucune notification programmée et aucune modification automatique de la roadmap. GitHub Pages reste la vitrine publique ; le carnet nécessite le serveur Beam.

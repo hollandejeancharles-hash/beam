@@ -14,6 +14,7 @@ import {
   CheckCheck,
   ArrowUpRight,
   ExternalLink,
+  FileText,
   Planning,
   Close as X,
   ChevronRight,
@@ -29,6 +30,7 @@ import { BeamsBackground } from "./components/ui/beams-background";
 import RoadmapSearch from "./components/RoadmapSearch";
 import "./ui.css";
 import Integrations, { SignalLinks } from "./components/Integrations";
+import Notes, { QuickNote } from "./components/Notes";
 import Gantt from "./components/Gantt";
 import { TYPES, progressValue, hierarchyRows } from "../shared/planning";
 import "./style.css";
@@ -84,7 +86,7 @@ function App() {
     [page, setPage] = useState(
       (publicMode
         ? ["gantt", "kanban"]
-        : ["gantt", "kanban", "feedback", "changelog", "integrations"]
+        : ["gantt", "kanban", "feedback", "changelog", "integrations", "notes"]
       ).includes(location.hash.slice(1))
         ? location.hash.slice(1)
         : "gantt",
@@ -326,6 +328,11 @@ function App() {
                   icon: <Radio size={17} />,
                 },
                 {
+                  label: "Notes",
+                  href: "#notes",
+                  icon: <FileText size={17} />,
+                },
+                {
                   label: "Intégrations",
                   href: "#integrations",
                   icon: <Integration size={17} />,
@@ -406,6 +413,9 @@ function App() {
       )}
       <main>
         <header className="topbar">
+          {!publicMode && !auth && (
+            <QuickNote api={api} items={items} onError={setToast} />
+          )}
           {!publicMode && (
             <button
               className="icon-button sidebar-toggle"
@@ -433,15 +443,17 @@ function App() {
             <div className="breadcrumbs">
               Espace produit <ChevronRight size={13} />{" "}
               <span>
-                {page === "gantt"
-                  ? "Planification"
-                  : page === "kanban"
-                    ? "Kanban"
-                    : page === "integrations"
-                      ? "Intégrations"
-                      : page === "feedback"
-                        ? "Suggestions"
-                        : "Nouveautés"}
+                {page === "notes"
+                  ? "Notes"
+                  : page === "gantt"
+                    ? "Planification"
+                    : page === "kanban"
+                      ? "Kanban"
+                      : page === "integrations"
+                        ? "Intégrations"
+                        : page === "feedback"
+                          ? "Suggestions"
+                          : "Nouveautés"}
               </span>
             </div>
           )}
@@ -479,41 +491,45 @@ function App() {
           <section className="page-heading">
             <div>
               <h1>
-                {page === "integrations"
-                  ? "Intégrations"
-                  : page === "feedback"
-                    ? "Suggestions"
-                    : page === "changelog"
-                      ? "Nouveautés"
-                      : page === "kanban"
-                        ? "Kanban"
-                        : publicMode
-                          ? "Planification " + product.name
-                          : "Planification"}
+                {page === "notes"
+                  ? "Notes"
+                  : page === "integrations"
+                    ? "Intégrations"
+                    : page === "feedback"
+                      ? "Suggestions"
+                      : page === "changelog"
+                        ? "Nouveautés"
+                        : page === "kanban"
+                          ? "Kanban"
+                          : publicMode
+                            ? "Planification " + product.name
+                            : "Planification"}
               </h1>
               <p>
-                {page === "integrations"
-                  ? "Reliez les outils de votre produit et transformez leurs informations en décisions de roadmap."
-                  : page === "feedback"
-                    ? "Les retours de votre communauté, réunis au même endroit."
-                    : page === "changelog"
-                      ? "Les dernières évolutions disponibles dans " +
-                        product.name +
-                        "."
-                      : publicMode
-                        ? pagesMode
-                          ? "Les initiatives, projets et features de " +
-                            product.name +
-                            " dans le temps."
-                          : "Suivez les évolutions de " +
-                            product.name +
-                            " et votez pour vos priorités."
-                        : page === "kanban"
-                          ? "Suivez l’exécution de vos initiatives, projets et features par statut."
-                          : "Suivez vos initiatives, projets et features sur une même chronologie."}
+                {page === "notes"
+                  ? "Capturez vos échanges. Retrouvez ce qui mérite votre attention."
+                  : page === "integrations"
+                    ? "Reliez les outils de votre produit et transformez leurs informations en décisions de roadmap."
+                    : page === "feedback"
+                      ? "Les retours de votre communauté, réunis au même endroit."
+                      : page === "changelog"
+                        ? "Les dernières évolutions disponibles dans " +
+                          product.name +
+                          "."
+                        : publicMode
+                          ? pagesMode
+                            ? "Les initiatives, projets et features de " +
+                              product.name +
+                              " dans le temps."
+                            : "Suivez les évolutions de " +
+                              product.name +
+                              " et votez pour vos priorités."
+                          : page === "kanban"
+                            ? "Suivez l’exécution de vos initiatives, projets et features par statut."
+                            : "Suivez vos initiatives, projets et features sur une même chronologie."}
               </p>
             </div>
-            {!pagesMode && page !== "integrations" && (
+            {!pagesMode && page !== "integrations" && page !== "notes" && (
               <button
                 className="button primary"
                 onClick={() =>
@@ -545,160 +561,164 @@ function App() {
               </button>
             </nav>
           )}
-          {page !== "feedback" && page !== "integrations" && (
-            <>
-              <div className="section-title">
-                <div>
-                  <h2>
-                    {page === "changelog"
-                      ? "Dernières améliorations"
-                      : page === "gantt"
-                        ? "Vue Gantt"
-                        : "Tableau de suivi"}
-                  </h2>
-                  <span className="pill">
-                    {publicMode ? "Public" : product.name}
+          {page !== "feedback" &&
+            page !== "integrations" &&
+            page !== "notes" && (
+              <>
+                <div className="section-title">
+                  <div>
+                    <h2>
+                      {page === "changelog"
+                        ? "Dernières améliorations"
+                        : page === "gantt"
+                          ? "Vue Gantt"
+                          : "Tableau de suivi"}
+                    </h2>
+                    <span className="pill">
+                      {publicMode ? "Public" : product.name}
+                    </span>
+                  </div>
+                  <span className="subtle">
+                    {publicMode
+                      ? pagesMode
+                        ? ""
+                        : "Votre voix compte. Votez pour vos priorités."
+                      : ""}
                   </span>
                 </div>
-                <span className="subtle">
-                  {publicMode
-                    ? pagesMode
-                      ? ""
-                      : "Votre voix compte. Votez pour vos priorités."
-                    : ""}
-                </span>
-              </div>
-              <div className="toolbar">
-                <div className="toolbar-left">
-                  <button
-                    className="search search-trigger"
-                    id="search"
-                    onClick={() => setCommandOpen(true)}
-                    aria-label="Rechercher un élément ou une commande"
-                  >
-                    <Search size={16} />
-                    <span>Rechercher un élément…</span>
-                    <kbd>⌘ K</kbd>
-                  </button>
-                  <button
-                    className={
-                      "button filter-button " + (filter ? "selected" : "")
-                    }
-                    onClick={() => setFilter(!filter)}
-                  >
-                    <SlidersHorizontal size={15} />
-                    Filtres
-                    {(statusFilter !== "all" ||
-                      priority !== "all" ||
-                      category !== "all" ||
-                      typeFilter !== "all") && <span className="filter-dot" />}
-                  </button>
-                </div>
-                <div className="toolbar-right">
-                  <select
-                    aria-label="Trier les évolutions"
-                    value={sort}
-                    onChange={(e) => setSort(e.target.value)}
-                  >
-                    <option value="priority">Par priorité</option>
-                    {!pagesMode && (
-                      <option value="votes">Par popularité</option>
+                <div className="toolbar">
+                  <div className="toolbar-left">
+                    <button
+                      className="search search-trigger"
+                      id="search"
+                      onClick={() => setCommandOpen(true)}
+                      aria-label="Rechercher un élément ou une commande"
+                    >
+                      <Search size={16} />
+                      <span>Rechercher un élément…</span>
+                      <kbd>⌘ K</kbd>
+                    </button>
+                    <button
+                      className={
+                        "button filter-button " + (filter ? "selected" : "")
+                      }
+                      onClick={() => setFilter(!filter)}
+                    >
+                      <SlidersHorizontal size={15} />
+                      Filtres
+                      {(statusFilter !== "all" ||
+                        priority !== "all" ||
+                        category !== "all" ||
+                        typeFilter !== "all") && (
+                        <span className="filter-dot" />
+                      )}
+                    </button>
+                  </div>
+                  <div className="toolbar-right">
+                    <select
+                      aria-label="Trier les évolutions"
+                      value={sort}
+                      onChange={(e) => setSort(e.target.value)}
+                    >
+                      <option value="priority">Par priorité</option>
+                      {!pagesMode && (
+                        <option value="votes">Par popularité</option>
+                      )}
+                    </select>
+                    {page !== "gantt" && (
+                      <div className="view-toggle">
+                        <button
+                          aria-label="Vue tableau"
+                          aria-pressed={view === "board"}
+                          className={view === "board" ? "chosen" : ""}
+                          onClick={() => setView("board")}
+                        >
+                          <LayoutGrid size={15} />
+                        </button>
+                        <button
+                          aria-label="Vue liste"
+                          aria-pressed={view === "list"}
+                          className={view === "list" ? "chosen" : ""}
+                          onClick={() => setView("list")}
+                        >
+                          <List size={17} />
+                        </button>
+                      </div>
                     )}
-                  </select>
-                  {page !== "gantt" && (
-                    <div className="view-toggle">
-                      <button
-                        aria-label="Vue tableau"
-                        aria-pressed={view === "board"}
-                        className={view === "board" ? "chosen" : ""}
-                        onClick={() => setView("board")}
-                      >
-                        <LayoutGrid size={15} />
-                      </button>
-                      <button
-                        aria-label="Vue liste"
-                        aria-pressed={view === "list"}
-                        className={view === "list" ? "chosen" : ""}
-                        onClick={() => setView("list")}
-                      >
-                        <List size={17} />
-                      </button>
-                    </div>
-                  )}
+                  </div>
                 </div>
-              </div>
-              {filter && (
-                <div className="filters">
-                  <label>
-                    Type
-                    <select
-                      value={typeFilter}
-                      onChange={(e) => setTypeFilter(e.target.value)}
+                {filter && (
+                  <div className="filters">
+                    <label>
+                      Type
+                      <select
+                        value={typeFilter}
+                        onChange={(e) => setTypeFilter(e.target.value)}
+                      >
+                        <option value="all">Tous les types</option>
+                        {Object.entries(TYPES).map(([key, label]) => (
+                          <option key={key} value={key}>
+                            {label}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+                    <label>
+                      État
+                      <select
+                        value={statusFilter}
+                        onChange={(e) => setStatusFilter(e.target.value)}
+                      >
+                        <option value="all">Tous les états</option>
+                        {Object.entries(ST).map(([id, value]) => (
+                          <option key={id} value={id}>
+                            {value.label}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+                    <label>
+                      Catégorie
+                      <select
+                        value={category}
+                        onChange={(e) => setCategory(e.target.value)}
+                      >
+                        <option value="all">Toutes les catégories</option>
+                        {CAT.map((c) => (
+                          <option key={c}>{c}</option>
+                        ))}
+                      </select>
+                    </label>
+                    <label>
+                      Priorité
+                      <select
+                        value={priority}
+                        onChange={(e) => setPriority(e.target.value)}
+                      >
+                        <option value="all">Toutes les priorités</option>
+                        {Object.entries(PR).map(([k, v]) => (
+                          <option key={k} value={k}>
+                            {v}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+                    <button
+                      className="text-button"
+                      onClick={() => {
+                        setCategory("all");
+                        setTypeFilter("all");
+                        setStatusFilter("all");
+                        setPriority("all");
+                        setQuery("");
+                      }}
                     >
-                      <option value="all">Tous les types</option>
-                      {Object.entries(TYPES).map(([key, label]) => (
-                        <option key={key} value={key}>
-                          {label}
-                        </option>
-                      ))}
-                    </select>
-                  </label>
-                  <label>
-                    État
-                    <select
-                      value={statusFilter}
-                      onChange={(e) => setStatusFilter(e.target.value)}
-                    >
-                      <option value="all">Tous les états</option>
-                      {Object.entries(ST).map(([id, value]) => (
-                        <option key={id} value={id}>
-                          {value.label}
-                        </option>
-                      ))}
-                    </select>
-                  </label>
-                  <label>
-                    Catégorie
-                    <select
-                      value={category}
-                      onChange={(e) => setCategory(e.target.value)}
-                    >
-                      <option value="all">Toutes les catégories</option>
-                      {CAT.map((c) => (
-                        <option key={c}>{c}</option>
-                      ))}
-                    </select>
-                  </label>
-                  <label>
-                    Priorité
-                    <select
-                      value={priority}
-                      onChange={(e) => setPriority(e.target.value)}
-                    >
-                      <option value="all">Toutes les priorités</option>
-                      {Object.entries(PR).map(([k, v]) => (
-                        <option key={k} value={k}>
-                          {v}
-                        </option>
-                      ))}
-                    </select>
-                  </label>
-                  <button
-                    className="text-button"
-                    onClick={() => {
-                      setCategory("all");
-                      setTypeFilter("all");
-                      setStatusFilter("all");
-                      setPriority("all");
-                      setQuery("");
-                    }}
-                  >
-                    Réinitialiser
-                  </button>
-                </div>
-              )}
-            </>
-          )}
+                      Réinitialiser
+                    </button>
+                  </div>
+                )}
+              </>
+            )}
           {loading ? (
             <div className="empty">Chargement de votre roadmap…</div>
           ) : error && !auth ? (
@@ -708,6 +728,13 @@ function App() {
                 Réessayer
               </button>
             </div>
+          ) : page === "notes" && !publicMode ? (
+            <Notes
+              api={api}
+              items={items}
+              onError={setToast}
+              onOpen={setSelected}
+            />
           ) : page === "integrations" && !publicMode ? (
             <Integrations
               api={api}

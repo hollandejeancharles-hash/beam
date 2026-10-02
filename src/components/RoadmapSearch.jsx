@@ -22,6 +22,7 @@ export default function RoadmapSearch({ items, publicMode, onApply, onClose }) {
             ["feedback", "Suggestions", MessageSquare],
             ["changelog", "Nouveautés", Radio],
             ["integrations", "Intégrations", Integration],
+            ["notes", "Notes", MessageSquare],
           ]
         : []),
     ];
