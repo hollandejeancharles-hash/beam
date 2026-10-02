@@ -59,6 +59,16 @@ test("production API: authentication, private visibility, suggestions, persisten
       (await request("admin/notes", "POST", { text: "Privé" })).status,
       401,
     );
+    assert.equal((await request("admin/profile")).status, 401);
+    const p = await request(
+      "admin/profile",
+      "PATCH",
+      { name: "Marie", role: "Product Owner", email: "marie@example.com" },
+      true,
+    );
+    assert.equal(p.status, 200);
+    assert.equal((await p.json()).name, "Marie");
+    assert.equal((await request("public/profile")).status, 404);
     const noteResponse = await request(
       "admin/notes",
       "POST",

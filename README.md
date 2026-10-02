@@ -117,3 +117,7 @@ Les données de démonstration ne sont chargées que si `BEAM_SEED=true` est exp
 Dans Notes, les **Sujets vivants** regroupent les notes (avec leur analyse et le texte des pièces jointes) et les informations importées du produit. Le moteur local regroupe les sources en arrière-plan quand l’assistant est actif, par lots bornés. Les correspondances incertaines sont indiquées **À examiner**. Une source importée répétée à la même URL ne compte qu’une fois.
 
 Ouvrir un sujet pour lire sa synthèse, ses questions et ses sources datées, puis l’associer à une feature ou préparer une nouvelle feature interne. Le menu **Organiser ce sujet** permet de renommer/fusionner ; le sélecteur de chaque source permet de la déplacer ou la retirer. Les corrections de rattachement sont conservées. Les sujets restent privés et ne changent pas les priorités ou la roadmap automatiquement.
+
+### Profil utilisateur
+
+Cliquer sur l’avatar en bas du menu pour modifier le nom affiché, le rôle, l’email facultatif et la photo. La photo est recadrée au centre, redimensionnée et stockée dans le profil privé SQLite. Sans photo, Beam affiche les initiales du nom. Ce profil local ne crée pas de compte et n’est jamais exporté vers GitHub Pages.

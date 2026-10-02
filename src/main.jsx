@@ -30,6 +30,7 @@ import { BeamsBackground } from "./components/ui/beams-background";
 import RoadmapSearch from "./components/RoadmapSearch";
 import "./ui.css";
 import Integrations, { SignalLinks } from "./components/Integrations";
+import Profile, { initials } from "./components/Profile";
 import LocalAssistant from "./components/LocalAssistant";
 import Notes, { QuickNote } from "./components/Notes";
 import Gantt from "./components/Gantt";
@@ -109,6 +110,13 @@ function App() {
     [loading, setLoading] = useState(true),
     [saving, setSaving] = useState(false),
     [auth, setAuth] = useState(false),
+    [profile, setProfile] = useState({
+      name: "",
+      role: "",
+      email: "",
+      photo: null,
+    }),
+    [profileOpen, setProfileOpen] = useState(false),
     [key, setKey] = useState(sessionStorage.getItem("beam_key") || ""),
     [sort, setSort] = useState("priority"),
     [typeFilter, setTypeFilter] = useState("all"),
@@ -160,6 +168,7 @@ function App() {
       if (!publicMode) {
         setSuggestions(await api("admin/suggestions"));
         setSignals(await api("admin/signals"));
+        setProfile(await api("admin/profile"));
       }
       setAuth(false);
     } catch (e) {
@@ -192,6 +201,7 @@ function App() {
         setSelected(null);
         setEdit(null);
         setShare(false);
+        setProfileOpen(false);
         setSuggest(false);
         setCommandOpen(false);
       }
@@ -442,11 +452,23 @@ function App() {
               </a>
             </div>
             <div className="profile">
-              <span className="avatar">JC</span>
-              <div>
-                <strong>Équipe {product.name}</strong>
-                <small>Espace administrateur</small>
-              </div>
+              <button
+                className="profile-trigger"
+                aria-label="Ouvrir mon profil"
+                onClick={() => setProfileOpen(true)}
+              >
+                <span className="avatar">
+                  {profile.photo ? (
+                    <img src={profile.photo} alt="" />
+                  ) : (
+                    initials(profile.name)
+                  )}
+                </span>
+                <span className="profile-identity">
+                  <strong>{profile.name || "Votre profil"}</strong>
+                  <small>{profile.role || "Espace administrateur"}</small>
+                </span>
+              </button>
               {key && (
                 <button
                   className="icon-button"
@@ -455,6 +477,7 @@ function App() {
                     sessionStorage.removeItem("beam_key");
                     setKey("");
                     setAuth(true);
+                    setProfileOpen(false);
                   }}
                 >
                   <LogOut size={15} />
@@ -1108,6 +1131,19 @@ function App() {
               }
               setCommandOpen(false);
             }}
+          />
+        </Modal>
+      )}
+      {profileOpen && (
+        <Modal title="Mon profil" side close={() => setProfileOpen(false)}>
+          <Profile
+            profile={profile}
+            api={api}
+            onSave={(p) => {
+              setProfile(p);
+              setToast("Profil mis à jour");
+            }}
+            onClose={() => setProfileOpen(false)}
           />
         </Modal>
       )}

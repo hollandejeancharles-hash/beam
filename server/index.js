@@ -1,3 +1,4 @@
+import { createProfile } from "./profile.js";
 import { createTopics } from "./topics.js";
 import { createAttachments } from "./attachments.js";
 import { startLocalAI } from "./ai-runtime.js";
@@ -14,6 +15,7 @@ if (prod && !process.env.BEAM_ADMIN_TOKEN)
   throw Error("BEAM_ADMIN_TOKEN est requis en production");
 mkdirSync("data", { recursive: true });
 const store = createStore(process.env.BEAM_DB || "data/beam.sqlite");
+const profile = createProfile(store);
 const integrations = createIntegrations(store);
 const notes = createNotes(store);
 const attachments = createAttachments(store);
@@ -129,6 +131,8 @@ const server = http.createServer(async (req, res) => {
       return res.end(Buffer.from(file.bytes));
     }
     if (req.method === "GET") {
+      if (url.pathname === "/api/admin/profile")
+        return send(200, profile.get());
       if (url.pathname === "/api/admin/topics") return send(200, topics.list());
       if (url.pathname === "/api/admin/ai/status")
         return send(200, await ai.status());
@@ -168,11 +172,17 @@ const server = http.createServer(async (req, res) => {
       raw += chunk;
       if (
         raw.length >
-        (url.pathname.endsWith("/attachments") && admin ? 12000000 : 20000)
+        (url.pathname.endsWith("/attachments") && admin
+          ? 12000000
+          : url.pathname === "/api/admin/profile"
+            ? 800000
+            : 20000)
       )
         return send(413, { error: "Contenu trop volumineux" });
     }
     const body = raw ? JSON.parse(raw) : {};
+    if (url.pathname === "/api/admin/profile" && req.method === "PATCH")
+      return send(200, await profile.save(body));
     if (url.pathname === "/api/admin/topics" && req.method === "POST")
       return send(201, topics.create(body.title));
     if (url.pathname === "/api/admin/topics/refresh" && req.method === "POST") {
