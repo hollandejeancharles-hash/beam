@@ -1,3 +1,4 @@
+import AIProgress from "./AIProgress";
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { Flag, Target } from "lucide-react";
 import {
@@ -464,7 +465,14 @@ export default function Gantt({
                       }
                     />
                     <button className="gantt-name" onClick={() => onOpen(item)}>
-                      <strong>{item.title}</strong>
+                      <strong>
+                        {item.title}
+                        <AIProgress
+                          itemId={item.id}
+                          scope="feature"
+                          size={16}
+                        />
+                      </strong>
                       <small>
                         {TYPES[item.type || "feature"]}
                         {item.owner ? " · " + item.owner : ""}

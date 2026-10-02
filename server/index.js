@@ -1,3 +1,4 @@
+import { activity } from "./ai-progress.js";
 import { createAssociations } from "./associations.js";
 import { createProfile } from "./profile.js";
 import { createTopics } from "./topics.js";
@@ -143,6 +144,8 @@ const server = http.createServer(async (req, res) => {
       if (url.pathname === "/api/admin/associations")
         return send(200, associations.list());
       if (url.pathname === "/api/admin/topics") return send(200, topics.list());
+      if (url.pathname === "/api/admin/ai/activity")
+        return send(200, activity());
       if (url.pathname === "/api/admin/ai/status")
         return send(200, await ai.status());
       if (url.pathname === "/api/admin/ai/reviews") return send(200, ai.list());

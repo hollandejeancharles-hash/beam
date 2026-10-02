@@ -1,3 +1,4 @@
+import AIProgress from "./AIProgress";
 import React, { useEffect, useState } from "react";
 import { Activity, RefreshCw, CheckCheck, Close, ArrowRight } from "../icons";
 import { NOTE_KINDS } from "../../shared/notes";
@@ -110,6 +111,11 @@ export default function LocalAssistant({
             {pending ? ` · ${pending} analyse(s) en cours` : ""}
           </small>
         </div>
+        <AIProgress
+          itemId={feature ? entity.id : undefined}
+          noteId={singleNote ? entity.id : undefined}
+          scope={feature ? "feature" : singleNote ? "note" : undefined}
+        />
         <button
           type="button"
           className="button"
@@ -272,11 +278,14 @@ export default function LocalAssistant({
                 <blockquote>{r.context.notes[0]?.text}</blockquote>
               )}
               {["queued", "running"].includes(r.state) ? (
-                <p role="status" className="assistant-help">
-                  {r.state === "queued"
-                    ? "En attente…"
-                    : "Lecture et préparation des propositions…"}
-                </p>
+                <div className="assistant-help" role="status">
+                  <AIProgress
+                    jobId={r.id}
+                    fallback={{ ...r, ...r.progress }}
+                    showLabel
+                    size={28}
+                  />
+                </div>
               ) : r.state === "error" ? (
                 <p role="alert" className="source-error">
                   {r.error}

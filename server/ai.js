@@ -1,3 +1,8 @@
+import {
+  beginProgress,
+  progressFor,
+  readModelResponse,
+} from "./ai-progress.js";
 import { createAttachments } from "./attachments.js";
 import { randomUUID } from "node:crypto";
 import { NOTE_KINDS, interpretNote } from "../shared/notes.js";
@@ -211,8 +216,9 @@ export function createAI(
       ...r,
       result: r.result ? JSON.parse(r.result) : null,
       context: JSON.parse(r.context),
+      progress: progressFor(r.id),
     };
-  async function request(path, body, timeout = 3000) {
+  async function request(path, body, timeout = 3000, progress) {
     const r = await fetcher(ENDPOINT + path, {
       method: body ? "POST" : "GET",
       headers: { "Content-Type": "application/json" },
@@ -226,7 +232,7 @@ export function createAI(
           ? "Ministral 3 8B n’est pas installé dans Ollama."
           : "Ollama n’a pas pu traiter la demande.",
       );
-    return r.json();
+    return progress ? readModelResponse(r, progress) : r.json();
   }
   async function status() {
     try {
@@ -317,6 +323,11 @@ export function createAI(
       null,
       AI_MODEL,
     );
+    beginProgress(review, scope, {
+      notes: context.notes.map((n) => n.id),
+      items: context.items.map((i) => i.id),
+      sources: context.signals.map((s) => "signal:" + s.id),
+    });
     void drain();
     return read(db.prepare("SELECT * FROM ai_reviews WHERE id=?").get(review));
   }
@@ -329,12 +340,22 @@ export function createAI(
       .get();
     if (!row) return;
     active = true;
+    const progress = beginProgress(row.id, row.scope, {
+      notes: JSON.parse(row.context).notes.map((n) => n.id),
+      items: [row.entity_id],
+    });
+    progress.update("Préparation des sources", 0);
     db.prepare("UPDATE ai_reviews SET state='running' WHERE id=?").run(row.id);
     try {
       let c = JSON.parse(row.context);
       if (row.scope === "feature" && discovery) {
+        progress.update("Recherche des sources pertinentes", 0, true);
         await discovery(row.entity_id);
         c = { ...contextFor(row.scope, row.entity_id), automatic: c.automatic };
+        Object.assign(progressFor(row.id), {
+          notes: c.notes.map((n) => n.id),
+          sources: c.signals.map((s) => "signal:" + s.id),
+        });
         db.prepare("UPDATE ai_reviews SET context=? WHERE id=?").run(
           JSON.stringify(c),
           row.id,
@@ -410,11 +431,12 @@ export function createAI(
       properties.signal_ids.items = ids(c.signals);
       if (!c.notes.length) properties.note_ids.maxItems = 0;
       if (!c.signals.length) properties.signal_ids.maxItems = 0;
+      progress.update("Analyse locale", 1, true);
       const r = await request(
         "/api/chat",
         {
           model: AI_MODEL,
-          stream: false,
+          stream: true,
           format,
           options: {
             temperature: 0,
@@ -440,12 +462,16 @@ export function createAI(
           ],
         },
         120000,
+        progress,
       );
+      progress.update("Vérification des résultats", 2);
       if (r.done_reason === "length")
         throw Error(
           "Réponse trop longue. Relancez l’analyse avec moins de sources.",
         );
+      if (!enabled()) throw Error("Assistant mis en pause.");
       const value = validateAnswer(JSON.parse(r.message.content), c);
+      progress.update("Enregistrement des résultats", 3);
       if (c.automatic && row.scope === "note") {
         const old = c.notes[0],
           current = notes.list().find((n) => n.id === old.id);
@@ -466,7 +492,9 @@ export function createAI(
         JSON.stringify(value),
         row.id,
       );
+      progress.finish();
     } catch (e) {
+      progress.finish(e.message);
       db.prepare("UPDATE ai_reviews SET state='error',error=? WHERE id=?").run(
         e.name === "TimeoutError"
           ? "L’analyse a dépassé deux minutes. La note reste conservée."
@@ -641,11 +669,23 @@ export function createAI(
       db.prepare("INSERT OR REPLACE INTO metadata VALUES('ai_enabled',?)").run(
         String(value),
       );
-      if (!value)
+      if (!value) {
+        for (const row of db
+          .prepare("SELECT id FROM ai_reviews WHERE state='queued'")
+          .all()) {
+          const job = progressFor(row.id);
+          if (job)
+            Object.assign(job, {
+              state: "error",
+              phase: "Assistant en pause",
+              finished: Date.now(),
+              indeterminate: false,
+            });
+        }
         db.prepare(
           "UPDATE ai_reviews SET state='error',error='Assistant désactivé' WHERE state='queued'",
         ).run();
-      else void drain();
+      } else void drain();
       return { enabled: value };
     },
     dismiss(id, index) {

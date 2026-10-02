@@ -1,3 +1,4 @@
+import AIProgress from "./AIProgress";
 import React, { useEffect, useRef, useState } from "react";
 import {
   MorphingPopover,
@@ -384,6 +385,7 @@ export default function Notes({
       <div className="notes-v2-status">
         <span className={data.status?.enabled ? "active" : ""}>●</span>{" "}
         {data.status?.enabled ? "Organisation active" : "Organisation en pause"}
+        <AIProgress scope="associations" />
         <button
           className="icon-button"
           aria-label="Réglages des notes"
@@ -508,6 +510,7 @@ export default function Notes({
       <div className="living-topics">
         <div className="living-topics-head">
           <span>Sujets vivants</span>
+          <AIProgress scope="topics" showLabel />
           <button
             className="text-button"
             onClick={async () => {
@@ -598,7 +601,7 @@ export default function Notes({
                 {pending(n)
                   ? "Proposition"
                   : ["queued", "running"].includes(latest.get(n.id)?.state)
-                    ? "Organisation…"
+                    ? ""
                     : latest.get(n.id)?.state === "error"
                       ? "À relancer"
                       : n.due
@@ -611,6 +614,14 @@ export default function Notes({
                   minute: "2-digit",
                 })}
               </time>
+              <AIProgress
+                noteId={n.id}
+                fallback={
+                  ["queued", "running"].includes(latest.get(n.id)?.state)
+                    ? { ...latest.get(n.id), ...latest.get(n.id)?.progress }
+                    : null
+                }
+              />
             </button>
           </React.Fragment>
         ))}

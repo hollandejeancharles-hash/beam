@@ -1,3 +1,4 @@
+import AIProgress, { AIActivityProvider } from "./components/AIProgress";
 import React, { useEffect, useState } from "react";
 import { createRoot } from "react-dom/client";
 import { Check, Clock3, Circle, List, Trash2, LogOut } from "lucide-react";
@@ -330,7 +331,9 @@ function App() {
     }
   }
   return (
-    <div
+    <AIActivityProvider
+      api={api}
+      enabled={!publicMode && !auth && !loading}
       className={
         "app " +
         (publicMode ? "public " : "") +
@@ -538,6 +541,7 @@ function App() {
             </div>
           )}
           <div className="top-actions">
+            {!publicMode && <AIProgress />}
             <button
               className="icon-button global-search"
               aria-label="Recherche et commandes"
@@ -1326,7 +1330,11 @@ function App() {
                 <select
                   value={edit.type || "feature"}
                   onChange={(e) =>
-                    setEdit({ ...edit, type: e.target.value, parent_id: null })
+                    setEdit({
+                      ...edit,
+                      type: e.target.value,
+                      parent_id: null,
+                    })
                   }
                 >
                   {Object.entries(TYPES).map(([key, label]) => (
@@ -1547,7 +1555,9 @@ function App() {
                     )
                       return;
                     try {
-                      await api("admin/items/" + edit.id, { method: "DELETE" });
+                      await api("admin/items/" + edit.id, {
+                        method: "DELETE",
+                      });
                       setEdit(null);
                       await refresh();
                       setToast("Évolution supprimée");
@@ -1713,7 +1723,7 @@ function App() {
           </form>
         </Modal>
       )}
-    </div>
+    </AIActivityProvider>
   );
 }
 function Modal({ title, close, children, side = false, className = "" }) {

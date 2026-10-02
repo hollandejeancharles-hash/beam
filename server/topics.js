@@ -1,3 +1,4 @@
+import { beginProgress, readModelResponse } from "./ai-progress.js";
 import { createAttachments } from "./attachments.js";
 import { randomUUID, createHash } from "node:crypto";
 import { AI_MODEL } from "./ai.js";
@@ -115,6 +116,14 @@ export function createTopics(
     if (!batch.length) return;
     running = true;
     error = null;
+    const progress = beginProgress("topics", "topics", {
+      sources: batch.map((s) => s.id),
+      notes: batch
+        .filter((s) => s.id.startsWith("note:"))
+        .map((s) => s.id.slice(5)),
+      units: batch.length,
+    });
+    progress.update("Préparation des sujets", 0);
     try {
       const previous = db
         .prepare("SELECT id,title,summary FROM topics")
@@ -162,6 +171,7 @@ export function createTopics(
         required: ["topics"],
         properties: { topics: { type: "array", items: topicSchema } },
       };
+      progress.update("Regroupement local", 1, true);
       const r = await fetcher("http://127.0.0.1:11434/api/chat", {
         method: "POST",
         redirect: "error",
@@ -169,7 +179,7 @@ export function createTopics(
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           model: AI_MODEL,
-          stream: false,
+          stream: true,
           format: schema,
           options: { temperature: 0, num_ctx: 8192, num_predict: 2800 },
           messages: [
@@ -186,7 +196,8 @@ export function createTopics(
         }),
       });
       if (!r.ok) throw Error("Le regroupement local est indisponible");
-      const response = await r.json();
+      const response = await readModelResponse(r, progress);
+      progress.update("Vérification des sujets", 2);
       const result = JSON.parse(response.message.content);
       if (!Array.isArray(result.topics) || result.topics.length > 20)
         throw Error("Regroupement invalide");
@@ -223,6 +234,7 @@ export function createTopics(
           .digest("hex") !== hash
       )
         throw Error("Les sources ont changé ; le regroupement sera relancé");
+      progress.update("Enregistrement des sujets", 3);
       db.exec("BEGIN IMMEDIATE");
       try {
         for (const s of batch)
@@ -276,7 +288,9 @@ export function createTopics(
         db.exec("ROLLBACK");
         throw e;
       }
+      progress.finish();
     } catch (e) {
+      progress.finish(e.message);
       error =
         e.name === "TimeoutError"
           ? "Regroupement interrompu : il sera relancé."

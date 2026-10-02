@@ -1,3 +1,4 @@
+import AIProgress from "./AIProgress";
 import AutoSources from "./AutoSources";
 import React, { useEffect, useState } from "react";
 
@@ -615,6 +616,7 @@ export default function Integrations({
         </>
       ) : tab === "inbox" ? (
         <>
+          <AIProgress scope="associations" showLabel />
           <div className="signal-filters">
             <label>
               <Search size={15} />
@@ -670,6 +672,7 @@ export default function Integrations({
                         {s.links.length}
                       </span>
                     )}
+                    <AIProgress sourceId={"signal:" + s.id} size={18} />
                     <ArrowUpRight size={14} />
                   </button>
                 );

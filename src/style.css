@@ -4181,3 +4181,90 @@ footer b {
   font-size: 11px;
   color: var(--muted);
 }
+
+.circular-progress {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  flex-shrink: 0;
+}
+.circular-progress-indicator {
+  display: block;
+  transform: rotate(-90deg);
+}
+.circular-progress-track {
+  color: #a3a5b526;
+}
+.circular-progress-range {
+  color: #ada1ee;
+  transition: stroke-dashoffset 0.25s ease;
+  transform-origin: center;
+}
+.circular-progress-range[data-state="indeterminate"] {
+  animation: ai-spin 1s linear infinite;
+}
+.circular-progress-value {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 11px;
+}
+.ai-progress {
+  display: inline-flex;
+  gap: 9px;
+  align-items: center;
+  flex-shrink: 0;
+  vertical-align: middle;
+}
+.ai-progress-label {
+  color: #c9c5db;
+  font-size: 12px;
+}
+.ai-progress-label small {
+  display: block;
+  margin-top: 3px;
+  color: var(--muted);
+  font-size: 10px;
+}
+.notes-v2-row > .ai-progress {
+  flex: 0 0 auto;
+  width: 20px;
+}
+.notes-v2-status > .ai-progress {
+  margin-left: 8px;
+}
+.living-topics-head > .ai-progress {
+  margin-left: auto;
+}
+.living-topics-head .ai-progress-label {
+  font-size: 11px;
+}
+@keyframes ai-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .circular-progress-range {
+    animation: none !important;
+    transition: none;
+  }
+}
+.ai-progress-pending {
+  color: #d4ccff;
+  opacity: 0.65;
+  transform-origin: center;
+  animation: ai-spin 1.4s linear infinite;
+}
+.gantt-name strong .ai-progress,
+[data-kanban-card] p .ai-progress {
+  margin-left: 8px;
+}
+@media (prefers-reduced-motion: reduce) {
+  .ai-progress-pending {
+    animation: none;
+  }
+}

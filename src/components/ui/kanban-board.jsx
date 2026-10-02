@@ -31,9 +31,11 @@ const GAP = 8;
 const LIFT_SPRING = { type: "spring", stiffness: 520, damping: 34, mass: 0.7 };
 const FLOW_SPRING = { type: "spring", stiffness: 420, damping: 36, mass: 0.9 };
 const PRIORITY_STYLES = {
-  urgent: "bg-rose-50 text-rose-600 beam-dark:bg-rose-500/12 beam-dark:text-rose-300",
+  urgent:
+    "bg-rose-50 text-rose-600 beam-dark:bg-rose-500/12 beam-dark:text-rose-300",
   high: "bg-amber-50 text-amber-700 beam-dark:bg-amber-500/12 beam-dark:text-amber-300",
-  normal: "bg-blue-50 text-blue-600 beam-dark:bg-blue-500/12 beam-dark:text-blue-300",
+  normal:
+    "bg-blue-50 text-blue-600 beam-dark:bg-blue-500/12 beam-dark:text-blue-300",
   low: "bg-neutral-100 text-neutral-500 beam-dark:bg-white/[0.07] beam-dark:text-neutral-400",
 };
 const PRIORITY_LABELS = {
@@ -757,6 +759,7 @@ function CardShell({ task, floating }) {
 
       <p className="m-0 mt-2.5 text-[14px] font-medium leading-snug tracking-[-0.005em]">
         {task.title}
+        {task.accessory}
       </p>
 
       {task.note && (

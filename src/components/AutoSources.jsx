@@ -1,3 +1,4 @@
+import AIProgress from "./AIProgress";
 import React, { useEffect, useRef, useState } from "react";
 import { Activity, RefreshCw, CheckCheck, Close, FileText } from "../icons";
 
@@ -49,6 +50,7 @@ export default function AutoSources({ item, api, onSignals, onNoteCount }) {
   return (
     <div className="auto-sources">
       <div className="auto-source-heading">
+        <AIProgress scope="associations" itemId={item.id} />
         <span>
           <Activity size={13} />
           {data?.running

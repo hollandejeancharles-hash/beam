@@ -1,3 +1,4 @@
+import AIProgress from "./AIProgress";
 import React, { useMemo } from "react";
 import { KanbanBoard } from "./ui/kanban-board";
 import { Planning } from "../icons";
@@ -31,6 +32,9 @@ export default function BeamKanban({
           .map((item) => ({
             id: item.id,
             title: item.title,
+            accessory: (
+              <AIProgress itemId={item.id} scope="feature" size={16} />
+            ),
             note: TYPES[item.type || "feature"] || "Feature",
             category: item.category,
             priority: item.priority === "medium" ? "normal" : item.priority,

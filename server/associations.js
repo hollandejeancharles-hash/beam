@@ -1,3 +1,4 @@
+import { beginProgress, readModelResponse } from "./ai-progress.js";
 import { createHash } from "node:crypto";
 import { AI_MODEL } from "./ai.js";
 
@@ -145,6 +146,15 @@ export function createAssociations(
     });
     if (!batch.length) return;
     error = null;
+    const progress = beginProgress("associations", "associations", {
+      sources: batch.map((s) => s.id),
+      notes: batch
+        .filter((s) => s.id.startsWith("note:"))
+        .map((s) => s.id.slice(5)),
+      items: itemId ? [itemId] : roadmap.map((i) => i.id),
+      units: batch.length,
+    });
+    progress.update("Préparation des sources", 0);
     try {
       const resultSchema = {
         type: "object",
@@ -175,6 +185,7 @@ export function createAssociations(
           },
         },
       };
+      progress.update("Rapprochement local", 1, true);
       const response = await fetcher("http://127.0.0.1:11434/api/chat", {
         method: "POST",
         redirect: "error",
@@ -182,7 +193,7 @@ export function createAssociations(
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           model: AI_MODEL,
-          stream: false,
+          stream: true,
           format: resultSchema,
           options: { temperature: 0, num_ctx: 16384, num_predict: 2400 },
           messages: [
@@ -199,7 +210,10 @@ export function createAssociations(
         }),
       });
       if (!response.ok) throw Error("Le rapprochement local est indisponible.");
-      const result = JSON.parse((await response.json()).message.content);
+      const result = JSON.parse(
+        (await readModelResponse(response, progress)).message.content,
+      );
+      progress.update("Vérification des liens", 2);
       if (!Array.isArray(result.matches) || result.matches.length > 36)
         throw Error("Rapprochements invalides.");
       const seen = new Set();
@@ -239,6 +253,7 @@ export function createAssociations(
         )
       )
         throw Error("Le contenu a changé ; les liens seront réévalués.");
+      progress.update("Enregistrement des liens", 3);
       db.exec("BEGIN IMMEDIATE");
       try {
         for (const s of batch) {
@@ -259,7 +274,9 @@ export function createAssociations(
         db.exec("ROLLBACK");
         throw e;
       }
+      progress.finish();
     } catch (e) {
+      progress.finish(e.message);
       error =
         e.name === "TimeoutError"
           ? "Le rapprochement a dépassé deux minutes."

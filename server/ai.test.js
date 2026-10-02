@@ -62,7 +62,7 @@ function setup() {
       return { ok: true, json: async () => ({ models: [{ name: AI_MODEL }] }) };
     const request = JSON.parse(options.body);
     assert.equal(request.model, AI_MODEL);
-    assert.equal(request.stream, false);
+    assert.equal(request.stream, true);
     assert.ok(request.format.properties);
     assert.equal(request.tools, undefined);
     return {

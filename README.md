@@ -139,3 +139,9 @@ Quand l’assistant local est actif, Beam rapproche les notes et pièces jointes
 Un lien précis est associé automatiquement, avec une justification et un extrait vérifié dans le contenu fourni. Un rapprochement ambigu apparaît dans « À vérifier » et reste exclu de l’analyse tant qu’il n’est pas confirmé. Vous pouvez confirmer ou écarter un lien dans le détail de l’élément ou de la source. Les corrections manuelles sont conservées. Le bouton « Analyser » recherche les sources pertinentes avant de préparer ses propositions : aucune association préalable n’est nécessaire. Seules les propositions de modification de roadmap attendent une validation.
 
 Le rapprochement local est borné à 12 sources par lot et à un contexte de 52 000 caractères. Une roadmap dépassant à elle seule 42 000 caractères signale sa limite plutôt que tronquer silencieusement ses éléments. Les liens, extraits et notes restent privés et sont exclus de GitHub Pages.
+
+### Progression des analyses locales
+
+Le cercle de progression accompagne les notes, à droite de l’heure, les analyses dans les panneaux, les éléments du Gantt et du Kanban, ainsi que les sources et les sujets vivants. Un repère discret dans la barre supérieure permet de suivre une analyse depuis un autre écran. Les animations respectent la réduction des mouvements.
+
+Le suivi provient du serveur et des réponses Ollama reçues en continu : préparation, analyse locale, vérification et enregistrement. Le cercle représente les étapes réellement terminées (sur quatre), pas une estimation du temps restant. Pendant la génération, un mouvement signale que le calcul continue ; le détail indique l’étape, la durée écoulée et le volume de réponse effectivement reçu. Ollama ne donne pas de pourcentage fiable avant la fin de la génération, donc Beam n’en invente pas. Les analyses interrompues conservent leur état d’erreur et ne passent jamais à 100 %. Le suivi reste privé.
