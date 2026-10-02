@@ -3156,6 +3156,20 @@ footer b {
 .feature-source-filters select {
   flex: 1;
   min-width: 140px;
+  width: 0;
+  height: 36px;
+  padding: 0 36px 0 11px;
+  background-color: #111216;
+  border: 1px solid #35353e;
+  border-radius: 5px;
+  color: #d9d9e3;
+  font-size: 12px;
+  line-height: normal;
+  cursor: pointer;
+  transition: border-color 0.15s;
+}
+.feature-source-filters select:hover {
+  border-color: #555560;
 }
 .feature-source-results {
   max-height: 300px;
