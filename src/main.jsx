@@ -614,17 +614,6 @@ function App() {
               </button>
             </nav>
           )}
-          {!publicMode && (
-            <button
-              className="button"
-              aria-pressed={showArchives}
-              onClick={() => setShowArchives(!showArchives)}
-            >
-              {showArchives
-                ? "Retour aux éléments actifs"
-                : "Voir les archives"}
-            </button>
-          )}
           {page !== "feedback" &&
             page !== "integrations" &&
             page !== "notes" && (
@@ -679,6 +668,18 @@ function App() {
                     </button>
                   </div>
                   <div className="toolbar-right">
+                    {" "}
+                    {!publicMode && (
+                      <button
+                        className="button"
+                        aria-pressed={showArchives}
+                        onClick={() => setShowArchives(!showArchives)}
+                      >
+                        {showArchives
+                          ? "Retour aux éléments actifs"
+                          : "Voir les archives"}
+                      </button>
+                    )}
                     <select
                       aria-label="Trier les évolutions"
                       value={sort}
@@ -821,6 +822,35 @@ function App() {
             />
           ) : page === "feedback" ? (
             <div className="suggestion-list">
+              <div className="toolbar suggestion-toolbar">
+                <div className="toolbar-left">
+                  <span className="subtle">
+                    {showArchives
+                      ? "Suggestions archivées"
+                      : "Suggestions reçues"}
+                  </span>
+                  <span className="pill">
+                    {
+                      suggestions.filter((s) => !!s.archived === showArchives)
+                        .length
+                    }
+                  </span>
+                </div>
+                <div className="toolbar-right">
+                  {" "}
+                  {!publicMode && (
+                    <button
+                      className="button"
+                      aria-pressed={showArchives}
+                      onClick={() => setShowArchives(!showArchives)}
+                    >
+                      {showArchives
+                        ? "Retour aux éléments actifs"
+                        : "Voir les archives"}
+                    </button>
+                  )}
+                </div>
+              </div>
               {suggestions.filter((s) => !!s.archived === showArchives)
                 .length ? (
                 suggestions
