@@ -64,27 +64,238 @@ const kinds = {
   build: { label: "Pipeline", icon: Activity },
   document: { label: "Document", icon: FileText },
 };
-export function SignalLinks({ signals, item }) {
+export function SignalLinks({ signals, item, api, onSignals }) {
+  const [expanded, setExpanded] = useState(false);
+  const [query, setQuery] = useState("");
+  const [kind, setKind] = useState("all");
+  const [sources, setSources] = useState([]);
+  const [source, setSource] = useState("all");
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+  useEffect(() => {
+    if (!expanded) return;
+    let active = true;
+    api("admin/sources")
+      .then((rows) => {
+        if (active) setSources(rows);
+      })
+      .catch((e) => {
+        if (active) setError(e.message);
+      });
+    return () => {
+      active = false;
+    };
+  }, [expanded]);
   const linked = signals.filter((s) => s.links.includes(item.id));
-  return linked.length ? (
-    <div className="linked-signals">
-      <h3>
-        Sources associées <span>{linked.length}</span>
-      </h3>
+  const available = signals.filter(
+    (s) =>
+      !s.links.includes(item.id) &&
+      (kind === "all" || s.kind === kind) &&
+      (source === "all" || s.source_id === source) &&
+      `${s.title} ${s.external_id} ${s.source_label} ${s.state} ${s.extra?.version || ""}`
+        .toLocaleLowerCase()
+        .includes(query.toLocaleLowerCase().trim()),
+  );
+  async function change(signal, remove = false) {
+    setBusy(true);
+    setError("");
+    try {
+      await api("admin/signals/" + signal.id + "/link", {
+        method: "POST",
+        body: JSON.stringify({ item_id: item.id, remove }),
+      });
+      onSignals(await api("admin/signals"));
+    } catch (e) {
+      setError(e.message);
+    } finally {
+      setBusy(false);
+    }
+  }
+  async function sync() {
+    setBusy(true);
+    setError("");
+    try {
+      const targets = sources.filter(
+        (s) =>
+          s.enabled && s.configured && (source === "all" || source === s.id),
+      );
+      const failures = [];
+      for (const s of targets) {
+        try {
+          await api("admin/sources/" + s.id + "/sync", {
+            method: "POST",
+            body: "{}",
+          });
+        } catch (e) {
+          failures.push(s.label + " : " + e.message);
+        }
+      }
+      onSignals(await api("admin/signals"));
+      setSources(await api("admin/sources"));
+      if (failures.length) setError(failures.join(" · "));
+    } catch (e) {
+      setError(e.message);
+    } finally {
+      setBusy(false);
+    }
+  }
+  return (
+    <section
+      className="linked-signals feature-sources"
+      aria-label="Sources associées"
+    >
+      <div className="feature-source-head">
+        <h3>
+          Sources associées <span>{linked.length}</span>
+        </h3>
+        <button
+          type="button"
+          className="button"
+          aria-expanded={expanded}
+          onClick={() => setExpanded(!expanded)}
+        >
+          <Plus size={14} />
+          {expanded ? "Fermer" : "Associer une information"}
+        </button>
+      </div>
+      <p className="feature-source-help">
+        Tickets, pull requests, versions et documents liés à cet élément. Ces
+        liens restent internes.
+      </p>
+      {error && (
+        <p role="alert" className="source-error">
+          {error}
+        </p>
+      )}
       {linked.map((s) => (
-        <a key={s.id} href={s.url} target="_blank" rel="noreferrer">
-          <span>
-            {kinds[s.kind]?.label} · {s.source_label}
-          </span>
-          <strong>{s.title}</strong>
-          <small>
-            {s.state}
+        <div className="feature-source-linked" key={s.id}>
+          <a href={s.url} target="_blank" rel="noreferrer">
+            <span>
+              {kinds[s.kind]?.label} · {s.source_label} · {s.state}
+            </span>
+            <strong>{s.title}</strong>
             <ArrowUpRight size={13} />
-          </small>
-        </a>
+          </a>
+          <button
+            type="button"
+            className="icon-button"
+            aria-label={"Dissocier " + s.title}
+            disabled={busy}
+            onClick={() => change(s, true)}
+          >
+            <X size={14} />
+          </button>
+        </div>
       ))}
-    </div>
-  ) : null;
+      {!linked.length && !expanded && (
+        <p className="feature-source-help">
+          Aucune information associée pour le moment.
+        </p>
+      )}
+      {expanded && (
+        <div className="feature-source-picker">
+          <label className="feature-source-search">
+            <Search size={15} />
+            <input
+              onKeyDown={(e) => {
+                if (e.key === "Enter") e.preventDefault();
+              }}
+              aria-label="Rechercher une information à associer"
+              placeholder="Titre, numéro de ticket, version…"
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+            />
+          </label>
+          <div className="feature-source-filters">
+            <select
+              aria-label="Source à associer"
+              value={source}
+              onChange={(e) => setSource(e.target.value)}
+            >
+              <option value="all">Toutes les sources</option>
+              {sources.map((s) => (
+                <option key={s.id} value={s.id}>
+                  {s.label}
+                </option>
+              ))}
+            </select>
+            <select
+              aria-label="Type à associer"
+              value={kind}
+              onChange={(e) => setKind(e.target.value)}
+            >
+              <option value="all">Tous les types</option>
+              {Object.entries(kinds).map(([id, k]) => (
+                <option key={id} value={id}>
+                  {k.label}
+                </option>
+              ))}
+            </select>
+            <button
+              type="button"
+              className="button"
+              disabled={
+                busy ||
+                !sources.some(
+                  (s) =>
+                    s.enabled &&
+                    s.configured &&
+                    (source === "all" || source === s.id),
+                )
+              }
+              onClick={sync}
+            >
+              <RefreshCw size={14} className={busy ? "spinning" : ""} />
+              {busy ? "Lecture…" : "Synchroniser"}
+            </button>
+          </div>
+          <div className="feature-source-results" aria-busy={busy}>
+            {available.map((s) => {
+              const Icon = kinds[s.kind]?.icon || FileText;
+              return (
+                <button
+                  type="button"
+                  className="feature-source-result"
+                  key={s.id}
+                  disabled={busy}
+                  onClick={() => change(s)}
+                >
+                  <Icon size={17} />
+                  <span>
+                    <small>
+                      {s.source_label} · {kinds[s.kind]?.label}
+                      {["ticket", "pr"].includes(s.kind)
+                        ? " #" + s.external_id
+                        : ""}{" "}
+                      · {s.state}
+                    </small>
+                    <strong>{s.title}</strong>
+                  </span>
+                  <Link2 size={15} />
+                </button>
+              );
+            })}
+            {!available.length && (
+              <p className="feature-source-help">
+                {signals.length
+                  ? "Aucune information à associer avec ces filtres."
+                  : "Synchronisez une source pour retrouver ses informations ici."}
+              </p>
+            )}
+          </div>
+          {!sources.length && (
+            <a href="#integrations">
+              Configurer une source dans les intégrations
+            </a>
+          )}
+          <p className="feature-source-help">
+            Les associations sont enregistrées immédiatement, indépendamment des
+            modifications de la feature.
+          </p>
+        </div>
+      )}
+    </section>
+  );
 }
 export default function Integrations({
   api,

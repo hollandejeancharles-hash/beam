@@ -1054,7 +1054,14 @@ function App() {
               </strong>
             </div>
           </div>
-          {!publicMode && <SignalLinks signals={signals} item={selected} />}
+          {!publicMode && (
+            <SignalLinks
+              signals={signals}
+              item={selected}
+              api={api}
+              onSignals={setSignals}
+            />
+          )}
           {!pagesMode && (
             <div className="modal-actions">
               {!publicMode ? (
@@ -1292,6 +1299,19 @@ function App() {
                 </label>
               ))}
             </div>
+            {edit.id ? (
+              <SignalLinks
+                signals={signals}
+                item={edit}
+                api={api}
+                onSignals={setSignals}
+              />
+            ) : (
+              <p className="feature-source-help">
+                Enregistrez cet élément pour lui associer des tickets ou
+                documents.
+              </p>
+            )}
             <div className="modal-actions">
               {edit.id && (
                 <button
