@@ -3313,3 +3313,125 @@ footer b {
     animation: none;
   }
 }
+.local-assistant {
+  margin: 18px 0;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #17181e;
+}
+.assistant-heading {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 15px;
+}
+.assistant-heading > div {
+  flex: 1;
+}
+.assistant-heading strong {
+  display: block;
+  font-size: 12px;
+}
+.assistant-heading small {
+  display: block;
+  margin-top: 4px;
+  font-size: 11px;
+  color: var(--muted);
+}
+.assistant-content {
+  padding: 0 15px 15px;
+}
+.assistant-help {
+  font-size: 12px;
+  color: var(--muted);
+  line-height: 1.65;
+  margin: 8px 0;
+}
+.assistant-controls {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  flex-wrap: wrap;
+  margin: 12px 0;
+}
+.assistant-controls select {
+  flex: 1;
+  min-width: 160px;
+  max-width: 100%;
+  height: 36px;
+  padding: 0 36px 0 11px;
+  background-color: #111216;
+  border: 1px solid #35353e;
+  border-radius: 5px;
+  color: #d9d9e3;
+  font-size: 12px;
+}
+.assistant-review {
+  border-top: 1px solid var(--line);
+  margin-top: 18px;
+  padding-top: 16px;
+}
+.assistant-review blockquote {
+  margin: 10px 0;
+  padding: 9px 12px;
+  border-left: 2px solid #6d688f;
+  color: #b7b7c3;
+  font-size: 12px;
+  line-height: 1.6;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.assistant-summary {
+  font-size: 12px;
+  line-height: 1.7;
+}
+.assistant-classification,
+.assistant-proposal {
+  margin-top: 14px;
+  padding: 14px;
+  border: 1px solid #30313b;
+  border-radius: 6px;
+  background: #1b1c24;
+}
+.assistant-classification strong {
+  font-size: 12px;
+}
+.assistant-classification p,
+.assistant-proposal p {
+  font-size: 12px;
+  line-height: 1.7;
+  margin: 8px 0;
+  overflow-wrap: anywhere;
+}
+.assistant-proposal h4 {
+  margin: 8px 0;
+  font-size: 13px;
+}
+.assistant-proposal small {
+  font-size: 11px;
+  color: var(--muted);
+}
+.assistant-diff {
+  padding: 10px;
+  border-left: 2px solid #859984;
+  background: #81917f0a;
+  margin: 12px 0;
+}
+.assistant-diff p {
+  white-space: pre-wrap;
+}
+.assistant-public-notice {
+  color: #d5be91;
+}
+.assistant-proposal summary {
+  cursor: pointer;
+  color: #aaa6d3;
+  font-size: 12px;
+}
+.assistant-proposal details a {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  margin: 10px 0;
+  font-size: 12px;
+}

@@ -12,6 +12,7 @@ import {
   Search,
   ArrowRight,
 } from "../icons";
+import LocalAssistant from "./LocalAssistant";
 import { interpretNote, NOTE_KINDS } from "../../shared/notes";
 const dateLabel = (d) =>
   new Date(d + "T12:00:00").toLocaleDateString("fr-FR", {
@@ -191,7 +192,7 @@ export function QuickNote({ api, items, onError }) {
     </MorphingPopover>
   );
 }
-export default function Notes({ api, items, onError, onOpen }) {
+export default function Notes({ api, items, onError, onOpen, onRefresh }) {
   const [notes, setNotes] = useState([]),
     [loading, setLoading] = useState(true),
     [query, setQuery] = useState(""),
@@ -289,12 +290,21 @@ export default function Notes({ api, items, onError, onOpen }) {
         <div>
           <strong>L’esprit libre, les suites au clair.</strong>
           <p>
-            Classement suggéré à partir de vos mots, sans service IA externe.
-            Corrigez-le à tout moment.
+            Capture instantanée, classement modifiable et propositions de l’IA
+            locale. Corrigez-le à tout moment.
           </p>
         </div>
         <small className="notes-capture-shortcut">Capture rapide : ⌘⇧N</small>
       </div>
+      <LocalAssistant
+        api={api}
+        items={items}
+        notes={notes}
+        onRefresh={async () => {
+          await load();
+          await onRefresh?.();
+        }}
+      />
       <div className="notes-tools">
         <nav aria-label="Vues des notes">
           {[

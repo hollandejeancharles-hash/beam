@@ -30,6 +30,7 @@ import { BeamsBackground } from "./components/ui/beams-background";
 import RoadmapSearch from "./components/RoadmapSearch";
 import "./ui.css";
 import Integrations, { SignalLinks } from "./components/Integrations";
+import LocalAssistant from "./components/LocalAssistant";
 import Notes, { QuickNote } from "./components/Notes";
 import Gantt from "./components/Gantt";
 import { TYPES, progressValue, hierarchyRows } from "../shared/planning";
@@ -132,6 +133,13 @@ function App() {
       throw Error(data.error || "Une erreur est survenue");
     }
     return data;
+  }
+  async function refreshAssistant() {
+    await refresh();
+    const latest = await api("admin/items");
+    setSelected((current) =>
+      current ? latest.find((i) => i.id === current.id) || null : null,
+    );
   }
   async function refresh() {
     try {
@@ -745,6 +753,7 @@ function App() {
               items={items}
               onError={setToast}
               onOpen={setSelected}
+              onRefresh={refresh}
             />
           ) : page === "integrations" && !publicMode ? (
             <Integrations
@@ -1071,6 +1080,15 @@ function App() {
               item={selected}
               api={api}
               onSignals={setSignals}
+            />
+          )}
+          {!publicMode && (
+            <LocalAssistant
+              api={api}
+              scope="feature"
+              entity={selected}
+              items={items}
+              onRefresh={refreshAssistant}
             />
           )}
           {!pagesMode && (

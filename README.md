@@ -103,3 +103,7 @@ L’app peut être déplacée, mais le chemin du dépôt et celui de Node sont e
 La fenêtre utilise WebKit et conserve ses données de navigation localement. Les notes et la roadmap retrouvent la même base SQLite. Fermer la fenêtre garde Beam disponible dans la barre de menus ; cliquer dans le Dock la réaffiche sans recharger la page. Les liens externes et le portail partagé ouvrent le navigateur habituel. Les raccourcis Copier/Coller et ceux de Beam restent disponibles.
 
 Un clic gauche sur l’icône Beam dans la barre de menus affiche la fenêtre existante et ouvre directement la capture rapide, avec le curseur dans le champ. Le clic droit conserve le menu (roadmap, carnet et quitter). Le clic ne change pas l’écran courant et conserve le brouillon. Si un autre dialogue est ouvert, fermez-le avant de demander la capture.
+
+### IA locale pour les notes et features
+
+L’assistant **Ministral 3 8B / Ollama** prépare des classements de notes et des propositions de roadmap avec leurs sources. Les nouvelles notes sont enregistrées sans attendre l’analyse ; aucun changement de roadmap n’est appliqué sans validation. Depuis les détails d’un élément, l’assistant analyse ses notes et sources associées. Voir [installation, confidentialité et limites](docs/local-ai.md).

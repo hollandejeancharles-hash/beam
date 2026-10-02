@@ -38,10 +38,22 @@ test("production API: authentication, private visibility, suggestions, persisten
       "sync-runs",
       "product",
       "notes",
+      "ai/status",
+      "ai/reviews",
     ])
       assert.equal((await request("admin/" + endpoint)).status, 401);
     assert.equal((await request("public/signals")).status, 404);
     assert.equal((await request("public/notes")).status, 404);
+    assert.equal((await request("public/ai/reviews")).status, 404);
+    assert.equal(
+      (await request("admin/ai/settings", "PATCH", { enabled: true })).status,
+      401,
+    );
+    assert.equal(
+      (await request("admin/ai/analyze", "POST", { scope: "note", id: "test" }))
+        .status,
+      401,
+    );
     assert.equal(
       (await request("admin/notes", "POST", { text: "Privé" })).status,
       401,

@@ -1,3 +1,5 @@
+import { startLocalAI } from "./ai-runtime.js";
+import { createAI } from "./ai.js";
 import { createNotes } from "./notes.js";
 import http from "node:http";
 import { mkdirSync, readFileSync, existsSync } from "node:fs";
@@ -12,6 +14,9 @@ mkdirSync("data", { recursive: true });
 const store = createStore(process.env.BEAM_DB || "data/beam.sqlite");
 const integrations = createIntegrations(store);
 const notes = createNotes(store);
+await startLocalAI();
+const ai = createAI(store, notes, integrations);
+ai.resume();
 if (process.env.BEAM_SEED === "true" || !prod) seed(store);
 const vite = prod
   ? null
@@ -103,6 +108,9 @@ const server = http.createServer(async (req, res) => {
       return send(401, { error: "Clé d’accès incorrecte" });
     }
     if (req.method === "GET") {
+      if (url.pathname === "/api/admin/ai/status")
+        return send(200, await ai.status());
+      if (url.pathname === "/api/admin/ai/reviews") return send(200, ai.list());
       if (url.pathname === "/api/admin/notes") return send(200, notes.list());
       if (
         url.pathname === "/api/public/product" ||
@@ -140,8 +148,32 @@ const server = http.createServer(async (req, res) => {
         return send(413, { error: "Contenu trop volumineux" });
     }
     const body = raw ? JSON.parse(raw) : {};
-    if (url.pathname === "/api/admin/notes" && req.method === "POST")
-      return send(201, notes.save(body));
+    if (url.pathname === "/api/admin/ai/settings" && req.method === "PATCH")
+      return send(200, ai.configure(body.enabled));
+    if (url.pathname === "/api/admin/ai/analyze" && req.method === "POST") {
+      if (
+        !["note", "feature"].includes(body.scope) ||
+        typeof body.id !== "string"
+      )
+        return send(400, { error: "Analyse invalide" });
+      return send(202, ai.enqueue(body.scope, body.id));
+    }
+    const review = url.pathname.match(
+      /^\/api\/admin\/ai\/reviews\/([a-f0-9-]+)\/(apply|dismiss)$/,
+    );
+    if (review && req.method === "POST")
+      return send(
+        200,
+        review[2] === "apply"
+          ? ai.apply(review[1], body.index)
+          : ai.dismiss(review[1], body.index),
+      );
+    if (url.pathname === "/api/admin/notes" && req.method === "POST") {
+      const note = notes.save(body);
+      send(201, note);
+      setImmediate(() => ai.auto(note));
+      return;
+    }
     const noteMatch = url.pathname.match(/^\/api\/admin\/notes\/([a-f0-9-]+)$/);
     if (noteMatch && req.method === "PATCH")
       return send(200, notes.save(body, noteMatch[1]));
