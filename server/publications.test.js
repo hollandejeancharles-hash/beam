@@ -9,13 +9,25 @@ function setup() {
     {
       status: async () => ({ enabled: true, available: true, installed: true }),
     },
-    async () => ({
+    async (_url, request) => ({
       ok: true,
       json: async () => ({
         message: {
           content: JSON.stringify({
-            title: "Un éditeur amélioré",
-            body: "Le nouvel éditeur est disponible.",
+            entries: [
+              {
+                section: "Nouveautés",
+                text: "Le nouvel éditeur est disponible.",
+                evidence: [
+                  {
+                    source_id: JSON.parse(
+                      JSON.parse(request.body).messages[1].content,
+                    ).sources[0].id,
+                    quote: "Nouvel éditeur",
+                  },
+                ],
+              },
+            ],
           }),
         },
       }),
@@ -109,7 +121,8 @@ test("Publications: local AI proposes text without saving or publishing it", asy
   try {
     const id = store.save(item);
     const proposal = await service.generate({ item_id: id });
-    assert.equal(proposal.title, "Un éditeur amélioré");
+    assert.equal(proposal.title, "Les dernières nouveautés");
+    assert.match(proposal.body, /Nouveautés/);
     assert.equal(service.list().length, 0);
     store.save({ ...item, status: "planned" }, id);
     await assert.rejects(service.generate({ item_id: id }), /livré/);

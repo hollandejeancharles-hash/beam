@@ -24,7 +24,11 @@ const notes = createNotes(store);
 const attachments = createAttachments(store);
 await startLocalAI();
 const ai = createAI(store, notes, integrations);
-const publications = createPublications(store, ai);
+const publications = createPublications(store, ai, fetch, {
+  notes,
+  integrations,
+  discover: () => associations.refresh({ force: true }),
+});
 const associations = createAssociations(store, notes, integrations, ai);
 ai.setDiscovery((id) => associations.refresh({ force: true, itemId: id }));
 ai.resume();
@@ -141,6 +145,8 @@ const server = http.createServer(async (req, res) => {
       return res.end(Buffer.from(file.bytes));
     }
     if (req.method === "GET") {
+      if (url.pathname === "/api/admin/publications/options")
+        return send(200, publications.options());
       if (url.pathname === "/api/admin/publications")
         return send(200, publications.list());
       if (url.pathname === "/api/public/publications")
@@ -194,7 +200,9 @@ const server = http.createServer(async (req, res) => {
           ? 12000000
           : url.pathname === "/api/admin/profile"
             ? 800000
-            : 20000)
+            : admin && url.pathname.startsWith("/api/admin/publications")
+              ? 60000
+              : 20000)
       )
         return send(413, { error: "Contenu trop volumineux" });
     }

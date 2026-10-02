@@ -148,8 +148,18 @@ Le suivi provient du serveur et des réponses Ollama reçues en continu : prépa
 
 ## Publications
 
-Dans **Communication → Publications**, créer une annonce indépendante ou préparer un brouillon depuis un élément livré (également depuis son panneau de détail). Rédaction et aperçu utilisateur permettent de relire le titre, la version facultative et le texte avant **Publier cette annonce**. L’assistant local propose un texte à partir du titre et de la description de l’élément livré ; il n’enregistre ni ne publie automatiquement sa proposition.
+Dans **Communication → Publications**, créer une annonce indépendante ou préparer un brouillon depuis un élément livré (également depuis son panneau de détail). Rédaction et aperçu utilisateur permettent de relire le titre, la version facultative et le texte avant **Publier cette annonce**. L’assistant local propose un texte à partir des livraisons et de leurs sources associées ; il n’enregistre ni ne publie automatiquement sa proposition.
 
 Les brouillons et archives restent privés dans SQLite. Une annonce associée à un élément exige qu’il soit livré, public et non archivé pour être publiée. Les annonces publiées sont des instantanés éditoriaux indépendants : changer ensuite la roadmap ne réécrit pas leur texte. **Retirer et modifier** la repasse en brouillon et la masque du portail local ; l’archivage la masque également, et la restauration la remet en brouillon. La suppression définitive demande confirmation dans le panneau.
 
 Le portail expose l’onglet **Nouveautés** avec seulement les annonces publiées (titre, texte, version et date). Pour GitHub Pages, `npm run export:roadmap` produit aussi `public/publications.json` ; les ajouts, retraits et archives nécessitent un nouvel export et déploiement. Les annonces antérieurement exportées restent dans l’historique Git. Aucun brouillon ni lien interne d’élément n’est exporté.
+
+### Release notes à partir des sources
+
+**Préparer une release note** sélectionne les éléments publics livrés qui n’ont pas encore de publication active (20 maximum) et lance la rédaction locale. Une version GitHub publiée peut être sélectionnée dans le panneau ; plusieurs éléments livrés peuvent être inclus. **Écrire manuellement** conserve la rédaction libre.
+
+L’IA croise les titres/descriptions du Gantt, les notes associées (y compris les rapprochements clairs de l’IA), le texte des documents joints et leurs synthèses actuelles, ainsi que les informations GitHub pertinentes déjà synchronisées : versions, PR fusionnées, tickets fermés et commits associés. Une version sélectionnée peut aussi fournir les PR/tickets/commits explicitement référencés dans son texte. Les éléments internes, notes archivées, signaux sans rapport, PR ouvertes et versions non publiées sont exclus. Les logs CI ne constituent pas une nouveauté client. La synchronisation GitHub reste gérée dans **Intégrations** ; sa dernière date et ses éventuelles erreurs apparaissent dans le panneau.
+
+Le brouillon est structuré en **Nouveautés**, **Améliorations** et **Corrections**, sans sections vides. Chaque phrase générée doit citer des sources existantes avec des extraits exacts et une preuve de livraison (élément public livré ou version publiée). Les notes servent à préciser le besoin et l’usage ; elles ne prouvent pas qu’une demande est disponible. Le contexte est borné à 100 sources et 52 000 caractères : un périmètre trop large demande une sélection plus courte. Si les sources changent pendant la génération, le résultat est rejeté. Cette vérification contrôle les références et citations, mais la relecture humaine reste nécessaire pour confirmer le sens et le périmètre de livraison.
+
+Les sources utilisées sont consultables dans le panneau, stockées uniquement dans le brouillon privé et exclues de l’API publique et de GitHub Pages. La régénération d’un texte existant demande de confirmer son remplacement. La publication demeure une action explicite après aperçu.

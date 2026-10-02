@@ -1333,19 +1333,21 @@ function App() {
             <div className="modal-actions">
               {!publicMode ? (
                 <>
-                  {selected.status === "done" && !selected.archived && (
-                    <button
-                      className="button"
-                      onClick={() => {
-                        setPublicationItem(selected);
-                        setSelected(null);
-                        setPage("publications");
-                      }}
-                    >
-                      <Radio size={15} />
-                      Préparer une publication
-                    </button>
-                  )}
+                  {selected.status === "done" &&
+                    selected.visibility === "public" &&
+                    !selected.archived && (
+                      <button
+                        className="button"
+                        onClick={() => {
+                          setPublicationItem(selected);
+                          setSelected(null);
+                          setPage("publications");
+                        }}
+                      >
+                        <Radio size={15} />
+                        Préparer une publication
+                      </button>
+                    )}
                   <button
                     className="button primary"
                     onClick={() => {

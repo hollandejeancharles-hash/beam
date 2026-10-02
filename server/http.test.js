@@ -35,6 +35,7 @@ test("production API: authentication, private visibility, suggestions, persisten
     assert.equal((await request("admin/items")).status, 401);
     for (const endpoint of [
       "publications",
+      "publications/options",
       "sources",
       "signals",
       "sync-runs",
@@ -45,6 +46,14 @@ test("production API: authentication, private visibility, suggestions, persisten
     ])
       assert.equal((await request("admin/" + endpoint)).status, 401);
     assert.equal((await request("public/publications")).status, 200);
+    const releaseOptions = await request(
+      "admin/publications/options",
+      "GET",
+      undefined,
+      true,
+    );
+    assert.equal(releaseOptions.status, 200);
+    assert.deepEqual(await releaseOptions.json(), { releases: [], github: [] });
     const draftResponse = await request(
       "admin/publications",
       "POST",

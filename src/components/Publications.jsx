@@ -1,6 +1,38 @@
 import React, { useEffect, useRef, useState } from "react";
-import { Radio, Plus, ArrowRight, Globe, Close, FileText } from "../icons";
+import { Radio, Plus, ArrowRight, Globe, FileText } from "../icons";
 import AIProgress from "./AIProgress";
+const sourceLabels = {
+  gantt: "Livraisons",
+  note: "Notes",
+  document: "Documents",
+  pr: "Pull requests",
+  commit: "Commits",
+  ticket: "Tickets",
+  release: "Versions GitHub",
+};
+function ReleaseBody({ text }) {
+  return (
+    <div className="release-body">
+      {text.split(/\n\n+/).map((block, index) => {
+        const lines = block.split("\n");
+        return ["Nouveautés", "Améliorations", "Corrections"].includes(
+          lines[0],
+        ) && lines.slice(1).every((l) => l.startsWith("• ")) ? (
+          <section key={index}>
+            <h3>{lines[0]}</h3>
+            <ul>
+              {lines.slice(1).map((line, i) => (
+                <li key={i}>{line.slice(2)}</li>
+              ))}
+            </ul>
+          </section>
+        ) : (
+          <p key={index}>{block}</p>
+        );
+      })}
+    </div>
+  );
+}
 const labels = {
   draft: "Brouillons",
   published: "Publiées",
@@ -27,6 +59,9 @@ export default function Publications({
   onConsumed,
 }) {
   const [rows, setRows] = useState([]),
+    [options, setOptions] = useState({ releases: [], github: [] }),
+    [sourceDirty, setSourceDirty] = useState(false),
+    [replaceText, setReplaceText] = useState(false),
     [loading, setLoading] = useState(true),
     [tab, setTab] = useState("draft"),
     [edit, setEdit] = useState(null),
@@ -50,6 +85,8 @@ export default function Publications({
           (publicMode ? "public" : "admin") + "/publications",
         );
     setRows(data);
+    if (!publicMode)
+      setOptions(await apiRef.current("admin/publications/options"));
   }
   useEffect(() => {
     let live = true;
@@ -66,17 +103,67 @@ export default function Publications({
       live = false;
     };
   }, [publicMode, pagesMode]);
-  function prepare(item) {
-    setEdit({
-      item_id: item?.id || null,
+  async function generateDraft(draft) {
+    setGenerating(true);
+    setReplaceText(false);
+    try {
+      const proposal = await apiRef.current("admin/publications/generate", {
+        method: "POST",
+        body: JSON.stringify({
+          item_ids: draft.item_ids,
+          release_id: draft.release_id || null,
+        }),
+      });
+      setEdit((current) => ({
+        ...current,
+        ...proposal,
+        item_id: proposal.item_ids[0] || null,
+        version: proposal.version || current.version,
+      }));
+      setDirty(true);
+      setSourceDirty(false);
+    } catch (e) {
+      onError(e.message);
+    } finally {
+      setGenerating(false);
+    }
+  }
+  function prepare(item, manual = false) {
+    const ids = manual
+      ? []
+      : item
+        ? [item.id]
+        : items
+            .filter(
+              (i) =>
+                !i.archived &&
+                i.status === "done" &&
+                i.visibility === "public" &&
+                !rows.some(
+                  (r) =>
+                    r.state !== "archived" &&
+                    (r.item_ids || [r.item_id]).includes(i.id),
+                ),
+            )
+            .slice(0, 20)
+            .map((i) => i.id);
+    const draft = {
+      item_id: ids[0] || null,
+      item_ids: ids,
+      release_id: null,
+      sources: [],
       title: item?.title || "",
-      body: item?.description || "",
+      body: manual ? "" : item?.description || "",
       version: "",
-    });
+    };
+    setEdit(draft);
     setPreview(false);
     setDirty(false);
+    setSourceDirty(false);
+    setReplaceText(false);
     setConfirmClose(false);
     setConfirmDelete(false);
+    if (ids.length) void generateDraft(draft);
   }
   useEffect(() => {
     if (initialItem) {
@@ -88,7 +175,11 @@ export default function Publications({
     (i) =>
       !i.archived &&
       i.status === "done" &&
-      !rows.some((r) => r.item_id === i.id && r.state !== "archived"),
+      i.visibility === "public" &&
+      !rows.some(
+        (r) =>
+          (r.item_ids || [r.item_id]).includes(i.id) && r.state !== "archived",
+      ),
   );
   const visible = publicMode ? rows : rows.filter((r) => r.state === tab);
   const linked = items.find((i) => i.id === edit?.item_id);
@@ -101,7 +192,10 @@ export default function Publications({
           title: edit.title,
           body: edit.body,
           version: edit.version,
-          item_id: edit.item_id,
+          item_id: edit.item_ids?.[0] || null,
+          item_ids: edit.item_ids || [],
+          release_id: edit.release_id || null,
+          sources: edit.sources || [],
         }),
       },
     );
@@ -170,7 +264,10 @@ export default function Publications({
           </div>
           <button className="button primary" onClick={() => prepare(null)}>
             <Plus size={16} />
-            Nouvelle publication
+            Préparer une release note
+          </button>
+          <button className="button" onClick={() => prepare(null, true)}>
+            Écrire manuellement
           </button>
         </div>
       )}
@@ -186,7 +283,7 @@ export default function Publications({
                   {row.version && <span className="pill">{row.version}</span>}
                 </div>
                 <h2>{row.title}</h2>
-                <p>{row.body}</p>
+                <ReleaseBody text={row.body} />
               </article>
             ) : (
               <button
@@ -198,6 +295,8 @@ export default function Publications({
                   setDirty(false);
                   setConfirmClose(false);
                   setConfirmDelete(false);
+                  setSourceDirty(false);
+                  setReplaceText(false);
                 }}
               >
                 <span className="publication-row-icon">
@@ -228,7 +327,7 @@ export default function Publications({
             {publicMode
               ? "Les nouveautés arrivent bientôt"
               : tab === "draft"
-                ? "De la livraison à l’annonce"
+                ? "Votre prochaine release note"
                 : tab === "published"
                   ? "Aucune annonce publiée"
                   : "Aucune publication archivée"}
@@ -239,7 +338,7 @@ export default function Publications({
                 product.name +
                 "."
               : tab === "draft"
-                ? "Préparez une annonce, expliquez ce qui change pour vos utilisateurs, puis relisez-la avant de la publier."
+                ? "L’IA croise GitHub, les notes et les éléments livrés pour expliquer simplement les nouveautés, améliorations et corrections."
                 : tab === "published"
                   ? "Vos annonces validées apparaîtront ici et dans le portail public."
                   : "Les publications retirées restent accessibles ici."}
@@ -247,7 +346,7 @@ export default function Publications({
           {!publicMode && tab === "draft" && (
             <button className="button" onClick={() => prepare(null)}>
               <Plus size={16} />
-              Créer un brouillon
+              Préparer une release note
             </button>
           )}
         </div>
@@ -321,42 +420,125 @@ export default function Publications({
           {preview || edit.state === "archived" ? (
             <article className="publication-public publication-preview">
               <div className="publication-meta">
-                {edit.published ? date(edit.published) : "Aperçu · non publié"}
+                {edit.state === "published" && edit.published
+                  ? date(edit.published)
+                  : "Aperçu · non publié"}
                 {edit.version && <span className="pill">{edit.version}</span>}
               </div>
               <h2>{edit.title || "Titre de votre annonce"}</h2>
-              <p>
-                {edit.body ||
-                  "Expliquez ici ce qui change pour vos utilisateurs."}
-              </p>
+              <ReleaseBody
+                text={
+                  edit.body ||
+                  "Expliquez ici ce qui change pour vos utilisateurs."
+                }
+              />
             </article>
           ) : (
             <div className="publication-form">
               {(edit.state || "draft") === "draft" && (
-                <label>
-                  Élément livré <span className="subtle">facultatif</span>
-                  <select
-                    disabled={busy || generating}
-                    value={edit.item_id || ""}
-                    onChange={(e) => {
-                      setEdit({ ...edit, item_id: e.target.value || null });
-                      setDirty(true);
-                    }}
-                  >
-                    <option value="">Annonce indépendante</option>
-                    {items
-                      .filter(
-                        (i) =>
-                          !i.archived &&
-                          (i.status === "done" || i.id === edit.item_id),
-                      )
-                      .map((i) => (
-                        <option key={i.id} value={i.id}>
-                          {i.title}
+                <div className="release-scope">
+                  <label>
+                    Version GitHub
+                    <select
+                      disabled={busy || generating}
+                      value={edit.release_id || ""}
+                      onChange={(e) => {
+                        const release = options.releases.find(
+                          (r) => r.id === e.target.value,
+                        );
+                        setEdit({
+                          ...edit,
+                          release_id: e.target.value || null,
+                          version: release?.version || edit.version,
+                          sources: [],
+                        });
+                        setSourceDirty(true);
+                        setDirty(true);
+                      }}
+                    >
+                      <option value="">À partir des éléments livrés</option>
+                      {options.releases.map((r) => (
+                        <option key={r.id} value={r.id}>
+                          {r.version || r.title} · {r.source}
                         </option>
                       ))}
-                  </select>
-                </label>
+                    </select>
+                  </label>
+                  <details>
+                    <summary>
+                      Éléments livrés inclus{" "}
+                      <span className="count">
+                        {edit.item_ids?.length || 0}
+                      </span>
+                    </summary>
+                    <div className="release-item-picker">
+                      {items
+                        .filter(
+                          (i) =>
+                            !i.archived &&
+                            i.status === "done" &&
+                            i.visibility === "public",
+                        )
+                        .map((i) => (
+                          <label key={i.id}>
+                            <input
+                              type="checkbox"
+                              checked={edit.item_ids?.includes(i.id) || false}
+                              disabled={
+                                busy ||
+                                generating ||
+                                (!edit.item_ids?.includes(i.id) &&
+                                  edit.item_ids?.length >= 20)
+                              }
+                              onChange={(e) => {
+                                const ids = e.target.checked
+                                  ? [...(edit.item_ids || []), i.id]
+                                  : (edit.item_ids || []).filter(
+                                      (id) => id !== i.id,
+                                    );
+                                setEdit({
+                                  ...edit,
+                                  item_ids: ids,
+                                  item_id: ids[0] || null,
+                                  sources: [],
+                                });
+                                setSourceDirty(true);
+                                setDirty(true);
+                              }}
+                            />
+                            {i.title}
+                          </label>
+                        ))}
+                      {!items.some(
+                        (i) =>
+                          !i.archived &&
+                          i.status === "done" &&
+                          i.visibility === "public",
+                      ) && (
+                        <small>
+                          Aucun élément livré et public pour le moment. Vous
+                          pouvez sélectionner une version GitHub publiée.
+                        </small>
+                      )}
+                    </div>
+                  </details>
+                  <p className="release-sync-hint">
+                    {options.github.length
+                      ? options.github
+                          .map(
+                            (s) =>
+                              s.label +
+                              " · " +
+                              (s.last_error
+                                ? "Synchronisation en erreur"
+                                : s.last_sync
+                                  ? "synchronisé le " + date(s.last_sync)
+                                  : "à synchroniser dans Intégrations"),
+                          )
+                          .join(" / ")
+                      : "Connectez GitHub dans Intégrations pour ajouter les releases, PR et commits à la rédaction."}
+                  </p>
+                </div>
               )}
               <label>
                 Titre
@@ -399,44 +581,86 @@ export default function Publications({
                   }}
                 />
               </label>
-              {linked && (edit.state || "draft") === "draft" && (
+              {(edit.state || "draft") === "draft" && (
                 <div className="publication-ai">
                   {generating ? (
                     <AIProgress
                       scope="publication"
                       showLabel
-                      fallback={{ state: "running", phase: "Rédaction locale" }}
+                      fallback={{
+                        state: "running",
+                        phase: "Préparation de la release note",
+                      }}
                     />
+                  ) : replaceText ? (
+                    <>
+                      <span>
+                        Remplacer le texte actuel par une nouvelle proposition ?
+                      </span>
+                      <button
+                        className="button"
+                        onClick={() => generateDraft(edit)}
+                      >
+                        Remplacer le texte
+                      </button>
+                      <button
+                        className="button"
+                        onClick={() => setReplaceText(false)}
+                      >
+                        Annuler
+                      </button>
+                    </>
                   ) : (
                     <button
                       className="button"
-                      disabled={busy}
-                      onClick={async () => {
-                        setGenerating(true);
-                        try {
-                          const proposal = await apiRef.current(
-                            "admin/publications/generate",
-                            {
-                              method: "POST",
-                              body: JSON.stringify({ item_id: edit.item_id }),
-                            },
-                          );
-                          setEdit((current) => ({ ...current, ...proposal }));
-                          setDirty(true);
-                        } catch (e) {
-                          onError(e.message);
-                        } finally {
-                          setGenerating(false);
-                        }
-                      }}
+                      disabled={
+                        busy || (!edit.item_ids?.length && !edit.release_id)
+                      }
+                      onClick={() =>
+                        edit.body.trim()
+                          ? setReplaceText(true)
+                          : generateDraft(edit)
+                      }
                     >
-                      Proposer un texte avec l’IA
+                      {edit.sources?.length
+                        ? "Régénérer la release note"
+                        : "Générer depuis mes sources"}
                     </button>
                   )}
-                  <small>Le texte reste un brouillon à relire.</small>
+                  <small>
+                    {sourceDirty
+                      ? "Le périmètre a changé. Régénérez le texte ou adaptez-le avant publication."
+                      : "GitHub + notes associées + livraisons · brouillon à relire"}
+                  </small>
                 </div>
               )}
             </div>
+          )}
+          {edit.sources?.length > 0 && (
+            <details className="release-sources">
+              <summary>
+                Sources utilisées{" "}
+                <span className="count">{edit.sources.length}</span>
+              </summary>
+              <p>
+                Ces informations restent internes et ne figurent pas dans
+                l’annonce publique.
+              </p>
+              {Object.entries(sourceLabels)
+                .filter(([key]) => edit.sources.some((s) => s.kind === key))
+                .map(([key, label]) => (
+                  <div key={key}>
+                    <strong>{label}</strong>
+                    <ul>
+                      {edit.sources
+                        .filter((s) => s.kind === key)
+                        .map((s) => (
+                          <li key={s.id}>{s.title}</li>
+                        ))}
+                    </ul>
+                  </div>
+                ))}
+            </details>
           )}
           {confirmClose ? (
             <div className="publication-confirm">
