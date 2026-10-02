@@ -11,6 +11,7 @@ import {
   CheckCheck,
   Search,
   ArrowRight,
+  Activity,
 } from "../icons";
 import LocalAssistant from "./LocalAssistant";
 import { interpretNote, NOTE_KINDS } from "../../shared/notes";
@@ -196,10 +197,27 @@ export default function Notes({ api, items, onError, onOpen, onRefresh }) {
   const [notes, setNotes] = useState([]),
     [loading, setLoading] = useState(true),
     [query, setQuery] = useState(""),
-    [view, setView] = useState("attention"),
-    [group, setGroup] = useState("kind"),
+    [view, setView] = useState("all"),
+    [group, setGroup] = useState("date"),
     [editing, setEditing] = useState(null),
-    [busy, setBusy] = useState(false);
+    [busy, setBusy] = useState(false),
+    [aiData, setAIData] = useState({ status: null, reviews: [] }),
+    [aiNote, setAINote] = useState(null);
+  const noteTrigger = useRef(null);
+  const latestReviews = new Map();
+  aiData.reviews
+    .filter((r) => r.scope === "note")
+    .forEach((r) => {
+      if (!latestReviews.has(r.entity_id)) latestReviews.set(r.entity_id, r);
+    });
+  const needsReview = (n) => {
+    const r = latestReviews.get(n.id);
+    return (
+      r?.state === "ready" &&
+      (!r.result.classification_applied ||
+        r.result.proposals.some((p) => !p.applied && !p.dismissed))
+    );
+  };
   async function load() {
     try {
       setNotes(await api("admin/notes"));
@@ -238,11 +256,13 @@ export default function Notes({ api, items, onError, onOpen, onRefresh }) {
       (n) =>
         (view === "attention"
           ? attention(n)
-          : view === "done"
-            ? n.state === "done"
-            : view === "archived"
-              ? n.state === "archived"
-              : n.state === "open") &&
+          : view === "review"
+            ? n.state !== "archived" && needsReview(n)
+            : view === "done"
+              ? n.state === "done"
+              : view === "archived"
+                ? n.state === "archived"
+                : n.state === "open") &&
         clean(
           [
             n.text,
@@ -254,29 +274,41 @@ export default function Notes({ api, items, onError, onOpen, onRefresh }) {
           ].join(" "),
         ).includes(clean(query)),
     )
-    .sort((a, b) => (a.due || "9999").localeCompare(b.due || "9999"));
+    .sort((a, b) =>
+      view === "attention"
+        ? (a.due || "9999").localeCompare(b.due || "9999")
+        : b.created.localeCompare(a.created),
+    );
   const groups = new Map();
   shown.forEach((n) => {
     const keys =
-      group === "people"
-        ? n.people.length
-          ? n.people
-          : ["Sans personne identifiée"]
-        : group === "topic"
-          ? [
-              ...n.tags.map((t) => "#" + t),
-              ...n.linked
-                .map((id) => items.find((i) => i.id === id)?.title)
-                .filter(Boolean),
-            ].length
+      group === "date"
+        ? [
+            new Date(n.created).toLocaleDateString("fr-FR", {
+              weekday: "long",
+              day: "numeric",
+              month: "long",
+            }),
+          ]
+        : group === "people"
+          ? n.people.length
+            ? n.people
+            : ["Sans personne identifiée"]
+          : group === "topic"
             ? [
                 ...n.tags.map((t) => "#" + t),
                 ...n.linked
                   .map((id) => items.find((i) => i.id === id)?.title)
                   .filter(Boolean),
-              ]
-            : ["Sans sujet identifié"]
-          : [NOTE_KINDS[n.kind]];
+              ].length
+              ? [
+                  ...n.tags.map((t) => "#" + t),
+                  ...n.linked
+                    .map((id) => items.find((i) => i.id === id)?.title)
+                    .filter(Boolean),
+                ]
+              : ["Sans sujet identifié"]
+            : [NOTE_KINDS[n.kind]];
     [...new Set(keys)].forEach((key) => {
       if (!groups.has(key)) groups.set(key, []);
       groups.get(key).push(n);
@@ -285,31 +317,34 @@ export default function Notes({ api, items, onError, onOpen, onRefresh }) {
   const today = new Date().toLocaleDateString("en-CA");
   return (
     <section className="notes-workspace">
-      <div className="notes-intro">
-        <FileText size={22} />
+      <div className="notes-capture-banner">
         <div>
-          <strong>L’esprit libre, les suites au clair.</strong>
+          <span className="notes-eyebrow">VOTRE CARNET PRODUIT</span>
+          <h2>Notez maintenant. Décidez ensuite.</h2>
           <p>
-            Capture instantanée, classement modifiable et propositions de l’IA
-            locale. Corrigez-le à tout moment.
+            Un échange, une idée, une suite à donner. Quelques mots suffisent.
           </p>
         </div>
-        <small className="notes-capture-shortcut">Capture rapide : ⌘⇧N</small>
+        <button
+          type="button"
+          className="button primary"
+          onClick={() => window.__beamCaptureNote?.()}
+        >
+          <Plus size={15} />
+          Prendre une note <kbd>⌘⇧N</kbd>
+        </button>
       </div>
-      <LocalAssistant
-        api={api}
-        items={items}
-        notes={notes}
-        onRefresh={async () => {
-          await load();
-          await onRefresh?.();
-        }}
-      />
+      <LocalAssistant api={api} items={items} settingsOnly onData={setAIData} />
+      <p className="notes-flow-help">
+        L’IA propose, vous décidez. Vos notes originales sont conservées ; aucun
+        changement de roadmap n’est automatique.
+      </p>
       <div className="notes-tools">
         <nav aria-label="Vues des notes">
           {[
-            ["attention", "À suivre"],
             ["all", "Toutes les notes"],
+            ["attention", "À suivre"],
+            ["review", "À valider"],
             ["done", "Terminées"],
             ["archived", "Archives"],
           ].map(([id, label]) => (
@@ -320,6 +355,15 @@ export default function Notes({ api, items, onError, onOpen, onRefresh }) {
               onClick={() => setView(id)}
             >
               {label}
+              {id === "review" && (
+                <span>
+                  {
+                    notes.filter(
+                      (n) => n.state !== "archived" && needsReview(n),
+                    ).length
+                  }
+                </span>
+              )}
               {id === "attention" && (
                 <span>{notes.filter(attention).length}</span>
               )}
@@ -340,6 +384,7 @@ export default function Notes({ api, items, onError, onOpen, onRefresh }) {
           value={group}
           onChange={(e) => setGroup(e.target.value)}
         >
+          <option value="date">Par date</option>
           <option value="kind">Par intention</option>
           <option value="people">Par personne</option>
           <option value="topic">Par sujet</option>
@@ -351,14 +396,18 @@ export default function Notes({ api, items, onError, onOpen, onRefresh }) {
         <div className="notes-empty">
           <FileText size={30} />
           <h2>
-            {notes.length
-              ? "Rien ici pour le moment."
-              : "Gardez le fil dès votre prochain échange."}
+            {view === "review"
+              ? "Tout est au clair."
+              : notes.length
+                ? "Rien ici pour le moment."
+                : "Gardez le fil dès votre prochain échange."}
           </h2>
           <p>
-            {view === "attention" && notes.length
-              ? "Aucune action ou échéance identifiée. Vos autres notes sont dans « Toutes les notes »."
-              : "Quelques mots suffisent. « Relancer Sarah demain », « Retour client #éditeur » ou une pensée libre."}
+            {view === "review"
+              ? "Les notes qui ont un classement ou une évolution à valider apparaîtront ici."
+              : view === "attention" && notes.length
+                ? "Aucune action ou échéance identifiée. Vos autres notes sont dans « Toutes les notes »."
+                : "Quelques mots suffisent. « Relancer Sarah demain », « Retour client #éditeur » ou une pensée libre."}
           </p>
         </div>
       ) : (
@@ -550,6 +599,32 @@ export default function Notes({ api, items, onError, onOpen, onRefresh }) {
                         ) : null;
                       })}
                     </div>
+                    <div className="note-intelligence-row">
+                      <button
+                        type="button"
+                        className="note-ai-action"
+                        onClick={(e) => {
+                          noteTrigger.current = e.currentTarget;
+                          setAINote(n);
+                        }}
+                      >
+                        <Activity size={14} />
+                        {(() => {
+                          const r = latestReviews.get(n.id);
+                          if (["queued", "running"].includes(r?.state))
+                            return "Analyse en cours";
+                          if (r?.state === "error") return "Analyse à relancer";
+                          if (needsReview(n)) return "Voir les propositions";
+                          if (r?.state === "ready")
+                            return "Propositions traitées";
+                          return "Analyser cette note";
+                        })()}
+                        <ArrowRight size={13} />
+                      </button>
+                      {needsReview(n) && (
+                        <span className="note-review-badge">À valider</span>
+                      )}
+                    </div>
                     <div className="note-actions">
                       <button
                         className="text-button"
@@ -592,6 +667,100 @@ export default function Notes({ api, items, onError, onOpen, onRefresh }) {
           </section>
         ))
       )}
+      {aiNote && (
+        <NoteProposalPanel
+          note={notes.find((n) => n.id === aiNote.id) || aiNote}
+          close={() => {
+            setAINote(null);
+            requestAnimationFrame(() => noteTrigger.current?.focus());
+          }}
+        >
+          <LocalAssistant
+            key={aiNote.id}
+            api={api}
+            scope="note"
+            entity={aiNote}
+            items={items}
+            onData={setAIData}
+            onRefresh={async () => {
+              await load();
+              await onRefresh?.();
+            }}
+          />
+        </NoteProposalPanel>
+      )}
     </section>
+  );
+}
+
+function NoteProposalPanel({ note, close, children }) {
+  const panel = useRef(null),
+    closeRef = useRef(close);
+  closeRef.current = close;
+  useEffect(() => {
+    const previous = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    panel.current?.querySelector("button")?.focus();
+    const key = (e) => {
+      if (e.key === "Escape") {
+        e.preventDefault();
+        e.stopPropagation();
+        closeRef.current();
+      }
+      if (e.key === "Tab") {
+        const elements = [
+          ...panel.current.querySelectorAll(
+            "button:not(:disabled),a[href],select,input,textarea,summary",
+          ),
+        ];
+        const first = elements[0],
+          last = elements.at(-1);
+        if (e.shiftKey && document.activeElement === first) {
+          e.preventDefault();
+          last?.focus();
+        } else if (!e.shiftKey && document.activeElement === last) {
+          e.preventDefault();
+          first?.focus();
+        }
+      }
+    };
+    document.addEventListener("keydown", key, true);
+    return () => {
+      document.body.style.overflow = previous;
+      document.removeEventListener("keydown", key, true);
+    };
+  }, []);
+  return (
+    <div className="modal-backdrop panel-backdrop" onClick={close}>
+      <div
+        className="modal side-panel note-proposal-panel"
+        ref={panel}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="note-proposal-title"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="modal-head">
+          <h2 id="note-proposal-title">Donner suite à cette note</h2>
+          <button
+            type="button"
+            className="icon-button"
+            aria-label="Fermer les propositions"
+            onClick={close}
+          >
+            <Close size={17} />
+          </button>
+        </div>
+        <div className="note-proposal-original">
+          <small>VOTRE NOTE · TEXTE ORIGINAL</small>
+          <p>{note.text}</p>
+        </div>
+        <p className="assistant-help">
+          Vérifiez le classement, puis les évolutions proposées. Vous pouvez
+          appliquer chaque proposition séparément ou l’ignorer.
+        </p>
+        {children}
+      </div>
+    </div>
   );
 }

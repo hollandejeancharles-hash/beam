@@ -3435,3 +3435,138 @@ footer b {
   margin: 10px 0;
   font-size: 12px;
 }
+.notes-capture-banner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 24px;
+  padding: 24px 0 20px;
+}
+.notes-eyebrow {
+  font-size: 10px;
+  letter-spacing: 1.3px;
+  color: #8c899f;
+}
+.notes-capture-banner h2 {
+  font-size: 21px;
+  letter-spacing: -0.6px;
+  margin: 8px 0;
+  font-weight: 550;
+}
+.notes-capture-banner p,
+.notes-flow-help {
+  font-size: 12px;
+  color: var(--muted);
+  line-height: 1.7;
+}
+.notes-capture-banner kbd {
+  font-family: inherit;
+  font-size: 10px;
+  opacity: 0.65;
+  margin-left: 8px;
+}
+.notes-workspace .assistant-settings {
+  margin: 0;
+  border-radius: 6px;
+  background: #17181b;
+}
+.assistant-settings .assistant-heading {
+  padding: 11px 14px;
+}
+.assistant-settings .assistant-heading > div {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  flex-wrap: wrap;
+}
+.assistant-settings .assistant-heading small {
+  margin: 0;
+}
+.notes-flow-help {
+  margin: 10px 0 24px;
+  font-size: 11px;
+}
+.note-intelligence-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  border-top: 1px solid var(--line);
+  padding-top: 12px;
+  margin-top: 14px;
+}
+.note-ai-action {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: transparent;
+  border: 0;
+  padding: 5px 0;
+  color: #b9b4dc;
+  font-size: 12px;
+}
+.note-ai-action:hover {
+  color: #dedaff;
+}
+.note-review-badge {
+  font-size: 10px;
+  color: #c3bede;
+  background: #7770e518;
+  border: 1px solid #7770e530;
+  padding: 4px 7px;
+  border-radius: 4px;
+}
+.note-proposal-original {
+  border-left: 2px solid #817aaa;
+  background: #17181d;
+  padding: 15px;
+  margin: 20px 0;
+  border-radius: 0 5px 5px 0;
+}
+.note-proposal-original small {
+  font-size: 10px;
+  color: #92909f;
+  letter-spacing: 0.7px;
+}
+.note-proposal-original p {
+  font-size: 14px;
+  line-height: 1.8;
+  margin-top: 9px;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.assistant-note-detail {
+  border: 0;
+  background: transparent;
+  margin: 20px 0;
+}
+.assistant-note-detail .assistant-heading {
+  padding: 0 0 12px;
+}
+.assistant-note-detail .assistant-heading > button {
+  display: none;
+}
+.assistant-note-detail .assistant-content {
+  padding: 0;
+}
+@media (max-width: 700px) {
+  .notes-capture-banner {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 14px;
+  }
+  .notes-capture-banner h2 {
+    font-size: 19px;
+  }
+  .assistant-settings .assistant-heading > div {
+    gap: 4px;
+    flex-direction: column;
+    align-items: flex-start;
+  }
+  .notes-tools {
+    gap: 12px;
+  }
+  .note-intelligence-row {
+    flex-wrap: wrap;
+  }
+}

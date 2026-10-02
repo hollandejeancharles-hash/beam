@@ -9,14 +9,17 @@ export default function LocalAssistant({
   items,
   notes = [],
   onRefresh,
+  settingsOnly = false,
+  onData,
 }) {
   const [status, setStatus] = useState(null),
     [reviews, setReviews] = useState([]),
-    [expanded, setExpanded] = useState(false),
+    [expanded, setExpanded] = useState(scope === "note"),
     [busy, setBusy] = useState(false),
     [error, setError] = useState(""),
     [noteId, setNoteId] = useState("");
   const feature = scope === "feature";
+  const singleNote = scope === "note";
   async function load() {
     try {
       const [s, r] = await Promise.all([
@@ -25,6 +28,7 @@ export default function LocalAssistant({
       ]);
       setStatus(s);
       setReviews(r);
+      onData?.({ status: s, reviews: r });
     } catch (e) {
       setError(e.message);
     }
@@ -60,21 +64,36 @@ export default function LocalAssistant({
     .filter((r) =>
       feature
         ? r.scope === "feature" && r.entity_id === entity.id
-        : r.scope === "note",
+        : r.scope === "note" && (!singleNote || r.entity_id === entity.id),
     )
     .forEach((r) => {
       if (!latest.has(r.entity_id)) latest.set(r.entity_id, r);
     });
-  const shown = [...latest.values()].slice(0, feature ? 1 : 12);
+  const shown = settingsOnly
+    ? []
+    : [...latest.values()].slice(0, feature || singleNote ? 1 : 12);
   const pending = shown.filter((r) =>
     ["queued", "running"].includes(r.state),
   ).length;
   return (
-    <section className="local-assistant" aria-label="Assistant local">
+    <section
+      className={
+        "local-assistant" +
+        (settingsOnly ? " assistant-settings" : "") +
+        (singleNote ? " assistant-note-detail" : "")
+      }
+      aria-label="Assistant local"
+    >
       <div className="assistant-heading">
         <Activity size={17} />
         <div>
-          <strong>Assistant local</strong>
+          <strong>
+            {settingsOnly
+              ? "Classement assisté"
+              : singleNote
+                ? "Propositions pour cette note"
+                : "Assistant local"}
+          </strong>
           <small>
             {!status
               ? "Connexion…"
@@ -83,8 +102,8 @@ export default function LocalAssistant({
                 : !status.installed
                   ? "Modèle à installer"
                   : status.enabled
-                    ? "Ministral 3 · Sur ce Mac"
-                    : "Ministral 3 · En pause"}
+                    ? "Actif · Sur ce Mac"
+                    : "En pause · Sur ce Mac"}
             {pending ? ` · ${pending} analyse(s) en cours` : ""}
           </small>
         </div>
@@ -96,18 +115,22 @@ export default function LocalAssistant({
         >
           {expanded
             ? "Refermer"
-            : feature
-              ? "Proposer des mises à jour"
-              : "Propositions"}
+            : settingsOnly
+              ? "Réglages"
+              : feature
+                ? "Proposer des mises à jour"
+                : "Propositions"}
         </button>
       </div>
       {expanded && (
         <div className="assistant-content">
-          <p className="assistant-help">
-            Vos notes et les sources associées sont analysées sur ce Mac. Chaque
-            changement de roadmap attend votre validation.
-          </p>
-          {status && (
+          {!singleNote && (
+            <p className="assistant-help">
+              Vos notes et les sources associées sont analysées sur ce Mac.
+              Chaque changement de roadmap attend votre validation.
+            </p>
+          )}
+          {status && !singleNote && (
             <div className="assistant-controls">
               <button
                 type="button"
@@ -149,54 +172,58 @@ export default function LocalAssistant({
               locale.
             </p>
           )}
-          <div className="assistant-controls">
-            {!feature && (
-              <select
-                aria-label="Note à analyser"
-                value={noteId}
-                onChange={(e) => setNoteId(e.target.value)}
-              >
-                <option value="">Choisir une note existante…</option>
-                {notes
-                  .filter((n) => n.state !== "archived")
-                  .map((n) => (
-                    <option key={n.id} value={n.id}>
-                      {n.text.slice(0, 85)}
-                    </option>
-                  ))}
-              </select>
-            )}
-            <button
-              type="button"
-              className="button"
-              disabled={
-                busy ||
-                pending > 0 ||
-                !status?.enabled ||
-                !status?.installed ||
-                (!feature && !noteId)
-              }
-              onClick={() =>
-                action(() =>
-                  api("admin/ai/analyze", {
-                    method: "POST",
-                    body: JSON.stringify({
-                      scope: feature ? "feature" : "note",
-                      id: feature ? entity.id : noteId,
+          {!settingsOnly && (
+            <div className="assistant-controls">
+              {!feature && !singleNote && (
+                <select
+                  aria-label="Note à analyser"
+                  value={noteId}
+                  onChange={(e) => setNoteId(e.target.value)}
+                >
+                  <option value="">Choisir une note existante…</option>
+                  {notes
+                    .filter((n) => n.state !== "archived")
+                    .map((n) => (
+                      <option key={n.id} value={n.id}>
+                        {n.text.slice(0, 85)}
+                      </option>
+                    ))}
+                </select>
+              )}
+              <button
+                type="button"
+                className="button"
+                disabled={
+                  busy ||
+                  pending > 0 ||
+                  !status?.enabled ||
+                  !status?.installed ||
+                  (!feature && !singleNote && !noteId)
+                }
+                onClick={() =>
+                  action(() =>
+                    api("admin/ai/analyze", {
+                      method: "POST",
+                      body: JSON.stringify({
+                        scope: feature ? "feature" : "note",
+                        id: feature || singleNote ? entity.id : noteId,
+                      }),
                     }),
-                  }),
-                )
-              }
-            >
-              <Activity size={14} />
-              {pending
-                ? "Analyse en cours…"
-                : feature
-                  ? "Analyser les notes et sources"
-                  : "Analyser cette note"}
-            </button>
-          </div>
-          {!feature && status?.enabled && (
+                  )
+                }
+              >
+                <Activity size={14} />
+                {pending
+                  ? "Analyse en cours…"
+                  : feature
+                    ? "Analyser les notes et sources"
+                    : shown.length
+                      ? "Relancer l’analyse"
+                      : "Analyser cette note"}
+              </button>
+            </div>
+          )}
+          {!feature && !singleNote && status?.enabled && (
             <p className="assistant-help">
               Les nouvelles notes sont analysées automatiquement après leur
               sauvegarde. Leur classement reste inchangé jusqu’à votre
@@ -208,16 +235,20 @@ export default function LocalAssistant({
               {error}
             </p>
           )}
-          {!shown.length && (
+          {!settingsOnly && !shown.length && (
             <p className="assistant-help">
               {feature
                 ? "Associez une note ou un ticket à cette feature, puis lancez l’analyse."
-                : "Les propositions de vos notes apparaîtront ici."}
+                : singleNote
+                  ? "Lancez l’analyse pour suggérer un classement et identifier les suites à donner à cette note."
+                  : "Les propositions de vos notes apparaîtront ici."}
             </p>
           )}
           {shown.map((r) => (
             <article className="assistant-review" key={r.id}>
-              {!feature && <blockquote>{r.context.notes[0]?.text}</blockquote>}
+              {!feature && !singleNote && (
+                <blockquote>{r.context.notes[0]?.text}</blockquote>
+              )}
               {["queued", "running"].includes(r.state) ? (
                 <p role="status" className="assistant-help">
                   {r.state === "queued"

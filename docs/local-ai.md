@@ -4,8 +4,9 @@ Beam utilise **Ministral 3 8B Instruct** via l’API locale d’Ollama. Les nouv
 
 ## Utilisation
 
-- Ouvrir **Notes → Propositions**, puis activer l’assistant.
-- Les nouvelles notes sont analysées automatiquement. Pour une note existante, la sélectionner puis cliquer sur **Analyser cette note**.
+- Ouvrir **Notes → Réglages**, puis activer l’assistant.
+- Les nouvelles notes sont analysées automatiquement. Pour une note existante, cliquer sur **Analyser cette note** dans sa carte, puis lancer l’analyse dans son panneau.
+- L’onglet **À valider** rassemble les notes ayant des propositions à examiner. **Voir les propositions** ouvre un panneau dédié à la note.
 - Vérifier le classement, les changements proposés et leurs sources avant d’appliquer. Le texte original reste conservé.
 - Depuis les **détails d’une feature → Assistant local**, analyser les notes et informations source qui lui sont explicitement associées.
 - Une nouvelle feature est toujours créée en interne. Un ajout à la description d’une feature publique fait l’objet d’une indication de visibilité avant validation. Les dates, statuts et publications ne sont jamais modifiés par l’assistant.
