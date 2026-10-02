@@ -3218,3 +3218,98 @@ footer b {
 .modal .feature-source-search input {
   margin-top: 0;
 }
+
+/* Beam: one brief light pass at launch, without looping or layout movement. */
+.brand-mark {
+  position: relative;
+  flex-shrink: 0;
+}
+.brand-mark::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: linear-gradient(
+    105deg,
+    transparent 38%,
+    #d7d4ff 46%,
+    #ffffff 50%,
+    #d7d4ff 54%,
+    transparent 62%
+  );
+  background-size: 300% 100%;
+  background-position: 100% 0;
+  mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 40 40'%3E%3Cpath d='M5 28 17 8h6L11 28zm10 4L29 8h6L21 32z'/%3E%3C/svg%3E")
+    center / contain no-repeat;
+  animation: beam-light-pass 650ms 100ms both;
+}
+.brand-mark > svg {
+  animation: beam-mark-awake 500ms ease-out both;
+}
+.brand-name {
+  animation: beam-name-reveal 450ms 300ms cubic-bezier(0.2, 0.7, 0.2, 1) both;
+}
+.brand-dot {
+  animation: beam-dot-awake 350ms 650ms ease-out both;
+}
+@keyframes beam-light-pass {
+  0% {
+    background-position: 100% 0;
+    opacity: 0;
+  }
+  15% {
+    opacity: 1;
+  }
+  80% {
+    opacity: 1;
+  }
+  100% {
+    background-position: 0% 0;
+    opacity: 0;
+  }
+}
+@keyframes beam-mark-awake {
+  from {
+    opacity: 0.35;
+  }
+  to {
+    opacity: 1;
+  }
+}
+@keyframes beam-name-reveal {
+  from {
+    clip-path: inset(0 100% 0 0);
+    opacity: 0.2;
+  }
+  to {
+    clip-path: inset(0 0 0 0);
+    opacity: 1;
+  }
+}
+@keyframes beam-dot-awake {
+  0% {
+    opacity: 0;
+    text-shadow: none;
+  }
+  50% {
+    opacity: 1;
+    color: #dedbff;
+    text-shadow: 0 0 8px #b2adff80;
+  }
+  100% {
+    opacity: 1;
+    color: #84808f;
+    text-shadow: none;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .brand-mark::after {
+    display: none;
+    animation: none;
+  }
+  .brand-mark > svg,
+  .brand-name,
+  .brand-dot {
+    animation: none;
+  }
+}

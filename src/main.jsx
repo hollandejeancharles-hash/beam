@@ -288,7 +288,8 @@ function App() {
               <Mark />
             </span>
             <span className="brand-word">
-              beam<span className="brand-dot">.</span>
+              <span className="brand-name">beam</span>
+              <span className="brand-dot">.</span>
             </span>
           </a>
           <div className="workspace">
