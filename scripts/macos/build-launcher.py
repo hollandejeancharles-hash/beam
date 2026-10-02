@@ -37,4 +37,9 @@ with tempfile.TemporaryDirectory(prefix='beam-mac-') as scratch:
     subprocess.run(['codesign', '--verify', '--deep', '--strict', str(app)], check=True)
     output.parent.mkdir(parents=True, exist_ok=True)
     shutil.copytree(app, output, dirs_exist_ok=True)
+    # Finder can retain metadata from the previous generated bundle.
+    for path in [output, *output.rglob('*')]:
+        for attribute in ['com.apple.FinderInfo', 'com.apple.ResourceFork']:
+            subprocess.run(['xattr', '-d', attribute, str(path)], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    subprocess.run(['codesign', '--verify', '--deep', '--strict', str(output)], check=True)
 print(output)
