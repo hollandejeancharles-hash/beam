@@ -1,3 +1,4 @@
+import { createTopics } from "./topics.js";
 import { createAttachments } from "./attachments.js";
 import { startLocalAI } from "./ai-runtime.js";
 import { createAI } from "./ai.js";
@@ -19,6 +20,9 @@ const attachments = createAttachments(store);
 await startLocalAI();
 const ai = createAI(store, notes, integrations);
 ai.resume();
+const topics = createTopics(store, notes, integrations, ai);
+setTimeout(() => void topics.refresh(), 5000).unref();
+setInterval(() => void topics.refresh(), 60000).unref();
 if (process.env.BEAM_SEED === "true") seed(store);
 const vite = prod
   ? null
@@ -125,6 +129,7 @@ const server = http.createServer(async (req, res) => {
       return res.end(Buffer.from(file.bytes));
     }
     if (req.method === "GET") {
+      if (url.pathname === "/api/admin/topics") return send(200, topics.list());
       if (url.pathname === "/api/admin/ai/status")
         return send(200, await ai.status());
       if (url.pathname === "/api/admin/ai/reviews") return send(200, ai.list());
@@ -168,6 +173,25 @@ const server = http.createServer(async (req, res) => {
         return send(413, { error: "Contenu trop volumineux" });
     }
     const body = raw ? JSON.parse(raw) : {};
+    if (url.pathname === "/api/admin/topics" && req.method === "POST")
+      return send(201, topics.create(body.title));
+    if (url.pathname === "/api/admin/topics/refresh" && req.method === "POST") {
+      void topics.refresh();
+      return send(202, { ok: true });
+    }
+    if (url.pathname === "/api/admin/topics/move" && req.method === "POST") {
+      topics.move(body.source, body.topic_id);
+      return send(200, topics.list());
+    }
+    const topicMatch = url.pathname.match(
+      /^\/api\/admin\/topics\/([a-f0-9-]+)$/,
+    );
+    if (topicMatch && req.method === "PATCH") {
+      if (body.title !== undefined) topics.rename(topicMatch[1], body.title);
+      if (body.item_id !== undefined) topics.link(topicMatch[1], body.item_id);
+      if (body.merge_into) topics.merge(topicMatch[1], body.merge_into);
+      return send(200, topics.list());
+    }
     if (url.pathname === "/api/admin/ai/settings" && req.method === "PATCH")
       return send(200, ai.configure(body.enabled));
     if (url.pathname === "/api/admin/ai/analyze" && req.method === "POST") {

@@ -800,6 +800,9 @@ function App() {
               onError={setToast}
               onOpen={setSelected}
               onRefresh={refresh}
+              onPrepare={(draft) => {
+                setEdit({ ...blank, ...draft, visibility: "private" });
+              }}
             />
           ) : page === "integrations" && !publicMode ? (
             <Integrations

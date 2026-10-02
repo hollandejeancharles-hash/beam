@@ -111,3 +111,9 @@ L’assistant **Ministral 3 8B / Ollama** organise automatiquement les notes et 
 ### Espace vierge et archives
 
 Les données de démonstration ne sont chargées que si `BEAM_SEED=true` est explicitement défini. Les éléments et suggestions peuvent être archivés, restaurés depuis **Voir les archives**, ou supprimés définitivement après confirmation. Les éléments archivés sont exclus du portail public et de son export GitHub Pages.
+
+### Sujets vivants
+
+Dans Notes, les **Sujets vivants** regroupent les notes (avec leur analyse et le texte des pièces jointes) et les informations importées du produit. Le moteur local regroupe les sources en arrière-plan quand l’assistant est actif, par lots bornés. Les correspondances incertaines sont indiquées **À examiner**. Une source importée répétée à la même URL ne compte qu’une fois.
+
+Ouvrir un sujet pour lire sa synthèse, ses questions et ses sources datées, puis l’associer à une feature ou préparer une nouvelle feature interne. Le menu **Organiser ce sujet** permet de renommer/fusionner ; le sélecteur de chaque source permet de la déplacer ou la retirer. Les corrections de rattachement sont conservées. Les sujets restent privés et ne changent pas les priorités ou la roadmap automatiquement.

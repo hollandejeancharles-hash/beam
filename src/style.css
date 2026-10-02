@@ -3881,3 +3881,55 @@ footer b {
 .assistant-feature-detail .assistant-controls {
   margin: 8px 0;
 }
+.living-topics {
+  margin: 0 0 18px;
+}
+.living-topics-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  color: var(--muted);
+  font-size: 11px;
+}
+.living-topics .notes-v2-topics {
+  padding: 10px 0;
+}
+.topic-detail {
+  font-size: 12px;
+  line-height: 1.65;
+}
+.topic-detail h3 {
+  font-size: 13px;
+  margin-top: 24px;
+}
+.topic-detail label {
+  display: block;
+  margin: 14px 0;
+  color: var(--muted);
+}
+.topic-detail select {
+  display: block;
+  width: 100%;
+  margin-top: 7px;
+}
+.topic-source {
+  padding: 14px 0;
+  border-bottom: 1px solid var(--line);
+}
+.topic-source > small {
+  display: block;
+  color: var(--muted);
+  font-size: 10px;
+}
+.topic-source > a,
+.topic-source > button {
+  display: block;
+  margin-top: 6px;
+}
+.topic-source-move {
+  font-size: 10px;
+}
+.topic-detail details {
+  margin-top: 24px;
+  color: var(--muted);
+}

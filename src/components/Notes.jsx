@@ -193,7 +193,14 @@ export function QuickNote({ api, items, onError }) {
     </MorphingPopover>
   );
 }
-export default function Notes({ api, items, onError, onOpen, onRefresh }) {
+export default function Notes({
+  api,
+  items,
+  onError,
+  onOpen,
+  onRefresh,
+  onPrepare,
+}) {
   const [notes, setNotes] = useState([]),
     [text, setText] = useState(""),
     [files, setFiles] = useState([]),
@@ -202,6 +209,8 @@ export default function Notes({ api, items, onError, onOpen, onRefresh }) {
     [topic, setTopic] = useState("Tous"),
     [query, setQuery] = useState(""),
     [selected, setSelected] = useState(null),
+    [subjects, setSubjects] = useState({ topics: [], unassigned: [] }),
+    [subject, setSubject] = useState(null),
     [settings, setSettings] = useState(false),
     [data, setData] = useState({ status: null, reviews: [] }),
     [classification, setClassification] = useState(null),
@@ -210,12 +219,19 @@ export default function Notes({ api, items, onError, onOpen, onRefresh }) {
   const trigger = useRef(null);
   async function load() {
     try {
-      const [n, status, reviews] = await Promise.all([
+      const [n, status, reviews, groups] = await Promise.all([
         api("admin/notes"),
         api("admin/ai/status"),
         api("admin/ai/reviews"),
+        api("admin/topics"),
       ]);
       setNotes(n);
+      setSubjects(groups);
+      setSubject((previous) =>
+        previous
+          ? groups.topics.find((t) => t.id === previous.id) || null
+          : null,
+      );
       setData({ status, reviews });
     } catch (e) {
       onError(e.message);
@@ -334,6 +350,37 @@ export default function Notes({ api, items, onError, onOpen, onRefresh }) {
   }
   return (
     <div className="notes-v2">
+      {subject && (
+        <NoteProposalPanel
+          note={{
+            text: (subjects.topics.find((t) => t.id === subject.id) || subject)
+              .title,
+          }}
+          close={() => setSubject(null)}
+        >
+          <TopicDetail
+            topic={subjects.topics.find((t) => t.id === subject.id) || subject}
+            topics={subjects.topics}
+            items={items}
+            api={api}
+            refresh={load}
+            onError={onError}
+            onNote={(id) => {
+              setSubject(null);
+              setSelected(notes.find((n) => n.id === id));
+            }}
+            onPrepare={(draft) => {
+              setSubject(null);
+              onPrepare?.(draft);
+            }}
+            onOpen={(item) => {
+              setSubject(null);
+              onOpen(item);
+            }}
+          />
+        </NoteProposalPanel>
+      )}
+
       <div className="notes-v2-status">
         <span className={data.status?.enabled ? "active" : ""}>●</span>{" "}
         {data.status?.enabled ? "Organisation active" : "Organisation en pause"}
@@ -457,6 +504,50 @@ export default function Notes({ api, items, onError, onOpen, onRefresh }) {
           value={query}
           onChange={(e) => setQuery(e.target.value)}
         />
+      </div>
+      <div className="living-topics">
+        <div className="living-topics-head">
+          <span>Sujets vivants</span>
+          <button
+            className="text-button"
+            onClick={async () => {
+              try {
+                await api("admin/topics/refresh", { method: "POST" });
+                await load();
+              } catch (e) {
+                onError(e.message);
+              }
+            }}
+          >
+            {subjects.running ? "Regroupement…" : "Actualiser"}
+          </button>
+        </div>
+        {subjects.error && <small role="status">{subjects.error}</small>}
+        <div className="notes-v2-topics">
+          {subjects.topics.map((t) => (
+            <button
+              key={t.id}
+              onClick={() => {
+                setSubject(t);
+                setSelected(null);
+              }}
+            >
+              {t.title}{" "}
+              <span>
+                {t.sources.filter((s) => s.confidence === "clear").length}
+              </span>
+              {t.sources.some((s) => s.confidence === "review")
+                ? " · À examiner"
+                : ""}
+            </button>
+          ))}
+          {!subjects.topics.length && (
+            <small>
+              Les liens entre vos notes et tickets apparaîtront ici au fil des
+              analyses.
+            </small>
+          )}
+        </div>
       </div>
       {topics.length > 0 && (
         <div className="notes-v2-topics">
@@ -751,6 +842,193 @@ export default function Notes({ api, items, onError, onOpen, onRefresh }) {
         </NoteProposalPanel>
       )}
     </div>
+  );
+}
+function TopicDetail({
+  topic,
+  topics,
+  items,
+  api,
+  refresh,
+  onError,
+  onNote,
+  onPrepare,
+  onOpen,
+}) {
+  const [renaming, setRenaming] = useState(false),
+    [name, setName] = useState(topic.title);
+  async function patch(body) {
+    try {
+      await api(`admin/topics/${topic.id}`, {
+        method: "PATCH",
+        body: JSON.stringify(body),
+      });
+      await refresh();
+    } catch (e) {
+      onError(e.message);
+    }
+  }
+  async function move(source, id) {
+    try {
+      if (id === "new") {
+        const title = prompt("Nom du nouveau sujet");
+        if (!title?.trim()) return;
+        const created = await api("admin/topics", {
+          method: "POST",
+          body: JSON.stringify({ title }),
+        });
+        id = created.id;
+      }
+
+      await api("admin/topics/move", {
+        method: "POST",
+        body: JSON.stringify({ source, topic_id: id || null }),
+      });
+      await refresh();
+    } catch (e) {
+      onError(e.message);
+    }
+  }
+  return (
+    <section className="topic-detail">
+      <p className="assistant-help">
+        Synthèse des signaux · La fréquence ne détermine pas la priorité.
+      </p>
+      <p>{topic.summary}</p>
+      {topic.questions.length > 0 && (
+        <>
+          <h3>À clarifier</h3>
+          <ul>
+            {topic.questions.map((q, i) => (
+              <li key={i}>{q}</li>
+            ))}
+          </ul>
+        </>
+      )}
+      <label>
+        Feature associée
+        <select
+          value={topic.item_id || ""}
+          onChange={(e) => patch({ item_id: e.target.value })}
+        >
+          <option value="">Sans rattachement</option>
+          {items
+            .filter((i) => !i.archived)
+            .map((i) => (
+              <option key={i.id} value={i.id}>
+                {i.title}
+              </option>
+            ))}
+        </select>
+      </label>
+      {topic.item_id && (
+        <button
+          className="text-button"
+          onClick={() => onOpen(items.find((i) => i.id === topic.item_id))}
+        >
+          Ouvrir l’élément associé
+        </button>
+      )}
+      {onPrepare && (
+        <button
+          className="button"
+          onClick={() =>
+            onPrepare({ title: topic.title, description: topic.summary })
+          }
+        >
+          Préparer une feature
+        </button>
+      )}
+      <h3>Sources · {topic.sources.length}</h3>
+      {topic.sources.map((s) => (
+        <article className="topic-source" key={s.id}>
+          <small>
+            {s.kind} · {new Date(s.created).toLocaleDateString("fr-FR")}
+            {s.confidence === "review" ? " · Rapprochement à confirmer" : ""}
+          </small>
+          {s.id.startsWith("note:") ? (
+            <button
+              className="text-button"
+              onClick={() => onNote(s.id.slice(5))}
+            >
+              {s.title}
+            </button>
+          ) : (
+            <a href={s.url} target="_blank" rel="noreferrer">
+              {s.title}
+            </a>
+          )}
+          <label className="topic-source-move">
+            Classer dans
+            <select
+              aria-label={"Sujet de " + s.title}
+              value={topic.id}
+              onChange={(e) => move(s.id, e.target.value)}
+            >
+              <option value="">Retirer du sujet</option>
+              <option value="new">Créer un nouveau sujet…</option>
+              {topics.map((t) => (
+                <option key={t.id} value={t.id}>
+                  {t.title}
+                </option>
+              ))}
+            </select>
+          </label>
+          {s.confidence === "review" && (
+            <button
+              className="text-button"
+              onClick={() => move(s.id, topic.id)}
+            >
+              Confirmer le rapprochement
+            </button>
+          )}
+        </article>
+      ))}
+      <details>
+        <summary>Organiser ce sujet</summary>
+        <button className="text-button" onClick={() => setRenaming(!renaming)}>
+          Renommer
+        </button>
+        {renaming && (
+          <form
+            onSubmit={(e) => {
+              e.preventDefault();
+              patch({ title: name });
+              setRenaming(false);
+            }}
+          >
+            <input
+              aria-label="Nom du sujet"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+            />
+            <button className="button">Enregistrer</button>
+          </form>
+        )}
+        <label>
+          Fusionner dans
+          <select
+            defaultValue=""
+            onChange={(e) => {
+              if (
+                e.target.value &&
+                confirm("Fusionner ce sujet ? Les sources seront regroupées.")
+              )
+                patch({ merge_into: e.target.value });
+            }}
+          >
+            <option value="">Choisir un sujet</option>
+            {topics
+              .filter((t) => t.id !== topic.id)
+              .map((t) => (
+                <option key={t.id} value={t.id}>
+                  {t.title}
+                </option>
+              ))}
+          </select>
+        </label>
+      </details>
+    </section>
   );
 }
 function NoteProposalPanel({ note, close, children }) {

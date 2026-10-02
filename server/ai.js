@@ -610,6 +610,7 @@ export function createAI(
     return read(db.prepare("SELECT * FROM ai_reviews WHERE id=?").get(id));
   }
   return {
+    busy: () => active,
     close: () => {
       closed = true;
     },
