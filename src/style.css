@@ -4253,18 +4253,29 @@ footer b {
     transition: none;
   }
 }
-.ai-progress-pending {
-  color: #d4ccff;
-  opacity: 0.65;
-  transform-origin: center;
-  animation: ai-spin 1.4s linear infinite;
-}
 .gantt-name strong .ai-progress,
 [data-kanban-card] p .ai-progress {
   margin-left: 8px;
 }
 @media (prefers-reduced-motion: reduce) {
-  .ai-progress-pending {
-    animation: none;
+  .ai-spinner svg {
+    animation: none !important;
   }
+}
+
+.ai-spinner {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+.ai-spinner svg {
+  display: block;
+  animation: ai-spin 0.85s linear infinite;
+}
+.ai-spinner-track {
+  stroke: #a5a6ae30;
+}
+.ai-spinner-arc {
+  stroke: #c4c5cd;
 }

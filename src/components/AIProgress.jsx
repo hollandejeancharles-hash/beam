@@ -5,12 +5,6 @@ import React, {
   useRef,
   useState,
 } from "react";
-import {
-  CircularProgress,
-  CircularProgressIndicator,
-  CircularProgressTrack,
-  CircularProgressRange,
-} from "./ui/circular-progress";
 const ActivityContext = createContext([]);
 export function AIActivityProvider({ api, enabled, children, className }) {
   const [jobs, setJobs] = useState([]),
@@ -86,38 +80,38 @@ export default function AIProgress({
   const text = `${job.label || "Assistant local"} · ${phase} · ${completed}/${total} étapes terminées${job.elapsed ? ` · ${job.elapsed} s` : ""}${job.units ? ` · lot de ${job.units} sources` : ""}${job.received ? ` · ${job.received} caractères reçus` : ""}`;
   return (
     <span className="ai-progress" title={text} data-phase={phase}>
-      <CircularProgress
-        value={job.state === "queued" ? null : completed}
-        max={total}
-        size={size}
-        thickness={2}
-        label={text}
-        getValueText={() => text}
-        aria-valuetext={text}
+      <span
+        className="ai-spinner"
+        role="progressbar"
+        aria-label={text}
+        aria-valuetext={phase}
+        style={{ width: size, height: size }}
       >
-        <CircularProgressIndicator>
-          <CircularProgressTrack />
-          <CircularProgressRange />
-          {job.indeterminate && job.state !== "queued" && (
-            <circle
-              cx={size / 2}
-              cy={size / 2}
-              r={(size - 2) / 2}
-              fill="none"
-              stroke="currentColor"
-              strokeWidth={1}
-              strokeDasharray="3 7"
-              className="ai-progress-pending"
-            />
-          )}
-        </CircularProgressIndicator>
-      </CircularProgress>
+        <svg viewBox="0 0 24 24" width={size} height={size} aria-hidden="true">
+          <circle
+            className="ai-spinner-track"
+            cx="12"
+            cy="12"
+            r="9"
+            fill="none"
+            strokeWidth="2"
+          />
+          <circle
+            className="ai-spinner-arc"
+            cx="12"
+            cy="12"
+            r="9"
+            fill="none"
+            strokeWidth="2"
+            strokeLinecap="round"
+            strokeDasharray="40 17"
+          />
+        </svg>
+      </span>
       {showLabel && (
         <span className="ai-progress-label">
           {phase}
-          <small>
-            {completed}/{total} étapes{job.elapsed ? ` · ${job.elapsed} s` : ""}
-          </small>
+          {job.elapsed > 0 && <small>{job.elapsed} s écoulées</small>}
         </span>
       )}
     </span>
