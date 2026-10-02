@@ -51,7 +51,7 @@ Les tests couvrent la confidentialité des évolutions internes, l’authentific
 
 ## Architecture
 
-React + Vite pour l’interface ; Node HTTP + SQLite pour l’API et le stockage. Pas de service tiers requis. La police Inter est chargée via Google Fonts, avec repli sur les polices système. Logo vectoriel Beam original, icônes Lucide.
+React + Vite pour l’interface ; Node HTTP + SQLite pour l’API et le stockage. Pas de service tiers requis. La police Inter est chargée via Google Fonts, avec repli sur les polices système. Logo vectoriel Beam original, icônes Lucide et composants Lucide Animated (pqoqubbw), référencés sur [21st.dev](https://21st.dev/community/icons/animated). Les composants animés et leur licence MIT sont conservés dans `src/icons/vendor`. Les animations sont déclenchées par le contrôle complet au survol, au focus et au clic, et désactivées si le système demande de réduire les animations.
 
 Un `Dockerfile` est fourni pour un hébergement conteneurisé. Monter un volume persistant sur `/app/data`, fournir `BEAM_ADMIN_TOKEN` à l’exécution et terminer HTTPS au niveau du proxy. La construction Docker n’a pas été exécutée dans cet environnement. Le workflow GitHub vérifie les tests et la compilation à chaque push et pull request.
 

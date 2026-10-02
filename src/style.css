@@ -1340,3 +1340,24 @@ footer b {
     scroll-behavior: auto !important;
   }
 }
+/* Icons from 21st.dev / Lucide Animated keep their control's geometry and colour. */
+.animated-icon,
+.animated-icon > span {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  line-height: 0;
+  vertical-align: middle;
+}
+.animated-icon svg {
+  display: block;
+  overflow: visible;
+}
+@media (prefers-reduced-motion: reduce) {
+  .animated-icon svg,
+  .animated-icon svg * {
+    transform: none !important;
+    opacity: 1 !important;
+  }
+}

@@ -1,30 +1,32 @@
 import React, { useEffect, useState } from "react";
 import { createRoot } from "react-dom/client";
 import {
-  ArrowUpRight,
   ArrowRight,
-  Plus,
-  Search,
   ChevronRight,
   Check,
-  CheckCheck,
   Clock3,
   Circle,
-  LayoutGrid,
   List,
-  Map,
-  MessageSquare,
-  Radio,
-  Globe,
   Lock,
-  SlidersHorizontal,
   X,
-  Copy,
-  ExternalLink,
   ArrowUp,
   Trash2,
   LogOut,
 } from "lucide-react";
+import {
+  Search,
+  LayoutGrid,
+  MessageSquare,
+  Plus,
+  Copy,
+  SlidersHorizontal,
+  Radio,
+  Globe,
+  Map,
+  CheckCheck,
+  ArrowUpRight,
+  ExternalLink,
+} from "./icons";
 import "./style.css";
 const pagesMode = __PAGES__;
 const publicPath = pagesMode ? import.meta.env.BASE_URL : "/roadmap";
