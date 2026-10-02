@@ -54,3 +54,13 @@ Les tests couvrent la confidentialité des évolutions internes, l’authentific
 React + Vite pour l’interface ; Node HTTP + SQLite pour l’API et le stockage. Pas de service tiers requis. Les polices DM Sans et Manrope sont chargées via Google Fonts, avec repli sur les polices système. Logo vectoriel Beam original, icônes Lucide.
 
 Un `Dockerfile` est fourni pour un hébergement conteneurisé. Monter un volume persistant sur `/app/data`, fournir `BEAM_ADMIN_TOKEN` à l’exécution et terminer HTTPS au niveau du proxy. La construction Docker n’a pas été exécutée dans cet environnement. Le workflow GitHub vérifie les tests et la compilation à chaque push et pull request.
+
+## GitHub Pages
+
+`npm run build:pages` produit un portail **public en lecture seule**, accessible sous `/beam/`. Le workflow `pages.yml` le publie à chaque mise à jour de `main` (Pages doit utiliser la source **GitHub Actions** dans les réglages du dépôt).
+
+GitHub Pages n’exécute pas Node/SQLite. Sur cette version, les boutons d’administration, de vote et de suggestion sont donc absents ; recherche, filtres, vues et détails fonctionnent. L’application complète reste disponible avec `npm run dev` ou sur un hébergement Node.
+
+Pour actualiser le portail : modifier les évolutions dans Beam localement, exécuter `npm run export:roadmap`, relire `public/roadmap.json`, puis envoyer ce fichier sur `main`. L’export ne conserve que les champs autorisés des évolutions publiques et n’inclut jamais la base SQLite ni les données de visiteur. On peut aussi modifier directement `public/roadmap.json` sur GitHub. Une évolution rendue interne localement disparaît du portail seulement après un nouvel export et déploiement ; les données précédemment publiées restent dans l’historique Git.
+
+Pour disposer de votes, suggestions et modifications synchronisés sur le site hébergé par Pages, il faudra connecter un serveur ou une base de données externe avec authentification adaptée.

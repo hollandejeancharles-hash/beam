@@ -26,6 +26,8 @@ import {
   LogOut,
 } from "lucide-react";
 import "./style.css";
+const pagesMode = __PAGES__;
+const publicPath = pagesMode ? import.meta.env.BASE_URL : "/roadmap";
 const ST = {
   planned: { label: "À venir", subtitle: "La suite prend forme", icon: Circle },
   progress: {
@@ -60,7 +62,7 @@ function Mark() {
   );
 }
 function App() {
-  const publicMode = location.pathname === "/roadmap";
+  const publicMode = pagesMode || location.pathname === "/roadmap";
   const [items, setItems] = useState([]),
     [page, setPage] = useState("roadmap"),
     [view, setView] = useState("board"),
@@ -99,7 +101,14 @@ function App() {
   async function refresh() {
     try {
       setError("");
-      setItems(await api((publicMode ? "public" : "admin") + "/items"));
+      if (pagesMode) {
+        const response = await fetch(import.meta.env.BASE_URL + "roadmap.json");
+        if (!response.ok)
+          throw Error("La roadmap est temporairement indisponible.");
+        setItems(await response.json());
+      } else {
+        setItems(await api((publicMode ? "public" : "admin") + "/items"));
+      }
       if (!publicMode) setSuggestions(await api("admin/suggestions"));
       setAuth(false);
     } catch (e) {
@@ -249,7 +258,7 @@ function App() {
                 <br />
                 la communauté PULS.
               </p>
-              <a href="/roadmap" target="_blank" rel="noreferrer">
+              <a href={publicPath} target="_blank" rel="noreferrer">
                 Ouvrir le portail <ArrowUpRight size={15} />
               </a>
             </div>
@@ -279,7 +288,7 @@ function App() {
       <main>
         <header className="topbar">
           {publicMode ? (
-            <a className="public-brand" href="/roadmap">
+            <a className="public-brand" href={publicPath}>
               <span className="puls-logo">P</span>PULS <span>/</span> Roadmap
             </a>
           ) : (
@@ -297,7 +306,11 @@ function App() {
           <div className="top-actions">
             <span className="live">
               <i />
-              {publicMode ? "En direct de l’équipe" : "Tout est synchronisé"}
+              {pagesMode
+                ? "Roadmap publique"
+                : publicMode
+                  ? "En direct de l’équipe"
+                  : "Tout est synchronisé"}
             </span>
             {publicMode ? (
               <span className="powered">
@@ -336,19 +349,23 @@ function App() {
                   : page === "changelog"
                     ? "Chaque amélioration, une nouvelle possibilité."
                     : publicMode
-                      ? "Découvrez ce qui arrive. Faites entendre ce qui compte pour vous."
+                      ? pagesMode
+                        ? "Découvrez les priorités et les prochaines évolutions de PULS."
+                        : "Découvrez ce qui arrive. Faites entendre ce qui compte pour vous."
                       : "Les idées deviennent des avancées. Dessinez la suite de PULS."}
               </p>
             </div>
-            <button
-              className="button primary"
-              onClick={() =>
-                publicMode ? setSuggest(true) : setEdit({ ...blank })
-              }
-            >
-              <Plus size={17} />
-              {publicMode ? "Proposer une idée" : "Nouvelle évolution"}
-            </button>
+            {!pagesMode && (
+              <button
+                className="button primary"
+                onClick={() =>
+                  publicMode ? setSuggest(true) : setEdit({ ...blank })
+                }
+              >
+                <Plus size={17} />
+                {publicMode ? "Proposer une idée" : "Nouvelle évolution"}
+              </button>
+            )}
           </section>
           {page === "roadmap" && (
             <section className="overview">
@@ -375,13 +392,11 @@ function App() {
                     key={s}
                     className={"metric " + s}
                     onClick={() =>
-                      document
-                        .getElementById("column-" + s)
-                        ?.scrollIntoView({
-                          behavior: "smooth",
-                          block: "nearest",
-                          inline: "center",
-                        })
+                      document.getElementById("column-" + s)?.scrollIntoView({
+                        behavior: "smooth",
+                        block: "nearest",
+                        inline: "center",
+                      })
                     }
                   >
                     <span className="metric-label">
@@ -426,7 +441,9 @@ function App() {
                 </div>
                 <span className="subtle">
                   {publicMode
-                    ? "Votre voix compte. Votez pour vos priorités."
+                    ? pagesMode
+                      ? "Les priorités de PULS, en toute transparence."
+                      : "Votre voix compte. Votez pour vos priorités."
                     : "Une direction claire, à chaque étape."}
                 </span>
               </div>
@@ -463,7 +480,9 @@ function App() {
                     onChange={(e) => setSort(e.target.value)}
                   >
                     <option value="priority">Par priorité</option>
-                    <option value="votes">Par popularité</option>
+                    {!pagesMode && (
+                      <option value="votes">Par popularité</option>
+                    )}
                   </select>
                   <div className="view-toggle">
                     <button
@@ -665,21 +684,23 @@ function App() {
                               <p>{item.description}</p>
                             </button>
                             <div className="card-footer">
-                              <button
-                                className={
-                                  "vote " + (item.voted ? "voted" : "")
-                                }
-                                aria-label={
-                                  (item.voted
-                                    ? "Retirer mon vote pour "
-                                    : "Voter pour ") + item.title
-                                }
-                                onClick={() => vote(item)}
-                                disabled={item.visibility === "private"}
-                              >
-                                <ArrowUp size={13} />
-                                {item.votes}
-                              </button>
+                              {!pagesMode && (
+                                <button
+                                  className={
+                                    "vote " + (item.voted ? "voted" : "")
+                                  }
+                                  aria-label={
+                                    (item.voted
+                                      ? "Retirer mon vote pour "
+                                      : "Voter pour ") + item.title
+                                  }
+                                  onClick={() => vote(item)}
+                                  disabled={item.visibility === "private"}
+                                >
+                                  <ArrowUp size={13} />
+                                  {item.votes}
+                                </button>
+                              )}
                               <span className="quarter">
                                 {item.visibility === "private" ? (
                                   <Lock size={12} />
@@ -760,33 +781,35 @@ function App() {
               </strong>
             </span>
           </div>
-          <div className="modal-actions">
-            {!publicMode ? (
-              <button
-                className="button primary"
-                onClick={() => {
-                  setEdit({ ...selected });
-                  setSelected(null);
-                }}
-              >
-                Modifier l’évolution
-                <ArrowRight size={16} />
-              </button>
-            ) : (
-              <button
-                className="button primary"
-                onClick={() => {
-                  vote(selected);
-                  setSelected(null);
-                }}
-              >
-                <ArrowUp size={16} />
-                {selected.voted
-                  ? "Retirer mon vote"
-                  : "Cette idée compte pour moi"}
-              </button>
-            )}
-          </div>
+          {!pagesMode && (
+            <div className="modal-actions">
+              {!publicMode ? (
+                <button
+                  className="button primary"
+                  onClick={() => {
+                    setEdit({ ...selected });
+                    setSelected(null);
+                  }}
+                >
+                  Modifier l’évolution
+                  <ArrowRight size={16} />
+                </button>
+              ) : (
+                <button
+                  className="button primary"
+                  onClick={() => {
+                    vote(selected);
+                    setSelected(null);
+                  }}
+                >
+                  <ArrowUp size={16} />
+                  {selected.voted
+                    ? "Retirer mon vote"
+                    : "Cette idée compte pour moi"}
+                </button>
+              )}
+            </div>
+          )}
         </Modal>
       )}
       {edit && (
@@ -911,13 +934,13 @@ function App() {
           <label>
             Lien du portail public
             <div className="copy-field">
-              <input readOnly value={location.origin + "/roadmap"} />
+              <input readOnly value={location.origin + publicPath} />
               <button
                 className="button"
                 onClick={async () => {
                   try {
                     await navigator.clipboard.writeText(
-                      location.origin + "/roadmap",
+                      location.origin + publicPath,
                     );
                     setToast("Lien copié");
                   } catch {
@@ -936,7 +959,7 @@ function App() {
           </p>
           <a
             className="button primary share-open"
-            href="/roadmap"
+            href={publicPath}
             target="_blank"
             rel="noreferrer"
           >
@@ -1028,7 +1051,7 @@ function App() {
               </p>
             )}
             <div className="modal-actions">
-              <a className="button" href="/roadmap">
+              <a className="button" href={publicPath}>
                 Voir la roadmap publique
               </a>
               <button className="button primary">

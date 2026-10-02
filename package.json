@@ -7,7 +7,9 @@
     "dev": "node server/index.js",
     "build": "vite build",
     "start": "NODE_ENV=production node server/index.js",
-    "test": "node --test server/*.test.js"
+    "test": "node --test server/*.test.js",
+    "build:pages": "vite build --mode pages",
+    "export:roadmap": "node scripts/export-roadmap.js"
   },
   "dependencies": {
     "lucide-react": "^0.468.0",
