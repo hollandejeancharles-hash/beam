@@ -1,3 +1,4 @@
+import { includesSearch } from "../shared/search";
 import Publications from "./components/Publications";
 import AIProgress, { AIActivityProvider } from "./components/AIProgress";
 import React, { useEffect, useState } from "react";
@@ -87,6 +88,7 @@ function Mark() {
 }
 function App() {
   const [publicationItem, setPublicationItem] = useState(null);
+  const [searchTarget, setSearchTarget] = useState(null);
   const [logoReplay, setLogoReplay] = useState(0);
   const publicMode = pagesMode || location.pathname === "/roadmap";
   const [items, setItems] = useState([]),
@@ -227,6 +229,18 @@ function App() {
     window.addEventListener("keydown", handle);
     return () => window.removeEventListener("keydown", handle);
   }, []);
+  useEffect(() => {
+    if (page !== "feedback" || searchTarget?.kind !== "suggestion") return;
+    const frame = requestAnimationFrame(() => {
+      const row = document.getElementById("suggestion-" + searchTarget.id);
+      if (row) {
+        row.scrollIntoView({ block: "center" });
+        row.focus();
+      } else setToast("Cette suggestion n’est plus disponible.");
+      setSearchTarget(null);
+    });
+    return () => cancelAnimationFrame(frame);
+  }, [page, searchTarget, showArchives]);
   async function save(e) {
     e.preventDefault();
     setSaving(true);
@@ -303,9 +317,7 @@ function App() {
       (i) =>
         !!i.archived === (!publicMode && showArchives) &&
         (!query ||
-          (i.title + " " + i.description)
-            .toLowerCase()
-            .includes(query.toLowerCase())) &&
+          includesSearch(query, i.title, i.description, i.owner, i.category)) &&
         (category === "all" || i.category === category) &&
         (typeFilter === "all" || (i.type || "feature") === typeFilter) &&
         (statusFilter === "all" || i.status === statusFilter) &&
@@ -865,6 +877,8 @@ function App() {
               Modal={Modal}
               onError={setToast}
               onOpen={setSelected}
+              initialTarget={searchTarget}
+              onTargetConsumed={() => setSearchTarget(null)}
               initialItem={publicationItem}
               onConsumed={() => setPublicationItem(null)}
             />
@@ -875,6 +889,8 @@ function App() {
               onError={setToast}
               onOpen={setSelected}
               onRefresh={refresh}
+              initialTarget={searchTarget}
+              onTargetConsumed={() => setSearchTarget(null)}
               onPrepare={(draft) => {
                 setEdit({ ...blank, ...draft, visibility: "private" });
               }}
@@ -888,6 +904,8 @@ function App() {
               onRefresh={refresh}
               onError={setToast}
               onSignals={setSignals}
+              initialTarget={searchTarget}
+              onTargetConsumed={() => setSearchTarget(null)}
             />
           ) : page === "gantt" ? (
             <Gantt
@@ -946,7 +964,7 @@ function App() {
                 suggestions
                   .filter((s) => !!s.archived === showArchives)
                   .map((s) => (
-                    <article key={s.id}>
+                    <article key={s.id} id={"suggestion-" + s.id} tabIndex={-1}>
                       <span className="suggestion-icon">
                         <MessageSquare size={20} />
                       </span>
@@ -1195,9 +1213,50 @@ function App() {
             onClose={() => setCommandOpen(false)}
             items={items}
             publicMode={publicMode}
+            pagesMode={pagesMode}
+            api={api}
+            categories={CAT}
             onApply={(clauses) => {
               for (const { command, values } of clauses) {
-                if (command.id.startsWith("open:"))
+                if (command.id.startsWith("result:")) {
+                  const target = command.target;
+                  if (target.kind === "item") {
+                    setSelected(items.find((i) => i.id === target.id));
+                  } else {
+                    setSearchTarget(target);
+                    setPage(
+                      {
+                        note: "notes",
+                        attachment: "notes",
+                        topic: "notes",
+                        signal: "integrations",
+                        source: "integrations",
+                        publication: "publications",
+                        suggestion: "feedback",
+                      }[target.kind],
+                    );
+                    if (target.kind === "suggestion")
+                      setShowArchives(target.archived);
+                  }
+                } else if (command.id.startsWith("action:")) {
+                  const action = command.id.slice(7);
+                  if (action === "create")
+                    setEdit({ ...blank, type: values[0].id });
+                  if (action === "profile") setProfileOpen(true);
+                  if (action === "share") setShare(true);
+                  if (action === "capture")
+                    requestAnimationFrame(() =>
+                      window.__beamCaptureNote?.({ fromSearch: true }),
+                    );
+                  if (action === "ai") {
+                    setPage("notes");
+                    setSearchTarget({ kind: "settings" });
+                  }
+                  if (action === "archives") {
+                    setPage("gantt");
+                    setShowArchives(true);
+                  }
+                } else if (command.id.startsWith("open:"))
                   setSelected(items.find((i) => i.id === command.id.slice(5)));
                 else if (command.id.startsWith("nav:"))
                   setPage(command.id.slice(4));
@@ -1207,7 +1266,10 @@ function App() {
                   setTypeFilter("all");
                   setStatusFilter("all");
                   setQuery("");
+                  setShowArchives(false);
                 } else if (command.id.startsWith("filter:")) {
+                  if (command.id === "filter:category")
+                    setCategory(values[0].id);
                   if (command.id === "filter:type") setTypeFilter(values[0].id);
                   if (command.id === "filter:status")
                     setStatusFilter(values[0].id);

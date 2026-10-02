@@ -1,4 +1,4 @@
-import React, { useMemo } from "react";
+import React, { useEffect, useRef, useState, useMemo } from "react";
 import CommandPalette from "./ui/command-palette";
 import {
   Planning,
@@ -9,10 +9,55 @@ import {
   Search,
   SlidersHorizontal,
 } from "../icons";
+import { buildSearchRecords } from "../../shared/search";
 import { TYPES } from "../../shared/planning";
 const states = { planned: "À venir", progress: "En cours", done: "Livré" },
   priority = { high: "Haute", medium: "Normale", low: "Basse" };
-export default function RoadmapSearch({ items, publicMode, onApply, onClose }) {
+export default function RoadmapSearch({
+  items,
+  publicMode,
+  pagesMode,
+  api,
+  categories = [],
+  onApply,
+  onClose,
+}) {
+  const [records, setRecords] = useState(() =>
+      buildSearchRecords({ items }, publicMode),
+    ),
+    [loading, setLoading] = useState(true),
+    [error, setError] = useState("");
+  const apiRef = useRef(api);
+  apiRef.current = api;
+  useEffect(() => {
+    let alive = true;
+    (async () => {
+      try {
+        if (publicMode) {
+          const publications = pagesMode
+            ? await fetch(import.meta.env.BASE_URL + "publications.json").then(
+                (r) => {
+                  if (!r.ok) throw Error("Publications indisponibles");
+                  return r.json();
+                },
+              )
+            : await apiRef.current("public/publications");
+          if (alive)
+            setRecords(buildSearchRecords({ items, publications }, true));
+        } else {
+          const index = await apiRef.current("admin/search");
+          if (alive) setRecords(index);
+        }
+      } catch (e) {
+        if (alive) setError(e.message);
+      } finally {
+        if (alive) setLoading(false);
+      }
+    })();
+    return () => {
+      alive = false;
+    };
+  }, [publicMode, pagesMode]);
   const commands = useMemo(() => {
     const nav = [
       ["gantt", "Planification", Planning],
@@ -49,6 +94,70 @@ export default function RoadmapSearch({ items, publicMode, onApply, onClose }) {
         immediate: true,
         message: () => label,
       })),
+      ...(!publicMode
+        ? [
+            {
+              id: "action:create",
+              label: "Créer un élément",
+              searchText: "nouvelle initiative projet feature ajouter",
+              icon: <Planning size={16} />,
+              slots: [
+                {
+                  name: "Type",
+                  prompt: "Choisir le type",
+                  kind: "plain",
+                  options: Object.entries(TYPES).map(([id, value]) => ({
+                    id,
+                    value,
+                  })),
+                },
+              ],
+              message: (v) => "Créer " + v[0].value,
+            },
+            ...[
+              [
+                "capture",
+                "Noter rapidement",
+                "note échange capture",
+                MessageSquare,
+              ],
+              [
+                "profile",
+                "Mon profil",
+                "photo avatar compte utilisateur",
+                Search,
+              ],
+              ["share", "Partager la roadmap", "portail public lien", Radio],
+              [
+                "ai",
+                "Assistant local",
+                "IA intelligence artificielle ollama modèle",
+                Search,
+              ],
+              [
+                "archives",
+                "Voir les archives de planification",
+                "éléments archivés gantt",
+                Planning,
+              ],
+            ].map(([id, label, searchText, Icon]) => ({
+              id: "action:" + id,
+              label,
+              searchText,
+              icon: <Icon size={16} />,
+              slots: [],
+              immediate: true,
+              message: () => label,
+            })),
+          ]
+        : []),
+      filter(
+        "category",
+        "Catégorie",
+        [...new Set([...categories, ...items.map((i) => i.category)])]
+          .sort()
+          .map((value) => ({ id: value, value })),
+      ),
       filter(
         "type",
         "Type de suivi",
@@ -82,18 +191,35 @@ export default function RoadmapSearch({ items, publicMode, onApply, onClose }) {
         immediate: true,
         message: () => "",
       },
-      ...items.map((item) => ({
-        id: "open:" + item.id,
-        label: item.title,
+      ...records.map((record) => ({
+        id: "result:" + record.kind + ":" + record.id,
+        label: record.title,
+        searchText: record.body,
+        hint: record.hint + (record.archived ? " · Archive" : ""),
         icon: <Search size={16} />,
-        hint: TYPES[item.type || "feature"],
         slots: [],
         immediate: true,
-        message: () => item.title,
+        message: () => record.title,
+        target: record,
       })),
     ];
-  }, [items, publicMode]);
+  }, [items, publicMode, records, categories]);
   return (
-    <CommandPalette commands={commands} onApply={onApply} onDismiss={onClose} />
+    <>
+      <p className="search-index-status" role="status">
+        {loading
+          ? "Chargement de la recherche…"
+          : error
+            ? "Recherche partielle : " + error
+            : publicMode
+              ? "Roadmap et publications publiques"
+              : "Éléments, notes, documents, sujets, informations importées et publications"}
+      </p>
+      <CommandPalette
+        commands={commands}
+        onApply={onApply}
+        onDismiss={onClose}
+      />
+    </>
   );
 }

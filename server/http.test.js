@@ -34,6 +34,7 @@ test("production API: authentication, private visibility, suggestions, persisten
       });
     assert.equal((await request("admin/items")).status, 401);
     for (const endpoint of [
+      "search",
       "publications",
       "publications/options",
       "sources",
@@ -46,6 +47,15 @@ test("production API: authentication, private visibility, suggestions, persisten
     ])
       assert.equal((await request("admin/" + endpoint)).status, 401);
     assert.equal((await request("public/publications")).status, 200);
+    assert.equal((await request("public/search")).status, 404);
+    const searchResponse = await request(
+      "admin/search",
+      "GET",
+      undefined,
+      true,
+    );
+    assert.equal(searchResponse.status, 200);
+    assert.ok(Array.isArray(await searchResponse.json()));
     const releaseOptions = await request(
       "admin/publications/options",
       "GET",
@@ -154,6 +164,25 @@ test("production API: authentication, private visibility, suggestions, persisten
     );
     assert.equal(uploaded.status, 201);
     const attachment = await uploaded.json();
+    const index = await (
+      await request("admin/search", "GET", undefined, true)
+    ).json();
+    assert.ok(
+      index.some(
+        (r) =>
+          r.kind === "note" && r.id === note.id && r.body.includes("Sarah"),
+      ),
+    );
+    assert.ok(
+      index.some(
+        (r) =>
+          r.kind === "attachment" &&
+          r.id === attachment.id &&
+          r.targetId === note.id,
+      ),
+    );
+    assert.equal(JSON.stringify(index).includes(png), false);
+    assert.equal(JSON.stringify(index).includes("marie@example.com"), false);
     assert.equal(
       (await request(`admin/attachments/${attachment.id}`)).status,
       401,

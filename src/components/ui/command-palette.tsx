@@ -1,3 +1,4 @@
+import { matchSearchContent } from "../../../shared/search";
 import React, {
   Fragment,
   useEffect,
@@ -60,6 +61,8 @@ export interface CommandSlot {
 export interface Command {
   id: string;
   label: string;
+  hint?: string;
+  searchText?: string;
   icon?: ReactNode;
   shortcut?: string;
   danger?: boolean;
@@ -247,11 +250,17 @@ export default function CommandPalette({
     const match = matcher === "fuzzy" ? fuzzyMatch : substringMatch;
     const out: Row[] = [];
     items.forEach((item, order) => {
-      const hit = match(query, labelOf(item));
+      const contentHit = matchSearchContent(
+        query,
+        labelOf(item),
+        "searchText" in item ? item.searchText : "",
+      );
+      const fuzzyHit = match(query, labelOf(item));
+      const hit = contentHit || fuzzyHit;
       if (hit) out.push({ item, idx: hit.idx, score: hit.score, order });
     });
     out.sort((a, b) => b.score - a.score || a.order - b.order);
-    return out;
+    return query.trim() ? out : out.slice(0, 40);
   }, [items, query, matcher]);
 
   const activeSafe = Math.min(active, Math.max(0, matches.length - 1));
@@ -350,7 +359,10 @@ export default function CommandPalette({
     if (!command) {
       const cmd = item as Command;
       if (cmd.immediate) {
-        onApply?.([{ command: cmd, values: [] }]);
+        onApply?.([
+          ...clauses.map((c) => ({ command: c.command, values: c.values })),
+          { command: cmd, values: [] },
+        ]);
         return;
       }
       if (cmd.slots.length === 0) {
@@ -465,6 +477,7 @@ export default function CommandPalette({
       event.preventDefault();
       popChip();
     } else if (event.key === "Escape") {
+      event.stopPropagation();
       if (query !== "") {
         event.preventDefault();
         setQuery("");

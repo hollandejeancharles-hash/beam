@@ -1,3 +1,4 @@
+import { includesSearch } from "../../shared/search";
 import AIProgress from "./AIProgress";
 import AutoSources from "./AutoSources";
 import React, { useEffect, useState } from "react";
@@ -327,6 +328,8 @@ export function SignalLinks({ signals, item, api, onSignals }) {
 }
 export default function Integrations({
   api,
+  initialTarget,
+  onTargetConsumed,
   items,
   product,
   onProduct,
@@ -367,6 +370,23 @@ export default function Integrations({
   useEffect(() => {
     load();
   }, []);
+  useEffect(() => {
+    if (loading || !["source", "signal"].includes(initialTarget?.kind)) return;
+    const found = (initialTarget.kind === "source" ? sources : signals).find(
+      (row) => row.id === initialTarget.id,
+    );
+    if (!found) onError("Cette information n’est plus disponible.");
+    else if (initialTarget.kind === "source") {
+      setTab("sources");
+      setConfig(found);
+    } else {
+      setTab("inbox");
+      setQuery("");
+      setKind("all");
+      setSelected(found);
+    }
+    onTargetConsumed?.();
+  }, [initialTarget, loading, sources, signals]);
   useEffect(() => {
     if (tab !== "inbox") return;
     let alive = true;
@@ -439,9 +459,14 @@ export default function Integrations({
     (s) =>
       (kind === "all" || s.kind === kind) &&
       (!query ||
-        (s.title + " " + s.body + " " + s.source_label)
-          .toLowerCase()
-          .includes(query.toLowerCase())),
+        includesSearch(
+          query,
+          s.title,
+          s.body,
+          s.source_label,
+          s.external_id,
+          s.extra?.version,
+        )),
   );
   return (
     <section className="integrations">

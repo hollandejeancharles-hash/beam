@@ -48,6 +48,8 @@ const date = (value) =>
     : "";
 export default function Publications({
   api,
+  initialTarget,
+  onTargetConsumed,
   items,
   product,
   publicMode,
@@ -103,6 +105,28 @@ export default function Publications({
       live = false;
     };
   }, [publicMode, pagesMode]);
+  useEffect(() => {
+    if (loading || initialTarget?.kind !== "publication") return;
+    const found = rows.find((row) => row.id === initialTarget.id);
+    if (!found) onError("Cette publication n’est plus disponible.");
+    else if (publicMode)
+      requestAnimationFrame(() => {
+        const el = document.getElementById("publication-" + found.id);
+        el?.scrollIntoView({ block: "center" });
+        el?.focus();
+      });
+    else {
+      setEdit(found);
+      setTab(found.state);
+      setPreview(found.state === "published");
+      setDirty(false);
+      setSourceDirty(false);
+      setReplaceText(false);
+      setConfirmClose(false);
+      setConfirmDelete(false);
+    }
+    onTargetConsumed?.();
+  }, [initialTarget, loading, rows, publicMode]);
   async function generateDraft(draft) {
     setGenerating(true);
     setReplaceText(false);
@@ -257,7 +281,12 @@ export default function Publications({
         <div className="publication-list">
           {visible.map((row) =>
             publicMode ? (
-              <article className="publication-public" key={row.id}>
+              <article
+                className="publication-public"
+                key={row.id}
+                id={"publication-" + row.id}
+                tabIndex={-1}
+              >
                 <div className="publication-meta">
                   {date(row.published)}
                   {row.version && <span className="pill">{row.version}</span>}

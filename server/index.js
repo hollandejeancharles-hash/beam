@@ -1,3 +1,4 @@
+import { createSearch } from "./search.js";
 import { createPublications, publicPublications } from "./publications.js";
 import { activity } from "./ai-progress.js";
 import { createAssociations } from "./associations.js";
@@ -33,6 +34,13 @@ const associations = createAssociations(store, notes, integrations, ai);
 ai.setDiscovery((id) => associations.refresh({ force: true, itemId: id }));
 ai.resume();
 const topics = createTopics(store, notes, integrations, ai);
+const searchIndex = createSearch({
+  store,
+  notes,
+  topics,
+  integrations,
+  publications,
+});
 const organizeSources = async () => {
   await associations.refresh();
   if (!ai.busy()) await topics.refresh();
@@ -145,6 +153,7 @@ const server = http.createServer(async (req, res) => {
       return res.end(Buffer.from(file.bytes));
     }
     if (req.method === "GET") {
+      if (url.pathname === "/api/admin/search") return send(200, searchIndex());
       if (url.pathname === "/api/admin/publications/options")
         return send(200, publications.options());
       if (url.pathname === "/api/admin/publications")

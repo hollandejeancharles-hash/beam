@@ -1,3 +1,4 @@
+import { includesSearch } from "../../shared/search";
 import AIProgress from "./AIProgress";
 import React, { useEffect, useRef, useState } from "react";
 import {
@@ -52,11 +53,15 @@ export function QuickNote({ api, items, onError }) {
       }
     };
     // Native menu-bar capture: reuse the current screen and preserve any draft.
-    const capture = () => {
+    const capture = ({ fromSearch = false } = {}) => {
       const otherDialog = document.querySelector(
         '[role="dialog"]:not([aria-label="Capture rapide"])',
       );
-      if (otherDialog) return false;
+      if (
+        otherDialog &&
+        !(fromSearch && otherDialog.classList.contains("command-dialog"))
+      )
+        return false;
       setOpen(true);
       requestAnimationFrame(() => input.current?.focus());
       return true;
@@ -196,6 +201,8 @@ export function QuickNote({ api, items, onError }) {
 }
 export default function Notes({
   api,
+  initialTarget,
+  onTargetConsumed,
   items,
   onError,
   onOpen,
@@ -217,6 +224,7 @@ export default function Notes({
     [classification, setClassification] = useState(null),
     [editing, setEditing] = useState(false),
     [draft, setDraft] = useState("");
+  const [loaded, setLoaded] = useState(false);
   const trigger = useRef(null);
   async function load() {
     try {
@@ -226,6 +234,7 @@ export default function Notes({
         api("admin/ai/reviews"),
         api("admin/topics"),
       ]);
+      setLoaded(true);
       setNotes(n);
       setSubjects(groups);
       setSubject((previous) =>
@@ -247,6 +256,25 @@ export default function Notes({
       window.removeEventListener("beam:notes", load);
     };
   }, []);
+  useEffect(() => {
+    if (!initialTarget || (!loaded && initialTarget.kind !== "settings"))
+      return;
+    if (initialTarget.kind === "settings") setSettings(true);
+    else if (initialTarget.kind === "topic") {
+      const found = subjects.topics.find((t) => t.id === initialTarget.id);
+      if (found) setSubject(found);
+      else onError("Ce sujet n’est plus disponible.");
+    } else if (["note", "attachment"].includes(initialTarget.kind)) {
+      const found = notes.find((n) => n.id === initialTarget.targetId);
+      if (found) {
+        setSelected(found);
+        setView(found.state === "archived" ? "archives" : "all");
+        setQuery("");
+        setTopic("Tous");
+      } else onError("Cette note n’est plus disponible.");
+    } else return;
+    onTargetConsumed?.();
+  }, [initialTarget, loaded, notes, subjects]);
   const latest = new Map();
   for (const r of data.reviews)
     if (r.scope === "note" && !latest.has(r.entity_id))
@@ -269,15 +297,12 @@ export default function Notes({
       (view !== "review" || pending(n)) &&
       (topic === "Tous" || n.tags.includes(topic)) &&
       (!query ||
-        [
+        includesSearch(query, [
           n.text,
           ...n.people,
           ...n.tags,
           ...(n.attachments || []).map((a) => a.name),
-        ]
-          .join(" ")
-          .toLowerCase()
-          .includes(query.toLowerCase())),
+        ])),
   );
   async function attach(id, chosen) {
     for (const file of chosen) {

@@ -2671,6 +2671,13 @@ footer b {
 .command-dialog .modal-header h2 {
   font-size: 13px;
 }
+.command-dialog .search-index-status {
+  margin: 0;
+  padding: 10px 18px;
+  font-size: 11px;
+  line-height: 1.5;
+  color: var(--muted);
+}
 .command-dialog .beam-command {
   max-width: none;
 }
