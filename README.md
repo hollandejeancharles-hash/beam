@@ -80,7 +80,7 @@ Un `Dockerfile` est fourni pour un hébergement conteneurisé. Monter un volume 
 
 GitHub Pages n’exécute pas Node/SQLite. Sur cette version, les boutons d’administration, de vote et de suggestion sont donc absents ; recherche, filtres, vues et détails fonctionnent. L’application complète reste disponible avec `npm run dev` ou sur un hébergement Node.
 
-Pour actualiser le portail : modifier les évolutions dans Beam localement, exécuter `npm run export:roadmap`, relire `public/roadmap.json`, puis envoyer ce fichier sur `main`. L’export ne conserve que les champs autorisés des évolutions publiques et n’inclut jamais la base SQLite ni les données de visiteur. On peut aussi modifier directement `public/roadmap.json` sur GitHub. Une évolution rendue interne localement disparaît du portail seulement après un nouvel export et déploiement ; les données précédemment publiées restent dans l’historique Git.
+Pour actualiser le portail : modifier les évolutions dans Beam localement, exécuter `npm run export:roadmap`, relire `public/roadmap.json` et `public/publications.json`, puis envoyer ces fichiers sur `main`. L’export ne conserve que les champs autorisés des évolutions publiques et n’inclut jamais la base SQLite ni les données de visiteur. On peut aussi modifier directement `public/roadmap.json` sur GitHub. Une évolution rendue interne localement disparaît du portail seulement après un nouvel export et déploiement ; les données précédemment publiées restent dans l’historique Git.
 
 Pour disposer de votes, suggestions et modifications synchronisés sur le site hébergé par Pages, il faudra connecter un serveur ou une base de données externe avec authentification adaptée.
 
@@ -145,3 +145,11 @@ Le rapprochement local est borné à 12 sources par lot et à un contexte de 52 
 Le cercle de progression accompagne les notes, à droite de l’heure, les analyses dans les panneaux, les éléments du Gantt et du Kanban, ainsi que les sources et les sujets vivants. Un repère discret dans la barre supérieure permet de suivre une analyse depuis un autre écran. Les animations respectent la réduction des mouvements.
 
 Le suivi provient du serveur et des réponses Ollama reçues en continu : préparation, analyse locale, vérification et enregistrement. Le spinner neutre tourne continuellement pendant le travail du modèle. Le détail conserve les étapes réellement terminées, sans pourcentage ni remplissage partiel figé. Pendant la génération, un mouvement signale que le calcul continue ; le détail indique l’étape, la durée écoulée et le volume de réponse effectivement reçu. Ollama ne donne pas de pourcentage fiable avant la fin de la génération, donc Beam n’en invente pas. Les analyses interrompues conservent leur état d’erreur et ne passent jamais à 100 %. Le suivi reste privé.
+
+## Publications
+
+Dans **Communication → Publications**, créer une annonce indépendante ou préparer un brouillon depuis un élément livré (également depuis son panneau de détail). Rédaction et aperçu utilisateur permettent de relire le titre, la version facultative et le texte avant **Publier cette annonce**. L’assistant local propose un texte à partir du titre et de la description de l’élément livré ; il n’enregistre ni ne publie automatiquement sa proposition.
+
+Les brouillons et archives restent privés dans SQLite. Une annonce associée à un élément exige qu’il soit livré, public et non archivé pour être publiée. Les annonces publiées sont des instantanés éditoriaux indépendants : changer ensuite la roadmap ne réécrit pas leur texte. **Retirer et modifier** la repasse en brouillon et la masque du portail local ; l’archivage la masque également, et la restauration la remet en brouillon. La suppression définitive demande confirmation dans le panneau.
+
+Le portail expose l’onglet **Nouveautés** avec seulement les annonces publiées (titre, texte, version et date). Pour GitHub Pages, `npm run export:roadmap` produit aussi `public/publications.json` ; les ajouts, retraits et archives nécessitent un nouvel export et déploiement. Les annonces antérieurement exportées restent dans l’historique Git. Aucun brouillon ni lien interne d’élément n’est exporté.

@@ -1,3 +1,4 @@
+import Publications from "./components/Publications";
 import AIProgress, { AIActivityProvider } from "./components/AIProgress";
 import React, { useEffect, useState } from "react";
 import { createRoot } from "react-dom/client";
@@ -85,13 +86,21 @@ function Mark() {
   );
 }
 function App() {
+  const [publicationItem, setPublicationItem] = useState(null);
   const [logoReplay, setLogoReplay] = useState(0);
   const publicMode = pagesMode || location.pathname === "/roadmap";
   const [items, setItems] = useState([]),
     [page, setPage] = useState(
       (publicMode
-        ? ["gantt", "kanban"]
-        : ["gantt", "kanban", "feedback", "integrations", "notes"]
+        ? ["gantt", "kanban", "publications"]
+        : [
+            "gantt",
+            "kanban",
+            "feedback",
+            "integrations",
+            "notes",
+            "publications",
+          ]
       ).includes(location.hash.slice(1))
         ? location.hash.slice(1)
         : "gantt",
@@ -413,7 +422,19 @@ function App() {
             <div className="nav-caption">COMMUNICATION</div>
             <nav aria-label="Communication du produit">
               <TreeNav
+                activeHref={"#" + page}
+                onSelect={(item, event) => {
+                  if (!item.external) {
+                    event.preventDefault();
+                    setPage("publications");
+                  }
+                }}
                 items={[
+                  {
+                    label: "Publications",
+                    href: "#publications",
+                    icon: <Radio size={17} />,
+                  },
                   {
                     label: "Roadmap publique",
                     href: publicPath,
@@ -531,7 +552,7 @@ function App() {
                         ? "Intégrations"
                         : page === "feedback"
                           ? "Suggestions"
-                          : "Nouveautés"}
+                          : "Publications"}
               </span>
             </div>
           )}
@@ -576,8 +597,10 @@ function App() {
                     ? "Intégrations"
                     : page === "feedback"
                       ? "Suggestions"
-                      : page === "changelog"
-                        ? "Nouveautés"
+                      : page === "publications"
+                        ? publicMode
+                          ? "Nouveautés de " + product.name
+                          : "Publications"
                         : page === "kanban"
                           ? "Kanban"
                           : publicMode
@@ -591,10 +614,10 @@ function App() {
                     ? "Reliez les outils de votre produit et transformez leurs informations en décisions de roadmap."
                     : page === "feedback"
                       ? "Les retours de votre communauté, réunis au même endroit."
-                      : page === "changelog"
-                        ? "Les dernières évolutions disponibles dans " +
-                          product.name +
-                          "."
+                      : page === "publications"
+                        ? publicMode
+                          ? "Les évolutions disponibles, expliquées par l’équipe."
+                          : "Transformez vos livraisons en annonces pour vos utilisateurs."
                         : publicMode
                           ? pagesMode
                             ? "Les initiatives, projets et features de " +
@@ -608,17 +631,20 @@ function App() {
                             : "Suivez vos initiatives, projets et features sur une même chronologie."}
               </p>
             </div>
-            {!pagesMode && page !== "integrations" && page !== "notes" && (
-              <button
-                className="button primary"
-                onClick={() =>
-                  publicMode ? setSuggest(true) : setEdit({ ...blank })
-                }
-              >
-                <Plus size={17} />
-                {publicMode ? "Proposer une idée" : "Nouvel élément"}
-              </button>
-            )}
+            {!pagesMode &&
+              page !== "integrations" &&
+              page !== "notes" &&
+              page !== "publications" && (
+                <button
+                  className="button primary"
+                  onClick={() =>
+                    publicMode ? setSuggest(true) : setEdit({ ...blank })
+                  }
+                >
+                  <Plus size={17} />
+                  {publicMode ? "Proposer une idée" : "Nouvel élément"}
+                </button>
+              )}
           </section>
           {publicMode && (
             <nav className="screen-tabs" aria-label="Vues de la roadmap">
@@ -638,11 +664,20 @@ function App() {
                 <LayoutGrid size={16} />
                 Kanban
               </button>
+              <button
+                className={page === "publications" ? "active" : ""}
+                onClick={() => setPage("publications")}
+                aria-current={page === "publications" ? "page" : undefined}
+              >
+                <Radio size={16} />
+                Nouveautés
+              </button>
             </nav>
           )}
           {page !== "feedback" &&
             page !== "integrations" &&
-            page !== "notes" && (
+            page !== "notes" &&
+            page !== "publications" && (
               <>
                 <div className="section-title">
                   <div>
@@ -820,6 +855,19 @@ function App() {
                 Réessayer
               </button>
             </div>
+          ) : page === "publications" ? (
+            <Publications
+              api={api}
+              items={items}
+              product={product}
+              publicMode={publicMode}
+              pagesMode={pagesMode}
+              Modal={Modal}
+              onError={setToast}
+              onOpen={setSelected}
+              initialItem={publicationItem}
+              onConsumed={() => setPublicationItem(null)}
+            />
           ) : page === "notes" && !publicMode ? (
             <Notes
               api={api}
@@ -1284,16 +1332,31 @@ function App() {
           {!pagesMode && (
             <div className="modal-actions">
               {!publicMode ? (
-                <button
-                  className="button primary"
-                  onClick={() => {
-                    setEdit({ ...selected });
-                    setSelected(null);
-                  }}
-                >
-                  Modifier l’évolution
-                  <ArrowRight size={16} />
-                </button>
+                <>
+                  {selected.status === "done" && !selected.archived && (
+                    <button
+                      className="button"
+                      onClick={() => {
+                        setPublicationItem(selected);
+                        setSelected(null);
+                        setPage("publications");
+                      }}
+                    >
+                      <Radio size={15} />
+                      Préparer une publication
+                    </button>
+                  )}
+                  <button
+                    className="button primary"
+                    onClick={() => {
+                      setEdit({ ...selected });
+                      setSelected(null);
+                    }}
+                  >
+                    Modifier l’évolution
+                    <ArrowRight size={16} />
+                  </button>
+                </>
               ) : (
                 <button
                   className="button primary"

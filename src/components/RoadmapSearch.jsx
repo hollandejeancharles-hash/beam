@@ -5,6 +5,7 @@ import {
   Integration,
   LayoutGrid,
   MessageSquare,
+  Radio,
   Search,
   SlidersHorizontal,
 } from "../icons";
@@ -16,6 +17,7 @@ export default function RoadmapSearch({ items, publicMode, onApply, onClose }) {
     const nav = [
       ["gantt", "Planification", Planning],
       ["kanban", "Kanban", LayoutGrid],
+      ["publications", publicMode ? "Nouveautés" : "Publications", Radio],
       ...(!publicMode
         ? [
             ["feedback", "Suggestions", MessageSquare],

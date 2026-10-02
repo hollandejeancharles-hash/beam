@@ -1,3 +1,4 @@
+import { createPublications, publicPublications } from "./publications.js";
 import { activity } from "./ai-progress.js";
 import { createAssociations } from "./associations.js";
 import { createProfile } from "./profile.js";
@@ -23,6 +24,7 @@ const notes = createNotes(store);
 const attachments = createAttachments(store);
 await startLocalAI();
 const ai = createAI(store, notes, integrations);
+const publications = createPublications(store, ai);
 const associations = createAssociations(store, notes, integrations, ai);
 ai.setDiscovery((id) => associations.refresh({ force: true, itemId: id }));
 ai.resume();
@@ -139,6 +141,10 @@ const server = http.createServer(async (req, res) => {
       return res.end(Buffer.from(file.bytes));
     }
     if (req.method === "GET") {
+      if (url.pathname === "/api/admin/publications")
+        return send(200, publications.list());
+      if (url.pathname === "/api/public/publications")
+        return send(200, publicPublications(publications.list()));
       if (url.pathname === "/api/admin/profile")
         return send(200, profile.get());
       if (url.pathname === "/api/admin/associations")
@@ -193,6 +199,29 @@ const server = http.createServer(async (req, res) => {
         return send(413, { error: "Contenu trop volumineux" });
     }
     const body = raw ? JSON.parse(raw) : {};
+    if (
+      url.pathname === "/api/admin/publications/generate" &&
+      req.method === "POST"
+    )
+      return send(200, await publications.generate(body));
+    if (url.pathname === "/api/admin/publications" && req.method === "POST")
+      return send(201, publications.save(body));
+    const publicationMatch = url.pathname.match(
+      /^\/api\/admin\/publications\/([a-f0-9-]+)(?:\/(state))?$/,
+    );
+    if (publicationMatch) {
+      if (req.method === "PATCH")
+        return send(
+          200,
+          publicationMatch[2]
+            ? publications.transition(publicationMatch[1], body.state)
+            : publications.save(body, publicationMatch[1]),
+        );
+      if (req.method === "DELETE" && !publicationMatch[2]) {
+        publications.remove(publicationMatch[1]);
+        return send(200, { ok: true });
+      }
+    }
     if (url.pathname === "/api/admin/profile" && req.method === "PATCH")
       return send(200, await profile.save(body));
     if (

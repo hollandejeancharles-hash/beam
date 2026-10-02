@@ -34,6 +34,7 @@ test("production API: authentication, private visibility, suggestions, persisten
       });
     assert.equal((await request("admin/items")).status, 401);
     for (const endpoint of [
+      "publications",
       "sources",
       "signals",
       "sync-runs",
@@ -43,6 +44,55 @@ test("production API: authentication, private visibility, suggestions, persisten
       "ai/reviews",
     ])
       assert.equal((await request("admin/" + endpoint)).status, 401);
+    assert.equal((await request("public/publications")).status, 200);
+    const draftResponse = await request(
+      "admin/publications",
+      "POST",
+      { title: "Annonce test", body: "Évolution disponible" },
+      true,
+    );
+    assert.equal(draftResponse.status, 201);
+    const draftPublication = await draftResponse.json();
+    assert.deepEqual(await (await request("public/publications")).json(), []);
+    assert.equal(
+      (
+        await request(
+          `admin/publications/${draftPublication.id}/state`,
+          "PATCH",
+          { state: "published" },
+          true,
+          { Origin: "https://untrusted.example" },
+        )
+      ).status,
+      403,
+    );
+    assert.equal(
+      (
+        await request(
+          `admin/publications/${draftPublication.id}/state`,
+          "PATCH",
+          { state: "published" },
+          true,
+        )
+      ).status,
+      200,
+    );
+    const announcements = await (await request("public/publications")).json();
+    assert.equal(announcements.length, 1);
+    assert.equal(announcements[0].title, "Annonce test");
+    assert.equal(announcements[0].item_id, undefined);
+    assert.equal(
+      (
+        await request(
+          `admin/publications/${draftPublication.id}/state`,
+          "PATCH",
+          { state: "archived" },
+          true,
+        )
+      ).status,
+      200,
+    );
+    assert.deepEqual(await (await request("public/publications")).json(), []);
     assert.equal((await request("public/signals")).status, 404);
     assert.equal((await request("public/notes")).status, 404);
     assert.equal((await request("public/ai/reviews")).status, 404);

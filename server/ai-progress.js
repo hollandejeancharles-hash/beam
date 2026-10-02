@@ -1,5 +1,6 @@
 const jobs = new Map();
 const labels = {
+  publication: "Rédaction de la publication",
   note: "Organisation de la note",
   feature: "Analyse de l’élément",
   associations: "Rapprochement des sources",
