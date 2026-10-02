@@ -3219,7 +3219,7 @@ footer b {
   margin-top: 0;
 }
 
-/* Beam: one brief light pass at launch, without looping or layout movement. */
+/* Beam: a brief light pass at launch and on logo interaction, without looping. */
 .brand-mark {
   position: relative;
   flex-shrink: 0;

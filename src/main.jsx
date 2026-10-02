@@ -81,6 +81,7 @@ function Mark() {
   );
 }
 function App() {
+  const [logoReplay, setLogoReplay] = useState(0);
   const publicMode = pagesMode || location.pathname === "/roadmap";
   const [items, setItems] = useState([]),
     [page, setPage] = useState(
@@ -283,11 +284,20 @@ function App() {
       <BeamsBackground intensity="subtle" />
       {!publicMode && (
         <aside className="sidebar" aria-label="Menu latéral">
-          <a className="brand" href="/" aria-label="Beam — accueil">
-            <span className="brand-mark">
+          <a
+            className="brand"
+            href="/"
+            aria-label="Beam — accueil"
+            onPointerEnter={(event) => {
+              if (event.pointerType !== "touch")
+                setLogoReplay((count) => count + 1);
+            }}
+            onFocus={() => setLogoReplay((count) => count + 1)}
+          >
+            <span className="brand-mark" key={"mark-" + logoReplay}>
               <Mark />
             </span>
-            <span className="brand-word">
+            <span className="brand-word" key={"word-" + logoReplay}>
               <span className="brand-name">beam</span>
               <span className="brand-dot">.</span>
             </span>
