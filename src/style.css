@@ -4613,3 +4613,11 @@ footer b {
   line-height: 1.8;
   overflow-wrap: anywhere;
 }
+
+button.workspace { width: 100%; text-align: left; color: inherit; cursor: pointer; font-family: inherit; }
+button.workspace:hover { background: #23242c; border-color: #464858; }
+button.workspace:focus-visible { outline: 2px solid #8c80dc; outline-offset: 3px; }
+.workspace > div { min-width: 0; }
+.workspace strong, .workspace small { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.workspace .puls-logo { flex-shrink: 0; }
+.puls-logo img { width: 100%; height: 100%; object-fit: cover; border-radius: inherit; }

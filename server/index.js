@@ -207,7 +207,7 @@ const server = http.createServer(async (req, res) => {
         raw.length >
         (url.pathname.endsWith("/attachments") && admin
           ? 12000000
-          : url.pathname === "/api/admin/profile"
+          : ["/api/admin/profile", "/api/admin/product"].includes(url.pathname)
             ? 800000
             : admin && url.pathname.startsWith("/api/admin/publications")
               ? 60000
@@ -319,7 +319,7 @@ const server = http.createServer(async (req, res) => {
       return;
     }
     if (url.pathname === "/api/admin/product" && req.method === "PATCH")
-      return send(200, integrations.saveProduct(body));
+      return send(200, await integrations.saveProduct(body));
     if (url.pathname === "/api/admin/sources" && req.method === "POST")
       return send(201, integrations.save(body));
     const sourceSetting = url.pathname.match(

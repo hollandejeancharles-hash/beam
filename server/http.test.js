@@ -164,6 +164,25 @@ test("production API: authentication, private visibility, suggestions, persisten
     );
     assert.equal(uploaded.status, 201);
     const attachment = await uploaded.json();
+    const workspaceResponse = await request(
+      "admin/product",
+      "PATCH",
+      {
+        name: "Test workspace",
+        description: "CMS",
+        image: "data:image/png;base64," + png,
+      },
+      true,
+    );
+    assert.equal(workspaceResponse.status, 200);
+    const workspace = await workspaceResponse.json();
+    assert.equal(workspace.description, "CMS");
+    assert.match(workspace.image, /^data:image\/png;base64,/);
+    assert.equal(
+      (await (await request("public/product")).json()).name,
+      "Test workspace",
+    );
+
     const index = await (
       await request("admin/search", "GET", undefined, true)
     ).json();
@@ -217,9 +236,7 @@ test("production API: authentication, private visibility, suggestions, persisten
         .state,
       "done",
     );
-    assert.deepEqual(await (await request("public/product")).json(), {
-      name: "PULS",
-    });
+    assert.deepEqual(await (await request("public/product")).json(), workspace);
     assert.equal(
       (
         await request(
@@ -232,6 +249,7 @@ test("production API: authentication, private visibility, suggestions, persisten
       200,
     );
     assert.deepEqual(await (await request("public/product")).json(), {
+      ...workspace,
       name: "Another product",
     });
     let res = await request("public/items");

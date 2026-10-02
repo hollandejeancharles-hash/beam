@@ -1,3 +1,4 @@
+import Workspace from "./components/Workspace";
 import { includesSearch } from "../shared/search";
 import Publications from "./components/Publications";
 import AIProgress, { AIActivityProvider } from "./components/AIProgress";
@@ -129,6 +130,7 @@ function App() {
       email: "",
       photo: null,
     }),
+    [workspaceOpen, setWorkspaceOpen] = useState(false),
     [profileOpen, setProfileOpen] = useState(false),
     [key, setKey] = useState(sessionStorage.getItem("beam_key") || ""),
     [sort, setSort] = useState("manual"),
@@ -216,6 +218,7 @@ function App() {
         setEdit(null);
         setShare(false);
         setProfileOpen(false);
+        setWorkspaceOpen(false);
         setSuggest(false);
         setCommandOpen(false);
       }
@@ -382,13 +385,24 @@ function App() {
               <span className="brand-dot">.</span>
             </span>
           </a>
-          <div className="workspace">
-            <span className="puls-logo">P</span>
+          <button
+            type="button"
+            className="workspace"
+            aria-label="Modifier le workspace"
+            onClick={() => setWorkspaceOpen(true)}
+          >
+            <span className="puls-logo">
+              {product.image ? (
+                <img src={product.image} alt="" />
+              ) : (
+                product.name[0]?.toUpperCase()
+              )}
+            </span>
             <div>
               <strong>{product.name}</strong>
-              <small>Product workspace</small>
+              <small>{product.description || "Product workspace"}</small>
             </div>
-          </div>
+          </button>
           <div className="nav-caption">ESPACE PRODUIT</div>
           <nav aria-label="Navigation de Beam">
             <TreeNav
@@ -547,7 +561,13 @@ function App() {
           )}
           {publicMode ? (
             <a className="public-brand" href={publicPath}>
-              <span className="puls-logo">{product.name[0]}</span>
+              <span className="puls-logo">
+                {product.image ? (
+                  <img src={product.image} alt="" />
+                ) : (
+                  product.name[0]?.toUpperCase()
+                )}
+              </span>
               {product.name} <span>/</span> Roadmap
             </a>
           ) : (
@@ -1243,6 +1263,7 @@ function App() {
                   if (action === "create")
                     setEdit({ ...blank, type: values[0].id });
                   if (action === "profile") setProfileOpen(true);
+                  if (action === "workspace") setWorkspaceOpen(true);
                   if (action === "share") setShare(true);
                   if (action === "capture")
                     requestAnimationFrame(() =>
@@ -1281,6 +1302,23 @@ function App() {
               }
               setCommandOpen(false);
             }}
+          />
+        </Modal>
+      )}
+      {workspaceOpen && !publicMode && (
+        <Modal
+          title="Réglages du workspace"
+          side
+          close={() => setWorkspaceOpen(false)}
+        >
+          <Workspace
+            product={product}
+            api={api}
+            onSave={(p) => {
+              setProduct(p);
+              setToast("Workspace mis à jour");
+            }}
+            onClose={() => setWorkspaceOpen(false)}
           />
         </Modal>
       )}

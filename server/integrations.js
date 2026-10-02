@@ -1,3 +1,4 @@
+import { createCanvas, loadImage } from "@napi-rs/canvas";
 import { githubReleaseLogs } from "./github-release.js";
 import { matchesFor, decideMatch } from "./associations.js";
 import { randomUUID } from "node:crypto";
@@ -496,14 +497,60 @@ export function createIntegrations(
           ?.value || '{"name":"PULS"}',
       );
     },
-    saveProduct(input) {
+    async saveProduct(input) {
       if (
         typeof input.name !== "string" ||
         !input.name.trim() ||
         input.name.length > 80
       )
         throw new SourceError("Nom du produit invalide");
-      const product = { name: input.name.trim() };
+      const old = JSON.parse(
+        db.prepare("SELECT value FROM metadata WHERE key='product'").get()
+          ?.value || '{"name":"PULS"}',
+      );
+      const product = { ...old, name: input.name.trim() };
+      if (input.description !== undefined) {
+        if (
+          typeof input.description !== "string" ||
+          input.description.length > 160
+        )
+          throw new SourceError("Description du workspace invalide");
+        product.description = input.description.trim();
+      }
+      if (input.image !== undefined) {
+        if (input.image === null) product.image = null;
+        else {
+          if (
+            typeof input.image !== "string" ||
+            input.image.length > 700000 ||
+            !/^data:image\/(png|jpeg|webp);base64,/.test(input.image)
+          )
+            throw new SourceError("Image du workspace invalide");
+          const image = await loadImage(
+            Buffer.from(input.image.split(",")[1], "base64"),
+          );
+          if (image.width * image.height > 4000000)
+            throw new SourceError("Image trop grande");
+          const canvas = createCanvas(256, 256),
+            size = Math.min(image.width, image.height);
+          canvas
+            .getContext("2d")
+            .drawImage(
+              image,
+              (image.width - size) / 2,
+              (image.height - size) / 2,
+              size,
+              size,
+              0,
+              0,
+              256,
+              256,
+            );
+          product.image =
+            "data:image/png;base64," +
+            canvas.toBuffer("image/png").toString("base64");
+        }
+      }
       db.prepare("INSERT OR REPLACE INTO metadata VALUES('product',?)").run(
         JSON.stringify(product),
       );

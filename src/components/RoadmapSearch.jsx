@@ -116,6 +116,12 @@ export default function RoadmapSearch({
             },
             ...[
               [
+                "workspace",
+                "Réglages du workspace",
+                "nom image logo produit espace",
+                Search,
+              ],
+              [
                 "capture",
                 "Noter rapidement",
                 "note échange capture",
