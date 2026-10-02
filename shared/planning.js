@@ -107,11 +107,12 @@ export function validatePlanning(value, id, items) {
         parent.id === record.id ||
         !(
           (record.type === "project" && parent.type === "initiative") ||
-          (record.type === "feature" && parent.type === "project")
+          (record.type === "feature" &&
+            ["project", "initiative"].includes(parent.type))
         )
       )
         throw Error(
-          "Une initiative contient des projets ; un projet contient des features",
+          "Une feature se rattache à un projet ou une initiative ; un projet se rattache à une initiative",
         );
     }
   }

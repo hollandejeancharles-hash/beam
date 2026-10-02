@@ -401,7 +401,7 @@ function App() {
             (i) => i.type === "initiative" || i.type === "project",
           ) && (
             <div className="sidebar-projects">
-              <div className="nav-caption">STRUCTURE PRODUIT</div>
+              <div className="nav-caption">INITIATIVES ET PROJETS</div>
               <TreeNav
                 items={hierarchyRows(items)
                   .filter(({ item }) => item.type !== "feature")
@@ -1363,7 +1363,7 @@ function App() {
               <label>
                 {edit.type === "project"
                   ? "Initiative parente"
-                  : "Projet parent"}
+                  : "Initiative ou projet parent"}
                 <select
                   value={edit.parent_id || ""}
                   onChange={(e) =>
@@ -1375,12 +1375,14 @@ function App() {
                     .filter(
                       (i) =>
                         i.id !== edit.id &&
-                        i.type ===
-                          (edit.type === "project" ? "initiative" : "project"),
+                        !i.archived &&
+                        (edit.type === "project"
+                          ? i.type === "initiative"
+                          : ["initiative", "project"].includes(i.type)),
                     )
                     .map((i) => (
                       <option key={i.id} value={i.id}>
-                        {i.title}
+                        {TYPES[i.type]} · {i.title}
                       </option>
                     ))}
                 </select>

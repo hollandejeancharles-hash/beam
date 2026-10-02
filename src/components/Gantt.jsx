@@ -324,13 +324,17 @@ export default function Gantt({
                 late = item.end_date && item.end_date < today && progress < 100;
               return (
                 <div
-                  className={"gantt-row kind-" + (item.type || "feature")}
+                  className={
+                    "gantt-row kind-" +
+                    (item.type || "feature") +
+                    (depth ? " gantt-child-row" : "")
+                  }
                   key={item.id}
                   style={{ top: index * ROW, height: ROW }}
                 >
                   <div
                     className="gantt-meta"
-                    style={{ width: META, paddingLeft: 12 + depth * 18 }}
+                    style={{ width: META, paddingLeft: 12 + depth * 28 }}
                   >
                     {hasChildren ? (
                       <button

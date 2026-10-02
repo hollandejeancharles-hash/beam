@@ -128,3 +128,21 @@ test("Gantt distinguishes quarter estimates, real dates and parent rollups", () 
   assert.equal(hierarchyRows(items, new Set(["p"])).length, 2);
   assert.equal(hierarchyRows(items)[3].depth, 2);
 });
+
+test("features may sit directly under initiatives with optional project level", () => {
+  const s = createStore(":memory:");
+  const root = s.save({ ...entry, type: "initiative" });
+  const child = s.save({ ...entry, type: "feature", parent_id: root });
+  assert.equal(
+    hierarchyRows(s.list()).find((r) => r.item.id === child).depth,
+    1,
+  );
+  const project = s.save({ ...entry, type: "project", parent_id: root });
+  s.save({ parent_id: project }, child);
+  assert.equal(
+    hierarchyRows(s.list()).find((r) => r.item.id === child).depth,
+    2,
+  );
+  assert.equal(hierarchyRows(s.list(), new Set([root])).length, 1);
+  s.db.close();
+});
