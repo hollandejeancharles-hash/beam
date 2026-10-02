@@ -88,7 +88,7 @@ Pour disposer de votes, suggestions et modifications synchronisés sur le site h
 
 Le bouton **Noter** reste disponible sur tous les écrans de l’espace administrateur. **⌘⇧N / Ctrl⇧N** ouvre la capture ; **⌘Entrée / CtrlEntrée** enregistre et laisse le champ prêt pour la note suivante. Fermer la capture conserve le brouillon dans ce navigateur.
 
-Le carnet **Notes** propose une vue « À suivre », le regroupement par intention, personne ou sujet, la recherche, la correction du texte et du classement, la clôture et l’archivage réversible. Les notes sont enregistrées dans SQLite et protégées par l’accès administrateur. Elles ne sont jamais incluses dans la roadmap publique ou dans l’export GitHub Pages.
+Le carnet **Notes** propose une liste chronologique compacte, les vues « À suivre » et « À examiner », des filtres de sujets extraits automatiquement, la recherche, la correction du texte et du classement, la clôture et l’archivage réversible. Les notes sont enregistrées dans SQLite et protégées par l’accès administrateur. Elles ne sont jamais incluses dans la roadmap publique ou dans l’export GitHub Pages.
 
 L’interprétation actuelle repose sur des règles locales transparentes : intentions courantes en français, noms après certains verbes, `@personne`, `#sujet`, aujourd’hui/demain, jours de semaine et dates `AAAA-MM-JJ`, rapprochement des titres de roadmap. Un jour de semaine désigne sa prochaine occurrence. Une note ambiguë reste une note ; les propositions sont modifiables. Aucun appel à un service IA, aucune notification programmée et aucune modification automatique de la roadmap. GitHub Pages reste la vitrine publique ; le carnet nécessite le serveur Beam.
 
@@ -106,7 +106,7 @@ Un clic gauche sur l’icône Beam dans la barre de menus affiche la fenêtre ex
 
 ### IA locale pour les notes et features
 
-L’assistant **Ministral 3 8B / Ollama** prépare des classements de notes et des propositions de roadmap avec leurs sources. Les nouvelles notes sont enregistrées sans attendre l’analyse ; aucun changement de roadmap n’est appliqué sans validation. Depuis les détails d’un élément, l’assistant analyse ses notes et sources associées. Voir [installation, confidentialité et limites](docs/local-ai.md).
+L’assistant **Ministral 3 8B / Ollama** organise automatiquement les notes et prépare des propositions de roadmap avec leurs sources. Les notes acceptent des images, captures et PDF analysés localement. Les nouvelles notes sont enregistrées sans attendre l’analyse ; aucun changement de roadmap n’est appliqué sans validation. Depuis les détails d’un élément, l’assistant analyse ses notes et sources associées. Voir [installation, confidentialité et limites](docs/local-ai.md).
 
 ### Espace vierge et archives
 

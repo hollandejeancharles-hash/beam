@@ -1,4 +1,5 @@
 import test from "node:test";
+import { createCanvas } from "@napi-rs/canvas";
 import assert from "node:assert/strict";
 import { spawn } from "node:child_process";
 import { mkdtempSync, rmSync } from "node:fs";
@@ -67,6 +68,43 @@ test("production API: authentication, private visibility, suggestions, persisten
     assert.equal(noteResponse.status, 201);
     const note = await noteResponse.json();
     assert.equal(note.kind, "followup");
+    const png = createCanvas(10, 10).toBuffer("image/png").toString("base64");
+    assert.equal(
+      (
+        await request(`admin/notes/${note.id}/attachments`, "POST", {
+          name: "test.png",
+          mime: "image/png",
+          data: png,
+        })
+      ).status,
+      401,
+    );
+    const uploaded = await request(
+      `admin/notes/${note.id}/attachments`,
+      "POST",
+      { name: "test.png", mime: "image/png", data: png },
+      true,
+    );
+    assert.equal(uploaded.status, 201);
+    const attachment = await uploaded.json();
+    assert.equal(
+      (await request(`admin/attachments/${attachment.id}`)).status,
+      401,
+    );
+    const original = await request(
+      `admin/attachments/${attachment.id}`,
+      "GET",
+      undefined,
+      true,
+    );
+    assert.equal(original.status, 200);
+    assert.equal(original.headers.get("content-type"), "image/png");
+    assert.ok((await original.arrayBuffer()).byteLength > 0);
+    assert.equal(
+      (await request(`public/attachments/${attachment.id}`)).status,
+      404,
+    );
+
     assert.equal(
       (
         await request(

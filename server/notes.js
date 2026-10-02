@@ -9,11 +9,20 @@ export function createNotes(store) {
     ...n,
     ...JSON.parse(n.details),
     details: undefined,
+    attachments: db
+      .prepare("SELECT name FROM sqlite_master WHERE name='note_attachments'")
+      .get()
+      ? db
+          .prepare(
+            "SELECT id,name,mime,pages,length(bytes) AS size FROM note_attachments WHERE note_id=?",
+          )
+          .all(n.id)
+      : [],
   });
   return {
     list: () =>
       db.prepare("SELECT * FROM notes ORDER BY created DESC").all().map(decode),
-    save(input, id = randomUUID()) {
+    save(input, id = randomUUID(), { automatic = false } = {}) {
       const old = db.prepare("SELECT * FROM notes WHERE id=?").get(id);
       if (
         input.text !== undefined &&
@@ -24,16 +33,23 @@ export function createNotes(store) {
         throw Error("Une note doit contenir entre 1 et 5 000 caractères.");
       const text = input.text?.trim() || old?.text;
       if (!text) throw Error("Note introuvable");
+      const previous = old ? JSON.parse(old.details) : {};
+      const locked = previous.manual_fields || [];
       const details = {
         ...(old && old.text === text
           ? JSON.parse(old.details)
           : interpretNote(text, store.list())),
         ...Object.fromEntries(
-          Object.entries(input.classification || {}).filter(([key]) =>
-            ["kind", "people", "tags", "due", "linked"].includes(key),
+          Object.entries(input.classification || {}).filter(
+            ([key]) =>
+              ["kind", "people", "tags", "due", "linked"].includes(key) &&
+              (!automatic || !locked.includes(key)),
           ),
         ),
       };
+      details.manual_fields = automatic
+        ? locked
+        : [...new Set([...locked, ...Object.keys(input.classification || {})])];
       if (
         !Object.hasOwn(NOTE_KINDS, details.kind) ||
         !Array.isArray(details.people) ||

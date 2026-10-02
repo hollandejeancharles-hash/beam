@@ -560,7 +560,7 @@ function App() {
               </h1>
               <p>
                 {page === "notes"
-                  ? "Capturez vos échanges. Retrouvez ce qui mérite votre attention."
+                  ? "Vos échanges, organisés au fil de la journée."
                   : page === "integrations"
                     ? "Reliez les outils de votre produit et transformez leurs informations en décisions de roadmap."
                     : page === "feedback"

@@ -1,3 +1,4 @@
+import { createAttachments } from "./attachments.js";
 import { startLocalAI } from "./ai-runtime.js";
 import { createAI } from "./ai.js";
 import { createNotes } from "./notes.js";
@@ -14,6 +15,7 @@ mkdirSync("data", { recursive: true });
 const store = createStore(process.env.BEAM_DB || "data/beam.sqlite");
 const integrations = createIntegrations(store);
 const notes = createNotes(store);
+const attachments = createAttachments(store);
 await startLocalAI();
 const ai = createAI(store, notes, integrations);
 ai.resume();
@@ -107,6 +109,21 @@ const server = http.createServer(async (req, res) => {
         });
       return send(401, { error: "Clé d’accès incorrecte" });
     }
+    const attachmentFile = url.pathname.match(
+      /^\/api\/admin\/attachments\/([a-f0-9-]+)$/,
+    );
+    if (attachmentFile && req.method === "GET") {
+      const file = attachments.get(attachmentFile[1]);
+      if (!file) return send(404, { error: "Fichier introuvable" });
+      res.setHeader("Content-Type", file.mime);
+      res.setHeader(
+        "Content-Disposition",
+        "attachment; filename*=UTF-8''" + encodeURIComponent(file.name),
+      );
+      res.setHeader("Content-Security-Policy", "sandbox");
+      res.writeHead(200);
+      return res.end(Buffer.from(file.bytes));
+    }
     if (req.method === "GET") {
       if (url.pathname === "/api/admin/ai/status")
         return send(200, await ai.status());
@@ -144,7 +161,10 @@ const server = http.createServer(async (req, res) => {
     let raw = "";
     for await (const chunk of req) {
       raw += chunk;
-      if (raw.length > 20000)
+      if (
+        raw.length >
+        (url.pathname.endsWith("/attachments") && admin ? 12000000 : 20000)
+      )
         return send(413, { error: "Contenu trop volumineux" });
     }
     const body = raw ? JSON.parse(raw) : {};
@@ -174,9 +194,24 @@ const server = http.createServer(async (req, res) => {
       setImmediate(() => ai.auto(note));
       return;
     }
+    const noteFiles = url.pathname.match(
+      /^\/api\/admin\/notes\/([a-f0-9-]+)\/attachments$/,
+    );
+    if (noteFiles && req.method === "POST") {
+      const file = await attachments.add(noteFiles[1], body);
+      send(201, file);
+      setImmediate(() =>
+        ai.auto(notes.list().find((n) => n.id === noteFiles[1])),
+      );
+      return;
+    }
     const noteMatch = url.pathname.match(/^\/api\/admin\/notes\/([a-f0-9-]+)$/);
-    if (noteMatch && req.method === "PATCH")
-      return send(200, notes.save(body, noteMatch[1]));
+    if (noteMatch && req.method === "PATCH") {
+      const note = notes.save(body, noteMatch[1]);
+      send(200, note);
+      if (body.text !== undefined) setImmediate(() => ai.auto(note));
+      return;
+    }
     if (url.pathname === "/api/admin/product" && req.method === "PATCH")
       return send(200, integrations.saveProduct(body));
     if (url.pathname === "/api/admin/sources" && req.method === "POST")

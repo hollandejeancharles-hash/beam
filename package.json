@@ -12,8 +12,10 @@
     "export:roadmap": "node scripts/export-roadmap.js"
   },
   "dependencies": {
+    "@napi-rs/canvas": "^1.0.10",
     "lucide-react": "^0.468.0",
     "motion": "^13.5.1",
+    "pdfjs-dist": "^6.3.289",
     "react": "^19.1.0",
     "react-dom": "^19.1.0",
     "vite": "^6.1.0"

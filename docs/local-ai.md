@@ -7,7 +7,7 @@ Beam utilise **Ministral 3 8B Instruct** via l’API locale d’Ollama. Les nouv
 - Ouvrir **Notes → Réglages**, puis activer l’assistant.
 - Les nouvelles notes sont analysées automatiquement. Pour une note existante, cliquer sur **Analyser cette note** dans sa carte, puis lancer l’analyse dans son panneau.
 - L’onglet **À valider** rassemble les notes ayant des propositions à examiner. **Voir les propositions** ouvre un panneau dédié à la note.
-- Vérifier le classement, les changements proposés et leurs sources avant d’appliquer. Le texte original reste conservé.
+- Le classement (sujets, personnes, intention et échéance) est automatique pour les nouvelles notes. Les corrections manuelles sont préservées lors des analyses suivantes. Vérifier les changements de roadmap proposés et leurs sources avant d’appliquer. Le texte original reste conservé.
 - Depuis les **détails d’une feature → Assistant local**, analyser les notes et informations source qui lui sont explicitement associées.
 - Une nouvelle feature est toujours créée en interne. Un ajout à la description d’une feature publique fait l’objet d’une indication de visibilité avant validation. Les dates, statuts et publications ne sont jamais modifiés par l’assistant.
 
@@ -36,3 +36,9 @@ Démarrer Ollama puis ouvrir Beam. L’interface permet de vérifier si le moteu
 - La confidentialité de l’inférence ne désactive pas une éventuelle synchronisation ou sauvegarde des fichiers du Mac configurée par l’utilisateur.
 
 Documentation : [API Ollama](https://docs.ollama.com/api/chat), [modèle Ministral 3](https://ollama.com/library/ministral-3).
+
+## Pièces jointes
+
+Dans Notes, utiliser **Joindre un fichier** à la capture ou **Joindre** dans le panneau d’une note. PNG, JPEG, WebP et PDF restent dans la base locale privée. Limites : 4 fichiers par note, 8 Mo par fichier, 30 pages par PDF et 6 pages scannées par PDF. Les PDF protégés ou trop longs doivent être déverrouillés/divisés avant import.
+
+Le texte des PDF est extrait avec références de page. Les pages sans texte exploitable sont rendues localement et transmises, comme les images, au modèle visuel local (12 images au maximum par analyse). Le document source est téléchargeable depuis la note. L’IA peut manquer des détails : les suites proposées restent à vérifier. Aucun fichier n’est publié sur GitHub Pages. Une pièce jointe ajoutée pendant une analyse déclenche une nouvelle analyse à sa fin.

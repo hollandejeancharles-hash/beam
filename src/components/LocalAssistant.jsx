@@ -91,7 +91,7 @@ export default function LocalAssistant({
             {settingsOnly
               ? "Classement assisté"
               : singleNote
-                ? "Propositions pour cette note"
+                ? "Suite proposée"
                 : "Assistant local"}
           </strong>
           <small>
@@ -225,8 +225,9 @@ export default function LocalAssistant({
           )}
           {!feature && !singleNote && status?.enabled && (
             <p className="assistant-help">
-              Les nouvelles notes sont analysées automatiquement après leur
-              sauvegarde. Leur classement reste inchangé jusqu’à votre
+              Les nouvelles notes et leurs pièces jointes sont analysées
+              automatiquement. Les sujets, personnes et intentions sont classés
+              en arrière-plan. Les changements de roadmap attendent votre
               validation.
             </p>
           )}
@@ -262,51 +263,54 @@ export default function LocalAssistant({
               ) : (
                 <>
                   <p className="assistant-summary">{r.result.summary}</p>
-                  {r.scope === "note" && (
-                    <div className="assistant-classification">
-                      <strong>Classement proposé</strong>
-                      <p>
-                        {NOTE_KINDS[r.result.classification.kind]}
-                        {r.result.classification.people.length
-                          ? " · " + r.result.classification.people.join(", ")
-                          : ""}
-                        {r.result.classification.due
-                          ? " · " + r.result.classification.due
-                          : ""}
-                      </p>
-                      <p>
-                        {r.result.classification.tags
-                          .map((t) => "#" + t)
-                          .join(" ")}
-                        {r.result.classification.linked
-                          .map(
-                            (id) =>
-                              " · " +
-                              (items.find((i) => i.id === id)?.title ||
-                                "Feature supprimée"),
-                          )
-                          .join("")}
-                      </p>
-                      <button
-                        type="button"
-                        className="button"
-                        disabled={busy || r.result.classification_applied}
-                        onClick={() =>
-                          action(async () => {
-                            await api(`admin/ai/reviews/${r.id}/apply`, {
-                              method: "POST",
-                              body: JSON.stringify({ index: "classification" }),
-                            });
-                            await onRefresh?.();
-                          })
-                        }
-                      >
-                        {r.result.classification_applied
-                          ? "Classement appliqué"
-                          : "Appliquer le classement"}
-                      </button>
-                    </div>
-                  )}
+                  {r.scope === "note" &&
+                    !(singleNote && r.result.classification_applied) && (
+                      <div className="assistant-classification">
+                        <strong>Classement proposé</strong>
+                        <p>
+                          {NOTE_KINDS[r.result.classification.kind]}
+                          {r.result.classification.people.length
+                            ? " · " + r.result.classification.people.join(", ")
+                            : ""}
+                          {r.result.classification.due
+                            ? " · " + r.result.classification.due
+                            : ""}
+                        </p>
+                        <p>
+                          {r.result.classification.tags
+                            .map((t) => "#" + t)
+                            .join(" ")}
+                          {r.result.classification.linked
+                            .map(
+                              (id) =>
+                                " · " +
+                                (items.find((i) => i.id === id)?.title ||
+                                  "Feature supprimée"),
+                            )
+                            .join("")}
+                        </p>
+                        <button
+                          type="button"
+                          className="button"
+                          disabled={busy || r.result.classification_applied}
+                          onClick={() =>
+                            action(async () => {
+                              await api(`admin/ai/reviews/${r.id}/apply`, {
+                                method: "POST",
+                                body: JSON.stringify({
+                                  index: "classification",
+                                }),
+                              });
+                              await onRefresh?.();
+                            })
+                          }
+                        >
+                          {r.result.classification_applied
+                            ? "Classement appliqué"
+                            : "Appliquer le classement"}
+                        </button>
+                      </div>
+                    )}
                   {r.result.proposals.map((p, index) => {
                     const target = items.find((i) => i.id === p.item_id);
                     return (

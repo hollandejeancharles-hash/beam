@@ -195,504 +195,564 @@ export function QuickNote({ api, items, onError }) {
 }
 export default function Notes({ api, items, onError, onOpen, onRefresh }) {
   const [notes, setNotes] = useState([]),
-    [loading, setLoading] = useState(true),
-    [query, setQuery] = useState(""),
-    [view, setView] = useState("all"),
-    [group, setGroup] = useState("date"),
-    [editing, setEditing] = useState(null),
+    [text, setText] = useState(""),
+    [files, setFiles] = useState([]),
     [busy, setBusy] = useState(false),
-    [aiData, setAIData] = useState({ status: null, reviews: [] }),
-    [aiNote, setAINote] = useState(null);
-  const noteTrigger = useRef(null);
-  const latestReviews = new Map();
-  aiData.reviews
-    .filter((r) => r.scope === "note")
-    .forEach((r) => {
-      if (!latestReviews.has(r.entity_id)) latestReviews.set(r.entity_id, r);
-    });
-  const needsReview = (n) => {
-    const r = latestReviews.get(n.id);
-    return (
-      r?.state === "ready" &&
-      (!r.result.classification_applied ||
-        r.result.proposals.some((p) => !p.applied && !p.dismissed))
-    );
-  };
+    [view, setView] = useState("all"),
+    [topic, setTopic] = useState("Tous"),
+    [query, setQuery] = useState(""),
+    [selected, setSelected] = useState(null),
+    [settings, setSettings] = useState(false),
+    [data, setData] = useState({ status: null, reviews: [] }),
+    [classification, setClassification] = useState(null),
+    [editing, setEditing] = useState(false),
+    [draft, setDraft] = useState("");
+  const trigger = useRef(null);
   async function load() {
     try {
-      setNotes(await api("admin/notes"));
+      const [n, status, reviews] = await Promise.all([
+        api("admin/notes"),
+        api("admin/ai/status"),
+        api("admin/ai/reviews"),
+      ]);
+      setNotes(n);
+      setData({ status, reviews });
     } catch (e) {
       onError(e.message);
-    } finally {
-      setLoading(false);
     }
   }
   useEffect(() => {
     load();
-    const h = () => load();
-    window.addEventListener("beam:notes", h);
-    return () => window.removeEventListener("beam:notes", h);
+    const t = setInterval(load, 5000);
+    window.addEventListener("beam:notes", load);
+    return () => {
+      clearInterval(t);
+      window.removeEventListener("beam:notes", load);
+    };
   }, []);
-  async function update(note, changes) {
+  const latest = new Map();
+  for (const r of data.reviews)
+    if (r.scope === "note" && !latest.has(r.entity_id))
+      latest.set(r.entity_id, r);
+  const pending = (n) =>
+    latest
+      .get(n.id)
+      ?.result?.proposals?.some((p) => !p.applied && !p.dismissed);
+  const current = notes.find((n) => n.id === selected?.id) || selected;
+  const topics = [
+    ...new Set(
+      notes.filter((n) => n.state !== "archived").flatMap((n) => n.tags),
+    ),
+  ];
+  const visible = notes.filter(
+    (n) =>
+      (view === "archives" ? n.state === "archived" : n.state !== "archived") &&
+      (view !== "followup" ||
+        (n.state === "open" && ["action", "followup"].includes(n.kind))) &&
+      (view !== "review" || pending(n)) &&
+      (topic === "Tous" || n.tags.includes(topic)) &&
+      (!query ||
+        [
+          n.text,
+          ...n.people,
+          ...n.tags,
+          ...(n.attachments || []).map((a) => a.name),
+        ]
+          .join(" ")
+          .toLowerCase()
+          .includes(query.toLowerCase())),
+  );
+  async function attach(id, chosen) {
+    for (const file of chosen) {
+      if (file.size > 8 * 1024 * 1024) throw Error("8 Mo maximum par fichier");
+      const base64 = await new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(reader.result.split(",")[1]);
+        reader.onerror = reject;
+        reader.readAsDataURL(file);
+      });
+      await api(`admin/notes/${id}/attachments`, {
+        method: "POST",
+        body: JSON.stringify({
+          name: file.name,
+          mime: file.type,
+          data: base64,
+        }),
+      });
+    }
+  }
+  async function save(e) {
+    e?.preventDefault();
+    if (busy || (!text.trim() && !files.length)) return;
     setBusy(true);
     try {
-      await api("admin/notes/" + note.id, {
-        method: "PATCH",
-        body: JSON.stringify(changes),
+      const n = await api("admin/notes", {
+        method: "POST",
+        body: JSON.stringify({
+          text: text.trim() || files.map((f) => f.name).join(", "),
+        }),
       });
+      setText("");
+      const chosen = files;
+      setFiles([]);
+      await attach(n.id, chosen);
       await load();
-      setEditing(null);
     } catch (e) {
       onError(e.message);
     } finally {
       setBusy(false);
     }
   }
-  const attention = (n) =>
-    n.state === "open" && (["action", "followup"].includes(n.kind) || n.due);
-  const clean = (s) => s.normalize("NFD").replace(/\p{M}/gu, "").toLowerCase();
-  const shown = notes
-    .filter(
-      (n) =>
-        (view === "attention"
-          ? attention(n)
-          : view === "review"
-            ? n.state !== "archived" && needsReview(n)
-            : view === "done"
-              ? n.state === "done"
-              : view === "archived"
-                ? n.state === "archived"
-                : n.state === "open") &&
-        clean(
-          [
-            n.text,
-            ...n.people,
-            ...n.tags,
-            ...n.linked.map(
-              (id) => items.find((i) => i.id === id)?.title || "",
-            ),
-          ].join(" "),
-        ).includes(clean(query)),
-    )
-    .sort((a, b) =>
-      view === "attention"
-        ? (a.due || "9999").localeCompare(b.due || "9999")
-        : b.created.localeCompare(a.created),
-    );
-  const groups = new Map();
-  shown.forEach((n) => {
-    const keys =
-      group === "date"
-        ? [
-            new Date(n.created).toLocaleDateString("fr-FR", {
-              weekday: "long",
-              day: "numeric",
-              month: "long",
-            }),
-          ]
-        : group === "people"
-          ? n.people.length
-            ? n.people
-            : ["Sans personne identifiée"]
-          : group === "topic"
-            ? [
-                ...n.tags.map((t) => "#" + t),
-                ...n.linked
-                  .map((id) => items.find((i) => i.id === id)?.title)
-                  .filter(Boolean),
-              ].length
-              ? [
-                  ...n.tags.map((t) => "#" + t),
-                  ...n.linked
-                    .map((id) => items.find((i) => i.id === id)?.title)
-                    .filter(Boolean),
-                ]
-              : ["Sans sujet identifié"]
-            : [NOTE_KINDS[n.kind]];
-    [...new Set(keys)].forEach((key) => {
-      if (!groups.has(key)) groups.set(key, []);
-      groups.get(key).push(n);
-    });
-  });
-  const today = new Date().toLocaleDateString("en-CA");
+  async function update(n, body) {
+    try {
+      await api(`admin/notes/${n.id}`, {
+        method: "PATCH",
+        body: JSON.stringify(body),
+      });
+      await load();
+    } catch (e) {
+      onError(e.message);
+    }
+  }
+  async function download(a) {
+    try {
+      const response = await fetch(`/api/admin/attachments/${a.id}`, {
+        headers: {
+          Authorization: "Bearer " + (sessionStorage.getItem("beam_key") || ""),
+        },
+      });
+      if (!response.ok) throw Error("Impossible d’ouvrir le fichier");
+      const url = URL.createObjectURL(await response.blob());
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = a.name;
+      link.click();
+      setTimeout(() => URL.revokeObjectURL(url), 1000);
+    } catch (e) {
+      onError(e.message);
+    }
+  }
   return (
-    <section className="notes-workspace">
-      <div className="notes-capture-banner">
-        <div>
-          <span className="notes-eyebrow">VOTRE CARNET PRODUIT</span>
-          <h2>Notez maintenant. Décidez ensuite.</h2>
-          <p>
-            Un échange, une idée, une suite à donner. Quelques mots suffisent.
-          </p>
-        </div>
+    <div className="notes-v2">
+      <div className="notes-v2-status">
+        <span className={data.status?.enabled ? "active" : ""}>●</span>{" "}
+        {data.status?.enabled ? "Organisation active" : "Organisation en pause"}
         <button
-          type="button"
-          className="button primary"
-          onClick={() => window.__beamCaptureNote?.()}
+          className="icon-button"
+          aria-label="Réglages des notes"
+          onClick={() => setSettings(!settings)}
         >
-          <Plus size={15} />
-          Prendre une note <kbd>⌘⇧N</kbd>
+          ···
         </button>
       </div>
-      <LocalAssistant api={api} items={items} settingsOnly onData={setAIData} />
-      <p className="notes-flow-help">
-        L’IA propose, vous décidez. Vos notes originales sont conservées ; aucun
-        changement de roadmap n’est automatique.
-      </p>
-      <div className="notes-tools">
+      {settings && (
+        <div className="notes-v2-settings">
+          <LocalAssistant
+            api={api}
+            items={items}
+            settingsOnly
+            onData={setData}
+          />
+          <button
+            className="text-button"
+            onClick={() => {
+              setView(view === "archives" ? "all" : "archives");
+              setSettings(false);
+            }}
+          >
+            {" "}
+            {view === "archives" ? "Retour aux notes" : "Voir les archives"}
+          </button>
+        </div>
+      )}
+      <form className="notes-v2-capture" onSubmit={save}>
+        <textarea
+          aria-label="Nouvelle note"
+          placeholder="Une idée, un échange, une suite à donner…"
+          value={text}
+          onChange={(e) => setText(e.target.value)}
+          onKeyDown={(e) => {
+            if (
+              e.key === "Enter" &&
+              !e.shiftKey &&
+              !e.nativeEvent.isComposing
+            ) {
+              e.preventDefault();
+              save();
+            }
+          }}
+        />
+        <div className="notes-v2-capture-footer">
+          <label className="button attachment-picker">
+            Joindre un fichier
+            <input
+              type="file"
+              multiple
+              accept="image/png,image/jpeg,image/webp,application/pdf"
+              disabled={busy}
+              onChange={(e) => {
+                setFiles([...files, ...Array.from(e.target.files)].slice(0, 4));
+                e.target.value = "";
+              }}
+            />
+          </label>
+          <small>
+            {busy
+              ? "Enregistrement et lecture des fichiers…"
+              : "Entrée pour enregistrer · ⇧Entrée pour une nouvelle ligne"}
+          </small>
+          <button
+            className="icon-button"
+            aria-label="Enregistrer la note"
+            disabled={busy || (!text.trim() && !files.length)}
+          >
+            <ArrowRight size={18} />
+          </button>
+        </div>
+        {files.length > 0 && (
+          <div className="notes-v2-files">
+            {files.map((f, i) => (
+              <button
+                type="button"
+                key={i}
+                onClick={() => setFiles(files.filter((_, j) => j !== i))}
+              >
+                {f.name} ×
+              </button>
+            ))}
+          </div>
+        )}
+      </form>
+      <div className="notes-v2-toolbar">
         <nav aria-label="Vues des notes">
           {[
-            ["all", "Toutes les notes"],
-            ["attention", "À suivre"],
-            ["review", "À valider"],
-            ["done", "Terminées"],
-            ["archived", "Archives"],
+            ["all", "Toutes"],
+            ["followup", "À suivre"],
+            ["review", "À examiner"],
+            ...(view === "archives" ? [["archives", "Archives"]] : []),
           ].map(([id, label]) => (
             <button
               key={id}
-              className={"button " + (view === id ? "chosen" : "")}
               aria-pressed={view === id}
+              className={view === id ? "active" : ""}
               onClick={() => setView(id)}
             >
               {label}
-              {id === "review" && (
-                <span>
-                  {
-                    notes.filter(
-                      (n) => n.state !== "archived" && needsReview(n),
-                    ).length
-                  }
-                </span>
-              )}
-              {id === "attention" && (
-                <span>{notes.filter(attention).length}</span>
-              )}
+              {id === "review" &&
+                notes.filter((n) => n.state !== "archived" && pending(n))
+                  .length > 0 && (
+                  <span>
+                    {
+                      notes.filter((n) => n.state !== "archived" && pending(n))
+                        .length
+                    }
+                  </span>
+                )}
             </button>
           ))}
         </nav>
-        <label className="notes-search">
-          <Search size={15} />
-          <input
-            aria-label="Rechercher dans les notes"
-            placeholder="Personne, sujet, quelques mots…"
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-          />
-        </label>
-        <select
-          aria-label="Regrouper les notes"
-          value={group}
-          onChange={(e) => setGroup(e.target.value)}
-        >
-          <option value="date">Par date</option>
-          <option value="kind">Par intention</option>
-          <option value="people">Par personne</option>
-          <option value="topic">Par sujet</option>
-        </select>
+        <input
+          aria-label="Rechercher dans les notes"
+          placeholder="Rechercher…"
+          value={query}
+          onChange={(e) => setQuery(e.target.value)}
+        />
       </div>
-      {loading ? (
-        <div className="empty">Chargement des notes…</div>
-      ) : !shown.length ? (
-        <div className="notes-empty">
-          <FileText size={30} />
-          <h2>
-            {view === "review"
-              ? "Tout est au clair."
-              : notes.length
-                ? "Rien ici pour le moment."
-                : "Gardez le fil dès votre prochain échange."}
-          </h2>
-          <p>
-            {view === "review"
-              ? "Les notes qui ont un classement ou une évolution à valider apparaîtront ici."
-              : view === "attention" && notes.length
-                ? "Aucune action ou échéance identifiée. Vos autres notes sont dans « Toutes les notes »."
-                : "Quelques mots suffisent. « Relancer Sarah demain », « Retour client #éditeur » ou une pensée libre."}
-          </p>
+      {topics.length > 0 && (
+        <div className="notes-v2-topics">
+          <small>Sujets</small>
+          {["Tous", ...topics].map((t) => (
+            <button
+              className={topic === t ? "active" : ""}
+              onClick={() => setTopic(t)}
+              key={t}
+            >
+              {t}
+            </button>
+          ))}
         </div>
-      ) : (
-        [...groups].map(([name, list]) => (
-          <section className="notes-group" key={name}>
-            <h2>
-              {name}
-              <span>{list.length}</span>
-            </h2>
-            {list.map((n) => (
-              <article className="note-card" key={n.id}>
-                <div className="note-card-top">
-                  <span className={"note-kind kind-" + n.kind}>
-                    {NOTE_KINDS[n.kind]}
-                  </span>
-                  <time dateTime={n.created}>
-                    {new Date(n.created).toLocaleDateString("fr-FR", {
-                      day: "numeric",
-                      month: "short",
-                      hour: "2-digit",
-                      minute: "2-digit",
-                    })}
-                  </time>
-                </div>
-                {editing?.id === n.id ? (
-                  <form
-                    className="note-editor"
-                    onSubmit={(e) => {
-                      e.preventDefault();
-                      update(n, {
-                        text: editing.text,
-                        classification: {
-                          kind: editing.kind,
-                          people: editing.people
-                            .split(",")
-                            .map((s) => s.trim())
-                            .filter(Boolean),
-                          tags: editing.tags
-                            .split(",")
-                            .map((s) => s.trim().replace(/^#/, ""))
-                            .filter(Boolean),
-                          due: editing.due || null,
-                          linked: editing.linked,
-                        },
-                      });
-                    }}
-                  >
-                    <label>
-                      Note
-                      <textarea
-                        autoFocus
-                        value={editing.text}
-                        maxLength={5000}
-                        required
-                        onChange={(e) =>
-                          setEditing({ ...editing, text: e.target.value })
-                        }
-                      />
-                    </label>
-                    <div className="note-editor-grid">
-                      <label>
-                        Intention
-                        <select
-                          value={editing.kind}
-                          onChange={(e) =>
-                            setEditing({ ...editing, kind: e.target.value })
-                          }
-                        >
-                          {Object.entries(NOTE_KINDS).map(([id, label]) => (
-                            <option key={id} value={id}>
-                              {label}
-                            </option>
-                          ))}
-                        </select>
-                      </label>
-                      <label>
-                        Échéance
-                        <input
-                          type="date"
-                          value={editing.due || ""}
-                          onChange={(e) =>
-                            setEditing({ ...editing, due: e.target.value })
-                          }
-                        />
-                      </label>
-                      <label>
-                        Personnes
-                        <input
-                          placeholder="Sarah, Thomas"
-                          value={editing.people}
-                          onChange={(e) =>
-                            setEditing({ ...editing, people: e.target.value })
-                          }
-                        />
-                      </label>
-                      <label>
-                        Sujets
-                        <input
-                          placeholder="éditeur, entretien"
-                          value={editing.tags}
-                          onChange={(e) =>
-                            setEditing({ ...editing, tags: e.target.value })
-                          }
-                        />
-                      </label>
-                    </div>
-                    <label>
-                      Élément de roadmap
-                      <select
-                        value={editing.linked[0] || ""}
-                        onChange={(e) =>
-                          setEditing({
-                            ...editing,
-                            linked: e.target.value ? [e.target.value] : [],
-                          })
-                        }
-                      >
-                        <option value="">Sans lien</option>
-                        {items.map((i) => (
-                          <option key={i.id} value={i.id}>
-                            {i.title}
-                          </option>
-                        ))}
-                      </select>
-                    </label>
-                    <div className="note-actions">
-                      <button
-                        type="button"
-                        className="button"
-                        onClick={() => setEditing(null)}
-                      >
-                        Annuler
-                      </button>
-                      <button
-                        className="button primary"
-                        disabled={busy || !editing.text.trim()}
-                      >
-                        Enregistrer
-                      </button>
-                    </div>
-                  </form>
-                ) : (
-                  <>
-                    <p className="note-text">{n.text}</p>
-                    <div className="note-hints">
-                      {n.people.map((p) => (
-                        <button
-                          key={p}
-                          onClick={() => {
-                            setQuery(p);
-                            setGroup("people");
-                          }}
-                        >
-                          @{p}
-                        </button>
-                      ))}
-                      {n.tags.map((t) => (
-                        <button
-                          key={t}
-                          onClick={() => {
-                            setQuery(t);
-                            setGroup("topic");
-                          }}
-                        >
-                          #{t}
-                        </button>
-                      ))}
-                      {n.due && (
-                        <span
-                          className={
-                            n.due < today && n.state === "open"
-                              ? "note-overdue"
-                              : ""
-                          }
-                        >
-                          {n.due < today && n.state === "open"
-                            ? "À revoir · "
-                            : ""}
-                          {dateLabel(n.due)}
-                        </span>
-                      )}
-                      {n.linked.map((id) => {
-                        const item = items.find((i) => i.id === id);
-                        return item ? (
-                          <button key={id} onClick={() => onOpen(item)}>
-                            <ArrowRight size={12} />
-                            {item.title}
-                          </button>
-                        ) : null;
-                      })}
-                    </div>
-                    <div className="note-intelligence-row">
-                      <button
-                        type="button"
-                        className="note-ai-action"
-                        onClick={(e) => {
-                          noteTrigger.current = e.currentTarget;
-                          setAINote(n);
-                        }}
-                      >
-                        <Activity size={14} />
-                        {(() => {
-                          const r = latestReviews.get(n.id);
-                          if (["queued", "running"].includes(r?.state))
-                            return "Analyse en cours";
-                          if (r?.state === "error") return "Analyse à relancer";
-                          if (needsReview(n)) return "Voir les propositions";
-                          if (r?.state === "ready")
-                            return "Propositions traitées";
-                          return "Analyser cette note";
-                        })()}
-                        <ArrowRight size={13} />
-                      </button>
-                      {needsReview(n) && (
-                        <span className="note-review-badge">À valider</span>
-                      )}
-                    </div>
-                    <div className="note-actions">
-                      <button
-                        className="text-button"
-                        onClick={() =>
-                          setEditing({
-                            ...n,
-                            people: n.people.join(", "),
-                            tags: n.tags.join(", "),
-                          })
-                        }
-                      >
-                        Modifier / classer
-                      </button>
-                      <button
-                        className="text-button"
-                        disabled={busy}
-                        onClick={() =>
-                          update(n, {
-                            state: n.state === "open" ? "done" : "open",
-                          })
-                        }
-                      >
-                        <CheckCheck size={13} />
-                        {n.state === "open" ? "Terminer" : "Réouvrir"}
-                      </button>
-                      {n.state !== "archived" && (
-                        <button
-                          className="text-button"
-                          disabled={busy}
-                          onClick={() => update(n, { state: "archived" })}
-                        >
-                          Archiver
-                        </button>
-                      )}
-                    </div>
-                  </>
-                )}
-              </article>
-            ))}
-          </section>
-        ))
       )}
-      {aiNote && (
+      <div className="notes-v2-list">
+        {visible.map((n, i) => (
+          <React.Fragment key={n.id}>
+            {(i === 0 ||
+              visible[i - 1].created.slice(0, 10) !==
+                n.created.slice(0, 10)) && (
+              <h3>
+                {new Date(n.created).toLocaleDateString("fr-FR", {
+                  day: "numeric",
+                  month: "long",
+                })}
+              </h3>
+            )}
+            <button
+              className="notes-v2-row"
+              onClick={(e) => {
+                trigger.current = e.currentTarget;
+                setSelected(n);
+                setEditing(false);
+                setClassification(null);
+              }}
+            >
+              <FileText size={17} />
+              <div>
+                <strong>{n.text}</strong>
+                <small>
+                  {[...n.people, ...n.tags].slice(0, 3).join(" · ") || "Note"}
+                  {n.attachments?.length > 0 &&
+                    ` · ${n.attachments.length} pièce(s) jointe(s)`}
+                </small>
+              </div>
+              <span className="notes-v2-indicator">
+                {pending(n)
+                  ? "Proposition"
+                  : ["queued", "running"].includes(latest.get(n.id)?.state)
+                    ? "Organisation…"
+                    : latest.get(n.id)?.state === "error"
+                      ? "À relancer"
+                      : n.due
+                        ? dateLabel(n.due)
+                        : ""}
+              </span>
+              <time>
+                {new Date(n.created).toLocaleTimeString("fr-FR", {
+                  hour: "2-digit",
+                  minute: "2-digit",
+                })}
+              </time>
+            </button>
+          </React.Fragment>
+        ))}
+        {!visible.length && (
+          <div className="empty">
+            <FileText size={24} />
+            <h3>
+              {view === "review"
+                ? "Tout est au clair"
+                : "Votre carnet est prêt"}
+            </h3>
+            <p>
+              {view === "review"
+                ? "Les propositions à examiner apparaîtront ici."
+                : "Notez un échange ou joignez un document pour commencer."}
+            </p>
+          </div>
+        )}
+      </div>
+      <small className="notes-v2-privacy">
+        Organisé sur ce Mac · Les changements de roadmap restent à valider
+      </small>
+      {current && (
         <NoteProposalPanel
-          note={notes.find((n) => n.id === aiNote.id) || aiNote}
+          note={current}
           close={() => {
-            setAINote(null);
-            requestAnimationFrame(() => noteTrigger.current?.focus());
+            setSelected(null);
+            requestAnimationFrame(() => trigger.current?.focus());
           }}
         >
+          <div className="notes-v2-detail-actions">
+            <button
+              className="text-button"
+              onClick={() => {
+                setDraft(current.text);
+                setEditing(!editing);
+              }}
+            >
+              Modifier la note
+            </button>
+            <label className="button attachment-picker">
+              Joindre
+              <input
+                type="file"
+                multiple
+                accept="image/png,image/jpeg,image/webp,application/pdf"
+                disabled={busy}
+                onChange={async (e) => {
+                  const f = Array.from(e.target.files);
+                  e.target.value = "";
+                  setBusy(true);
+                  try {
+                    await attach(current.id, f);
+                    await load();
+                  } catch (e) {
+                    onError(e.message);
+                  } finally {
+                    setBusy(false);
+                  }
+                }}
+              />
+            </label>
+          </div>
+          {editing && (
+            <form
+              onSubmit={async (e) => {
+                e.preventDefault();
+                await update(current, { text: draft });
+                setEditing(false);
+              }}
+            >
+              <textarea
+                aria-label="Modifier le texte de la note"
+                value={draft}
+                onChange={(e) => setDraft(e.target.value)}
+              />
+              <button className="button">Enregistrer</button>
+            </form>
+          )}
+          {current.attachments?.length > 0 && (
+            <section className="notes-v2-attachments">
+              <h3>Pièces jointes</h3>
+              {current.attachments.map((a) => (
+                <button
+                  className="button"
+                  key={a.id}
+                  onClick={() => download(a)}
+                >
+                  <FileText size={14} />
+                  {a.name}
+                  {a.mime === "application/pdf" ? ` · ${a.pages} page(s)` : ""}
+                </button>
+              ))}
+              <small>
+                Les documents et images participent à l’analyse de cette note.
+              </small>
+            </section>
+          )}
+          <section className="notes-v2-recognized">
+            <h3>Informations reconnues</h3>
+            <dl>
+              <dt>Sujets</dt>
+              <dd>{current.tags.join(", ") || "À identifier"}</dd>
+              <dt>Personnes</dt>
+              <dd>{current.people.join(", ") || "Non précisé"}</dd>
+              <dt>Intention</dt>
+              <dd>{NOTE_KINDS[current.kind]}</dd>
+              <dt>Échéance</dt>
+              <dd>{current.due ? dateLabel(current.due) : "Non précisée"}</dd>
+            </dl>
+            <small>Classement automatique, corrigible à tout moment.</small>
+            <button
+              className="text-button"
+              onClick={() =>
+                setClassification({
+                  kind: current.kind,
+                  people: current.people.join(", "),
+                  tags: current.tags.join(", "),
+                  due: current.due || "",
+                })
+              }
+            >
+              Corriger les informations
+            </button>
+            {classification && (
+              <form
+                className="note-editor-grid"
+                onSubmit={async (e) => {
+                  e.preventDefault();
+                  await update(current, {
+                    classification: {
+                      ...classification,
+                      people: classification.people
+                        .split(",")
+                        .map((t) => t.trim())
+                        .filter(Boolean),
+                      tags: classification.tags
+                        .split(",")
+                        .map((t) => t.trim())
+                        .filter(Boolean),
+                      due: classification.due || null,
+                    },
+                  });
+                  setClassification(null);
+                }}
+              >
+                <label>
+                  Intention
+                  <select
+                    value={classification.kind}
+                    onChange={(e) =>
+                      setClassification({
+                        ...classification,
+                        kind: e.target.value,
+                      })
+                    }
+                  >
+                    {Object.entries(NOTE_KINDS).map(([k, v]) => (
+                      <option key={k} value={k}>
+                        {v}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                {[
+                  ["people", "Personnes"],
+                  ["tags", "Sujets"],
+                  ["due", "Échéance"],
+                ].map(([key, label]) => (
+                  <label key={key}>
+                    {label}
+                    <input
+                      type={key === "due" ? "date" : "text"}
+                      value={classification[key]}
+                      onChange={(e) =>
+                        setClassification({
+                          ...classification,
+                          [key]: e.target.value,
+                        })
+                      }
+                    />
+                  </label>
+                ))}
+                <button className="button">Enregistrer</button>
+                <button
+                  type="button"
+                  className="text-button"
+                  onClick={() => setClassification(null)}
+                >
+                  Annuler
+                </button>
+              </form>
+            )}
+          </section>
           <LocalAssistant
-            key={aiNote.id}
+            key={current.id}
             api={api}
-            scope="note"
-            entity={aiNote}
             items={items}
-            onData={setAIData}
+            scope="note"
+            entity={current}
+            onData={setData}
             onRefresh={async () => {
               await load();
               await onRefresh?.();
             }}
           />
+          <div className="notes-v2-detail-actions">
+            <button
+              className="button"
+              onClick={() =>
+                update(current, {
+                  state: current.state === "archived" ? "open" : "archived",
+                })
+              }
+            >
+              {current.state === "archived" ? "Restaurer" : "Archiver"}
+            </button>
+            <button
+              className="text-button"
+              onClick={() =>
+                update(current, {
+                  state: current.state === "done" ? "open" : "done",
+                })
+              }
+            >
+              {current.state === "done" ? "Réouvrir" : "Terminer"}
+            </button>
+          </div>
         </NoteProposalPanel>
       )}
-    </section>
+    </div>
   );
 }
-
 function NoteProposalPanel({ note, close, children }) {
   const panel = useRef(null),
     closeRef = useRef(close);
@@ -741,7 +801,7 @@ function NoteProposalPanel({ note, close, children }) {
         onClick={(e) => e.stopPropagation()}
       >
         <div className="modal-head">
-          <h2 id="note-proposal-title">Donner suite à cette note</h2>
+          <h2 id="note-proposal-title">Note</h2>
           <button
             type="button"
             className="icon-button"
@@ -756,8 +816,8 @@ function NoteProposalPanel({ note, close, children }) {
           <p>{note.text}</p>
         </div>
         <p className="assistant-help">
-          Vérifiez le classement, puis les évolutions proposées. Vous pouvez
-          appliquer chaque proposition séparément ou l’ignorer.
+          Les informations sont organisées automatiquement. Examinez les suites
+          proposées à votre rythme.
         </p>
         {children}
       </div>
