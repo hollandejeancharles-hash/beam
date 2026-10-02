@@ -1,3 +1,4 @@
+import { githubReleaseLogs } from "./github-release.js";
 import { matchesFor, decideMatch } from "./associations.js";
 import { randomUUID } from "node:crypto";
 class SourceError extends Error {}
@@ -200,7 +201,11 @@ export async function collectSource(
         i.merged_at ? "merged" : i.state,
         i.body,
         i.updated_at,
-        { owner: i.user?.login || "", branch: i.head?.ref || "" },
+        {
+          owner: i.user?.login || "",
+          branch: i.head?.ref || "",
+          merge_sha: i.merge_commit_sha || null,
+        },
       );
     for (const i of await pages("/releases"))
       add(
@@ -427,6 +432,63 @@ export function createIntegrations(
         id,
       );
       return { ok: true };
+    },
+    async releaseLogs(releaseId, baseRef) {
+      const row = db
+        .prepare(
+          "SELECT s.*,c.provider,c.scope,c.enabled FROM signals s JOIN sources c ON c.id=s.source_id WHERE s.id=?",
+        )
+        .get(releaseId);
+      if (
+        !row ||
+        row.provider !== "github" ||
+        row.kind !== "release" ||
+        row.state !== "published" ||
+        !row.enabled
+      )
+        throw Error(
+          "Sélectionnez une version GitHub publiée dans un dépôt actif.",
+        );
+      const release = { ...row, extra: JSON.parse(row.extra) };
+      const previous = db
+        .prepare(
+          "SELECT extra FROM signals WHERE source_id=? AND kind='release' AND state='published' AND updated<? ORDER BY updated DESC LIMIT 1",
+        )
+        .get(row.source_id, row.updated);
+      const base =
+        baseRef || (previous ? JSON.parse(previous.extra).version : null);
+      if (!base)
+        throw Error(
+          "Aucune version précédente trouvée : renseignez le tag ou commit de départ.",
+        );
+      const logs = await githubReleaseLogs(row, release, base, {
+        fetcher,
+        token: env.BEAM_GITHUB_TOKEN,
+      });
+      db.exec("BEGIN");
+      try {
+        const put = db.prepare(
+          "INSERT INTO signals VALUES(?,?,?,?,?,?,?,?,?,?) ON CONFLICT(source_id,kind,external_id) DO UPDATE SET title=excluded.title,body=excluded.body,extra=excluded.extra",
+        );
+        for (const commit of logs.commits)
+          put.run(
+            randomUUID(),
+            row.source_id,
+            commit.sha,
+            "commit",
+            commit.message.split("\n")[0].slice(0, 300),
+            "https://github.com/" + row.scope + "/commit/" + commit.sha,
+            "committed",
+            commit.message,
+            null,
+            JSON.stringify({ sha: commit.sha }),
+          );
+        db.exec("COMMIT");
+      } catch (error) {
+        db.exec("ROLLBACK");
+        throw error;
+      }
+      return logs;
     },
     product() {
       return JSON.parse(

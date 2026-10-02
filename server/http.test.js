@@ -84,12 +84,10 @@ test("production API: authentication, private visibility, suggestions, persisten
           true,
         )
       ).status,
-      200,
+      400,
     );
     const announcements = await (await request("public/publications")).json();
-    assert.equal(announcements.length, 1);
-    assert.equal(announcements[0].title, "Annonce test");
-    assert.equal(announcements[0].item_id, undefined);
+    assert.deepEqual(announcements, []);
     assert.equal(
       (
         await request(

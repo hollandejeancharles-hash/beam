@@ -1,28 +1,6 @@
 import { createHash } from "node:crypto";
 export const releaseSections = ["Nouveautés", "Améliorations", "Corrections"];
-export function releaseContext(store, notes, integrations, input) {
-  const selected = input.item_ids ?? (input.item_id ? [input.item_id] : []);
-  if (
-    !Array.isArray(selected) ||
-    selected.length > 20 ||
-    selected.some((id) => typeof id !== "string") ||
-    new Set(selected).size !== selected.length
-  )
-    throw Error("Choisissez au maximum 20 éléments livrés.");
-  const all = store.list(),
-    items = selected.map((id) =>
-      all.find(
-        (i) =>
-          i.id === id &&
-          !i.archived &&
-          i.status === "done" &&
-          i.visibility === "public",
-      ),
-    );
-  if (items.some((i) => !i))
-    throw Error(
-      "Les éléments de la release note doivent être livrés, publics et non archivés.",
-    );
+export function releaseContext(store, notes, integrations, input, logs) {
   const signals = integrations?.signals() || [];
   const release = input.release_id
     ? signals.find(
@@ -33,61 +11,72 @@ export function releaseContext(store, notes, integrations, input) {
           s.state === "published",
       )
     : null;
-  if (input.release_id && !release)
-    throw Error("Choisissez une version GitHub publiée.");
-  if (!items.length && !release)
-    throw Error("Choisissez un élément livré ou une version GitHub publiée.");
-  const sources = items.map((i) => ({
-    id: "item:" + i.id,
-    kind: "gantt",
-    title: i.title,
-    text: i.title + "\n" + i.description,
+  if (!release) throw Error("Choisissez la version GitHub de la release note.");
+  if (
+    !logs ||
+    logs.release_id !== release.id ||
+    logs.source_id !== release.source_id ||
+    logs.version !== release.extra.version ||
+    !logs.commits?.length
+  )
+    throw Error("Les logs complets de cette version sont requis.");
+  const shas = new Set(logs.commits.map((c) => c.sha));
+  const refs = new Set(
+    logs.commits.flatMap((c) =>
+      [...c.message.matchAll(/#(\d+)\b/g)].map((m) => m[1]),
+    ),
+  );
+  const versionSignals = signals.filter(
+    (s) =>
+      s.source_id === release.source_id &&
+      ((s.kind === "commit" && shas.has(s.external_id)) ||
+        (s.kind === "pr" &&
+          s.state === "merged" &&
+          (shas.has(s.extra?.merge_sha) || refs.has(String(s.external_id))))),
+  );
+  const selected = [...new Set(versionSignals.flatMap((s) => s.links || []))];
+  const items = store
+    .list()
+    .filter(
+      (i) =>
+        selected.includes(i.id) &&
+        !i.archived &&
+        i.visibility === "public" &&
+        i.status === "done",
+    );
+  const itemIds = items.map((i) => i.id);
+  const sources = logs.commits.map((c) => ({
+    id: "commit:" + c.sha,
+    kind: "commit",
+    title: c.message.split("\n")[0].slice(0, 180),
+    text: c.message,
     delivery: true,
   }));
-  if (release)
+  sources.push({
+    id: "signal:" + release.id,
+    kind: "release",
+    title: release.title,
+    text: release.title + "\n" + release.body,
+    delivery: false,
+  });
+  for (const i of items)
     sources.push({
-      id: "signal:" + release.id,
-      kind: "release",
-      title: release.title,
-      text: release.title + "\n" + release.body,
-      delivery: true,
+      id: "item:" + i.id,
+      kind: "gantt",
+      title: i.title,
+      text: i.title + "\n" + i.description,
+      delivery: false,
     });
-  const linked = signals.filter(
-    (s) =>
-      s.id !== release?.id &&
-      s.provider === "github" &&
-      ["pr", "commit", "ticket", "release"].includes(s.kind) &&
-      (s.links?.some((id) => selected.includes(id)) ||
-        (release &&
-          s.source_id === release.source_id &&
-          ((["pr", "ticket"].includes(s.kind) &&
-            new RegExp(
-              "(?:#|/pull/|/issues/)" + String(s.external_id) + "(?![0-9])",
-            ).test(release.body || "")) ||
-            (s.kind === "commit" &&
-              (release.body || "").includes(String(s.external_id)))))),
-  );
-  for (const s of linked) {
-    // An open issue or unmerged PR is not a release. Keep only completed engineering evidence.
-    if (
-      (s.kind === "pr" && s.state !== "merged") ||
-      (s.kind === "ticket" && s.state !== "closed") ||
-      (s.kind === "release" && s.state !== "published")
-    )
-      continue;
+  for (const s of versionSignals.filter((s) => s.kind === "pr"))
     sources.push({
       id: "signal:" + s.id,
-      kind: s.kind,
+      kind: "pr",
       title: s.title,
       text: s.title + "\n" + s.body,
-      delivery: s.kind === "release",
+      delivery: false,
     });
-  }
   for (const n of notes?.list() || []) {
-    if (
-      n.state === "archived" ||
-      !n.linked?.some((id) => selected.includes(id))
-    )
+    if (n.state === "archived" || !n.linked?.some((id) => itemIds.includes(id)))
       continue;
     sources.push({
       id: "note:" + n.id,
@@ -142,16 +131,22 @@ export function releaseContext(store, notes, integrations, input) {
           delivery: false,
         });
   }
-  if (sources.length > 100 || JSON.stringify(sources).length > 52000)
+  if (sources.length > 600 || JSON.stringify(sources).length > 52000)
     throw Error(
-      "Trop de sources pour une seule release note : réduisez les éléments sélectionnés.",
+      "Les logs de cette version dépassent la capacité d’analyse. Aucun brouillon partiel ne sera généré.",
     );
   sources.sort((a, b) => a.id.localeCompare(b.id));
   const fingerprint = createHash("sha256")
-    .update(JSON.stringify(sources))
+    .update(
+      JSON.stringify({ sources, base: logs.base_sha, head: logs.head_sha }),
+    )
     .digest("hex");
   return {
-    item_ids: selected,
+    item_ids: itemIds,
+    base_ref: logs.base_ref,
+    base_sha: logs.base_sha,
+    head_sha: logs.head_sha,
+    commit_count: logs.commits.length,
     release_id: release?.id || null,
     version: release?.extra?.version || "",
     sources,
@@ -180,7 +175,7 @@ export function validateReleaseAnswer(answer, context) {
       /[\r\n]/.test(entry.text) ||
       !Array.isArray(entry.evidence) ||
       !entry.evidence.length ||
-      entry.evidence.length > 6
+      entry.evidence.length > 3
     )
       throw Error("La release note proposée est invalide.");
     if (texts.has(entry.text.trim().toLocaleLowerCase()))
@@ -203,7 +198,9 @@ export function validateReleaseAnswer(answer, context) {
       used.add(source.id);
     }
     if (!delivery)
-      throw Error("Une évolution ne dispose pas de preuve de livraison.");
+      throw Error(
+        "Chaque évolution doit citer un commit des logs de cette version.",
+      );
   }
   const body = releaseSections
     .map((section) => {
@@ -231,6 +228,8 @@ export function validateReleaseAnswer(answer, context) {
       {},
     ),
     fingerprint: context.fingerprint,
+    base_ref: context.base_ref,
+    commit_count: context.commit_count,
   };
 }
 export function releaseSchema(context) {
@@ -248,7 +247,7 @@ export function releaseSchema(context) {
     properties: {
       section: { type: "string", enum: releaseSections },
       text: { type: "string" },
-      evidence: { type: "array", items: evidence },
+      evidence: { type: "array", maxItems: 3, items: evidence },
     },
   };
   return {

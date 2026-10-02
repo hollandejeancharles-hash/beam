@@ -110,8 +110,8 @@ export default function Publications({
       const proposal = await apiRef.current("admin/publications/generate", {
         method: "POST",
         body: JSON.stringify({
-          item_ids: draft.item_ids,
           release_id: draft.release_id || null,
+          base_ref: draft.base_ref || undefined,
         }),
       });
       setEdit((current) => ({
@@ -128,32 +128,15 @@ export default function Publications({
       setGenerating(false);
     }
   }
-  function prepare(item, manual = false) {
-    const ids = manual
-      ? []
-      : item
-        ? [item.id]
-        : items
-            .filter(
-              (i) =>
-                !i.archived &&
-                i.status === "done" &&
-                i.visibility === "public" &&
-                !rows.some(
-                  (r) =>
-                    r.state !== "archived" &&
-                    (r.item_ids || [r.item_id]).includes(i.id),
-                ),
-            )
-            .slice(0, 20)
-            .map((i) => i.id);
+  function prepare(item) {
     const draft = {
-      item_id: ids[0] || null,
-      item_ids: ids,
+      item_id: null,
+      item_ids: [],
       release_id: null,
+      base_ref: "",
       sources: [],
-      title: item?.title || "",
-      body: manual ? "" : item?.description || "",
+      title: "",
+      body: "",
       version: "",
     };
     setEdit(draft);
@@ -163,7 +146,6 @@ export default function Publications({
     setReplaceText(false);
     setConfirmClose(false);
     setConfirmDelete(false);
-    if (ids.length) void generateDraft(draft);
   }
   useEffect(() => {
     if (initialItem) {
@@ -194,6 +176,7 @@ export default function Publications({
           version: edit.version,
           item_id: edit.item_ids?.[0] || null,
           item_ids: edit.item_ids || [],
+          base_ref: edit.base_ref || "",
           release_id: edit.release_id || null,
           sources: edit.sources || [],
         }),
@@ -266,9 +249,6 @@ export default function Publications({
             <Plus size={16} />
             Préparer une release note
           </button>
-          <button className="button" onClick={() => prepare(null, true)}>
-            Écrire manuellement
-          </button>
         </div>
       )}
       {loading ? (
@@ -338,7 +318,7 @@ export default function Publications({
                 product.name +
                 "."
               : tab === "draft"
-                ? "L’IA croise GitHub, les notes et les éléments livrés pour expliquer simplement les nouveautés, améliorations et corrections."
+                ? "Choisissez une version GitHub : l’IA rédige ses nouveautés, améliorations et corrections à partir de ses logs."
                 : tab === "published"
                   ? "Vos annonces validées apparaîtront ici et dans le portail public."
                   : "Les publications retirées restent accessibles ici."}
@@ -446,17 +426,23 @@ export default function Publications({
                         const release = options.releases.find(
                           (r) => r.id === e.target.value,
                         );
-                        setEdit({
+                        const draft = {
                           ...edit,
                           release_id: e.target.value || null,
-                          version: release?.version || edit.version,
+                          version: release?.version || "",
+                          base_ref: "",
+                          item_ids: [],
+                          item_id: null,
                           sources: [],
-                        });
+                        };
+                        setEdit(draft);
                         setSourceDirty(true);
                         setDirty(true);
+                        if (release && !edit.body.trim())
+                          void generateDraft(draft);
                       }}
                     >
-                      <option value="">À partir des éléments livrés</option>
+                      <option value="">Choisir la version à annoncer</option>
                       {options.releases.map((r) => (
                         <option key={r.id} value={r.id}>
                           {r.version || r.title} · {r.source}
@@ -464,64 +450,52 @@ export default function Publications({
                       ))}
                     </select>
                   </label>
-                  <details>
-                    <summary>
-                      Éléments livrés inclus{" "}
-                      <span className="count">
-                        {edit.item_ids?.length || 0}
-                      </span>
-                    </summary>
-                    <div className="release-item-picker">
-                      {items
-                        .filter(
-                          (i) =>
-                            !i.archived &&
-                            i.status === "done" &&
-                            i.visibility === "public",
-                        )
-                        .map((i) => (
-                          <label key={i.id}>
-                            <input
-                              type="checkbox"
-                              checked={edit.item_ids?.includes(i.id) || false}
-                              disabled={
-                                busy ||
-                                generating ||
-                                (!edit.item_ids?.includes(i.id) &&
-                                  edit.item_ids?.length >= 20)
-                              }
-                              onChange={(e) => {
-                                const ids = e.target.checked
-                                  ? [...(edit.item_ids || []), i.id]
-                                  : (edit.item_ids || []).filter(
-                                      (id) => id !== i.id,
-                                    );
-                                setEdit({
-                                  ...edit,
-                                  item_ids: ids,
-                                  item_id: ids[0] || null,
-                                  sources: [],
-                                });
-                                setSourceDirty(true);
-                                setDirty(true);
-                              }}
-                            />
-                            {i.title}
-                          </label>
+                  {!options.releases.length && (
+                    <p className="release-sync-hint">
+                      Aucune release GitHub publiée n’a été importée. Créez une
+                      release sur GitHub, puis synchronisez le dépôt dans
+                      Intégrations.
+                    </p>
+                  )}
+                  <label>
+                    Version de départ
+                    <input
+                      disabled={busy || generating}
+                      maxLength={160}
+                      value={edit.base_ref || ""}
+                      placeholder="Version précédente automatique, ou tag / commit"
+                      onChange={(e) => {
+                        setEdit({
+                          ...edit,
+                          base_ref: e.target.value,
+                          sources: [],
+                        });
+                        setSourceDirty(true);
+                        setDirty(true);
+                      }}
+                    />
+                  </label>
+                  <small className="release-sync-hint">
+                    L’IA analyse uniquement les commits entre ce départ et la
+                    version choisie. Les notes et le Gantt enrichissent les
+                    changements présents dans ces logs.
+                  </small>
+                  {edit.item_ids?.length > 0 && (
+                    <details>
+                      <summary>
+                        Contexte produit associé{" "}
+                        <span className="count">{edit.item_ids.length}</span>
+                      </summary>
+                      <div className="release-item-picker">
+                        {edit.item_ids.map((id) => (
+                          <small key={id}>
+                            {items.find((i) => i.id === id)?.title ||
+                              "Élément associé"}
+                          </small>
                         ))}
-                      {!items.some(
-                        (i) =>
-                          !i.archived &&
-                          i.status === "done" &&
-                          i.visibility === "public",
-                      ) && (
-                        <small>
-                          Aucun élément livré et public pour le moment. Vous
-                          pouvez sélectionner une version GitHub publiée.
-                        </small>
-                      )}
-                    </div>
-                  </details>
+                      </div>
+                    </details>
+                  )}
                   <p className="release-sync-hint">
                     {options.github.length
                       ? options.github
@@ -555,7 +529,7 @@ export default function Publications({
                 />
               </label>
               <label>
-                Version <span className="subtle">facultatif</span>
+                Version annoncée
                 <input
                   value={edit.version}
                   maxLength={60}
@@ -613,9 +587,7 @@ export default function Publications({
                   ) : (
                     <button
                       className="button"
-                      disabled={
-                        busy || (!edit.item_ids?.length && !edit.release_id)
-                      }
+                      disabled={busy || !edit.release_id}
                       onClick={() =>
                         edit.body.trim()
                           ? setReplaceText(true)
@@ -624,13 +596,13 @@ export default function Publications({
                     >
                       {edit.sources?.length
                         ? "Régénérer la release note"
-                        : "Générer depuis mes sources"}
+                        : "Générer avec l’IA depuis cette version"}
                     </button>
                   )}
                   <small>
                     {sourceDirty
                       ? "Le périmètre a changé. Régénérez le texte ou adaptez-le avant publication."
-                      : "GitHub + notes associées + livraisons · brouillon à relire"}
+                      : "Logs de la version · rédaction IA · brouillon à relire"}
                   </small>
                 </div>
               )}
@@ -740,7 +712,10 @@ export default function Publications({
                       busy ||
                       generating ||
                       !edit.title.trim() ||
-                      !edit.body.trim()
+                      !edit.body.trim() ||
+                      !edit.release_id ||
+                      !edit.sources?.some((s) => s.kind === "commit") ||
+                      sourceDirty
                     }
                     onClick={() =>
                       preview ? changeState("published") : setPreview(true)

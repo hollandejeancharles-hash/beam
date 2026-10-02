@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import { createStore } from "./store.js";
 import { releaseContext, validateReleaseAnswer } from "./release-notes.js";
 import { createPublications, publicPublications } from "./publications.js";
+const sha = "a".repeat(40);
 const feature = {
   title: "Recherche de contenu",
   description: "Retrouvez vos contenus par mot-clé.",
@@ -68,10 +69,24 @@ function setup() {
       links: [second],
     },
   ];
+  const logs = {
+    release_id: "release",
+    source_id: "repo",
+    version: "v2.4",
+    base_ref: "v2.3",
+    base_sha: "b".repeat(40),
+    head_sha: sha,
+    commits: [{ sha, message: "Recherche de contenu (#12)" }],
+  };
   const notes = { list: () => noteRows },
-    integrations = { signals: () => signalRows, list: () => [] };
+    integrations = {
+      signals: () => signalRows,
+      list: () => [],
+      releaseLogs: async () => logs,
+    };
   return {
     store,
+    logs,
     id,
     second,
     notes,
@@ -83,32 +98,53 @@ function setup() {
 test("Release note scope combines delivered Gantt items with only their notes and completed GitHub evidence", () => {
   const f = setup();
   try {
-    const context = releaseContext(f.store, f.notes, f.integrations, {
-      item_ids: [f.id],
-    });
+    const context = releaseContext(
+      f.store,
+      f.notes,
+      f.integrations,
+      { release_id: "release", item_ids: [f.id] },
+      f.logs,
+    );
     assert.deepEqual(
       context.sources.map((s) => s.id).sort(),
-      ["item:" + f.id, "note:feedback", "signal:pr"].sort(),
+      [
+        "commit:" + sha,
+        "item:" + f.id,
+        "note:feedback",
+        "signal:pr",
+        "signal:release",
+      ].sort(),
     );
-    const release = releaseContext(f.store, f.notes, f.integrations, {
-      item_ids: [],
-      release_id: "release",
-    });
+    const release = releaseContext(
+      f.store,
+      f.notes,
+      f.integrations,
+      {
+        item_ids: [],
+        release_id: "release",
+      },
+      f.logs,
+    );
     assert.equal(release.version, "v2.4");
     assert.ok(release.sources.some((s) => s.id === "signal:pr"));
-    assert.ok(!release.sources.some((s) => s.id === "note:feedback"));
-    assert.throws(
-      () =>
-        releaseContext(f.store, f.notes, f.integrations, {
-          item_ids: [f.id, f.id],
-        }),
-      /maximum/,
+    assert.ok(release.sources.some((s) => s.id === "note:feedback"));
+    const scoped = releaseContext(
+      f.store,
+      f.notes,
+      f.integrations,
+      { release_id: "release", item_ids: [f.second] },
+      f.logs,
     );
+    assert.deepEqual(scoped.item_ids, [f.id]);
     f.store.save({ visibility: "private" }, f.id);
-    assert.throws(
-      () =>
-        releaseContext(f.store, f.notes, f.integrations, { item_ids: [f.id] }),
-      /publics/,
+    assert.ok(
+      !releaseContext(
+        f.store,
+        f.notes,
+        f.integrations,
+        { release_id: "release" },
+        f.logs,
+      ).sources.some((s) => s.id === "note:feedback"),
     );
   } finally {
     f.store.db.close();
@@ -117,13 +153,18 @@ test("Release note scope combines delivered Gantt items with only their notes an
 test("Structured release notes reject fabricated sources, invented quotes and claims without delivery evidence", () => {
   const f = setup();
   try {
-    const context = releaseContext(f.store, f.notes, f.integrations, {
-      item_ids: [f.id],
-    });
+    const context = releaseContext(
+      f.store,
+      f.notes,
+      f.integrations,
+      { release_id: "release", item_ids: [f.id] },
+      f.logs,
+    );
     const entry = {
       section: "Améliorations",
       text: "Retrouvez vos contenus par mot-clé.",
       evidence: [
+        { source_id: "commit:" + sha, quote: "Recherche de contenu (#12)" },
         { source_id: "item:" + f.id, quote: feature.description },
         {
           source_id: "note:feedback",
@@ -133,7 +174,7 @@ test("Structured release notes reject fabricated sources, invented quotes and cl
     };
     const result = validateReleaseAnswer({ entries: [entry] }, context);
     assert.match(result.body, /Améliorations\n• Retrouvez/);
-    assert.equal(result.sources.length, 2);
+    assert.equal(result.sources.length, 3);
     assert.throws(
       () =>
         validateReleaseAnswer(
@@ -185,7 +226,7 @@ test("Structured release notes reject fabricated sources, invented quotes and cl
           },
           context,
         ),
-      /livraison/,
+      /commit/,
     );
     assert.throws(
       () => validateReleaseAnswer({ entries: [entry, entry] }, context),
@@ -207,9 +248,11 @@ test("Multi-feature drafts persist private source metadata and every selected fe
     const draft = service.save({
       item_ids: [f.id, f.second],
       release_id: "release",
+      base_ref: "v2.3",
       title: "Nouveautés",
       body: "Une version disponible",
       sources: [
+        { id: "commit:" + sha, kind: "commit", title: "Recherche" },
         { id: "note:feedback", kind: "note", title: "Échange client privé" },
       ],
     });
@@ -261,7 +304,10 @@ test("Changed sources during model generation never replace a draft", async () =
                     section: "Nouveautés",
                     text: "Recherche par mot-clé.",
                     evidence: [
-                      { source_id: "item:" + f.id, quote: feature.description },
+                      {
+                        source_id: "commit:" + sha,
+                        quote: "Recherche de contenu (#12)",
+                      },
                     ],
                   },
                 ],
@@ -278,7 +324,7 @@ test("Changed sources during model generation never replace a draft", async () =
       body: "À conserver",
     });
     await assert.rejects(
-      service.generate({ item_ids: [f.id] }),
+      service.generate({ release_id: "release" }),
       /sources ont changé/,
     );
     assert.equal(service.list()[0].body, "À conserver");
