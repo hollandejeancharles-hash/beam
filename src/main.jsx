@@ -89,6 +89,7 @@ function Mark() {
 }
 function App() {
   const [publicationItem, setPublicationItem] = useState(null);
+  const [inboxCount, setInboxCount] = useState(0);
   const [searchTarget, setSearchTarget] = useState(null);
   const [logoReplay, setLogoReplay] = useState(0);
   const publicMode = pagesMode || location.pathname === "/roadmap";
@@ -206,6 +207,24 @@ function App() {
   useEffect(() => {
     refresh();
   }, []);
+  useEffect(() => {
+    if (publicMode) return;
+    let alive = true;
+    const update = async () => {
+      try {
+        const rows = await api("admin/inbox");
+        if (alive) setInboxCount(rows.length);
+      } catch {}
+    };
+    update();
+    const timer = setInterval(update, 15000);
+    window.addEventListener("beam:notes", update);
+    return () => {
+      alive = false;
+      clearInterval(timer);
+      window.removeEventListener("beam:notes", update);
+    };
+  }, [publicMode, key]);
   useEffect(() => {
     if (!toast) return;
     const id = setTimeout(() => setToast(""), 3500);
@@ -429,6 +448,7 @@ function App() {
                 },
                 {
                   label: "Notes",
+                  badge: inboxCount ? String(inboxCount) : undefined,
                   href: "#notes",
                   icon: <FileText size={17} />,
                 },
@@ -441,6 +461,8 @@ function App() {
               onSelect={(item, event) => {
                 event.preventDefault();
                 setPage(item.href.slice(1));
+                if (item.href === "#notes" && inboxCount)
+                  setSearchTarget({ kind: "review" });
               }}
             />
           </nav>
@@ -904,6 +926,7 @@ function App() {
             />
           ) : page === "notes" && !publicMode ? (
             <Notes
+              onInboxCount={setInboxCount}
               api={api}
               items={items}
               onError={setToast}
@@ -1264,6 +1287,10 @@ function App() {
                     setEdit({ ...blank, type: values[0].id });
                   if (action === "profile") setProfileOpen(true);
                   if (action === "workspace") setWorkspaceOpen(true);
+                  if (action === "review") {
+                    setPage("notes");
+                    setSearchTarget({ kind: "review" });
+                  }
                   if (action === "share") setShare(true);
                   if (action === "capture")
                     requestAnimationFrame(() =>

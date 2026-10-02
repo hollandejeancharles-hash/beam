@@ -116,6 +116,12 @@ export default function RoadmapSearch({
             },
             ...[
               [
+                "review",
+                "Examiner les propositions",
+                "boîte attention IA rapprochement à examiner",
+                Search,
+              ],
+              [
                 "workspace",
                 "Réglages du workspace",
                 "nom image logo produit espace",

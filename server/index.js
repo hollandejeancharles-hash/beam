@@ -1,3 +1,4 @@
+import { buildInbox } from "../shared/inbox.js";
 import { createSearch } from "./search.js";
 import { createPublications, publicPublications } from "./publications.js";
 import { activity } from "./ai-progress.js";
@@ -169,6 +170,17 @@ const server = http.createServer(async (req, res) => {
         return send(200, activity());
       if (url.pathname === "/api/admin/ai/status")
         return send(200, await ai.status());
+      if (url.pathname === "/api/admin/inbox")
+        return send(
+          200,
+          buildInbox({
+            reviews: ai.list(),
+            notes: notes.list(),
+            items: store.list(),
+            topics: topics.list().topics,
+            matches: associations.list().matches,
+          }),
+        );
       if (url.pathname === "/api/admin/ai/reviews") return send(200, ai.list());
       if (url.pathname === "/api/admin/notes") return send(200, notes.list());
       if (

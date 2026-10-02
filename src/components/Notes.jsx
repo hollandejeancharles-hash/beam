@@ -1,3 +1,4 @@
+import ReviewInbox from "./ReviewInbox";
 import { includesSearch } from "../../shared/search";
 import AIProgress from "./AIProgress";
 import React, { useEffect, useRef, useState } from "react";
@@ -208,6 +209,7 @@ export default function Notes({
   onOpen,
   onRefresh,
   onPrepare,
+  onInboxCount,
 }) {
   const [notes, setNotes] = useState([]),
     [text, setText] = useState(""),
@@ -224,16 +226,20 @@ export default function Notes({
     [classification, setClassification] = useState(null),
     [editing, setEditing] = useState(false),
     [draft, setDraft] = useState("");
+  const [inbox, setInbox] = useState([]);
   const [loaded, setLoaded] = useState(false);
   const trigger = useRef(null);
   async function load() {
     try {
-      const [n, status, reviews, groups] = await Promise.all([
+      const [n, status, reviews, groups, queue] = await Promise.all([
         api("admin/notes"),
         api("admin/ai/status"),
         api("admin/ai/reviews"),
         api("admin/topics"),
+        api("admin/inbox"),
       ]);
+      setInbox(queue);
+      onInboxCount?.(queue.length);
       setLoaded(true);
       setNotes(n);
       setSubjects(groups);
@@ -259,7 +265,8 @@ export default function Notes({
   useEffect(() => {
     if (!initialTarget || (!loaded && initialTarget.kind !== "settings"))
       return;
-    if (initialTarget.kind === "settings") setSettings(true);
+    if (initialTarget.kind === "review") setView("review");
+    else if (initialTarget.kind === "settings") setSettings(true);
     else if (initialTarget.kind === "topic") {
       const found = subjects.topics.find((t) => t.id === initialTarget.id);
       if (found) setSubject(found);
@@ -512,16 +519,9 @@ export default function Notes({
               onClick={() => setView(id)}
             >
               {label}
-              {id === "review" &&
-                notes.filter((n) => n.state !== "archived" && pending(n))
-                  .length > 0 && (
-                  <span>
-                    {
-                      notes.filter((n) => n.state !== "archived" && pending(n))
-                        .length
-                    }
-                  </span>
-                )}
+              {id === "review" && inbox.length > 0 && (
+                <span>{inbox.length}</span>
+              )}
             </button>
           ))}
         </nav>
@@ -532,52 +532,56 @@ export default function Notes({
           onChange={(e) => setQuery(e.target.value)}
         />
       </div>
-      <div className="living-topics">
-        <div className="living-topics-head">
-          <span>Sujets vivants</span>
-          <AIProgress scope="topics" showLabel />
-          <button
-            className="text-button"
-            onClick={async () => {
-              try {
-                await api("admin/topics/refresh", { method: "POST" });
-                await load();
-              } catch (e) {
-                onError(e.message);
-              }
-            }}
-          >
-            {subjects.running ? "Regroupement…" : "Actualiser"}
-          </button>
-        </div>
-        {subjects.error && <small role="status">{subjects.error}</small>}
-        <div className="notes-v2-topics">
-          {subjects.topics.map((t) => (
-            <button
-              key={t.id}
-              onClick={() => {
-                setSubject(t);
-                setSelected(null);
-              }}
-            >
-              {t.title}{" "}
-              <span>
-                {t.sources.filter((s) => s.confidence === "clear").length}
-              </span>
-              {t.sources.some((s) => s.confidence === "review")
-                ? " · À examiner"
-                : ""}
-            </button>
-          ))}
-          {!subjects.topics.length && (
-            <small>
-              Les liens entre vos notes et tickets apparaîtront ici au fil des
-              analyses.
-            </small>
-          )}
-        </div>
-      </div>
-      {topics.length > 0 && (
+      {view !== "review" && (
+        <>
+          <div className="living-topics">
+            <div className="living-topics-head">
+              <span>Sujets vivants</span>
+              <AIProgress scope="topics" showLabel />
+              <button
+                className="text-button"
+                onClick={async () => {
+                  try {
+                    await api("admin/topics/refresh", { method: "POST" });
+                    await load();
+                  } catch (e) {
+                    onError(e.message);
+                  }
+                }}
+              >
+                {subjects.running ? "Regroupement…" : "Actualiser"}
+              </button>
+            </div>
+            {subjects.error && <small role="status">{subjects.error}</small>}
+            <div className="notes-v2-topics">
+              {subjects.topics.map((t) => (
+                <button
+                  key={t.id}
+                  onClick={() => {
+                    setSubject(t);
+                    setSelected(null);
+                  }}
+                >
+                  {t.title}{" "}
+                  <span>
+                    {t.sources.filter((s) => s.confidence === "clear").length}
+                  </span>
+                  {t.sources.some((s) => s.confidence === "review")
+                    ? " · À examiner"
+                    : ""}
+                </button>
+              ))}
+              {!subjects.topics.length && (
+                <small>
+                  Les liens entre vos notes et tickets apparaîtront ici au fil
+                  des analyses.
+                </small>
+              )}
+            </div>
+          </div>
+        </>
+      )}
+      {view !== "review" && topics.length > 0 && (
         <div className="notes-v2-topics">
           <small>Sujets</small>
           {["Tous", ...topics].map((t) => (
@@ -591,81 +595,108 @@ export default function Notes({
           ))}
         </div>
       )}
-      <div className="notes-v2-list">
-        {visible.map((n, i) => (
-          <React.Fragment key={n.id}>
-            {(i === 0 ||
-              visible[i - 1].created.slice(0, 10) !==
-                n.created.slice(0, 10)) && (
+      {view === "review" ? (
+        <ReviewInbox
+          rows={inbox}
+          loading={!loaded}
+          query={query}
+          api={api}
+          onRefresh={load}
+          onError={onError}
+          onExamine={(row, button) => {
+            trigger.current = button;
+            if (row.kind === "topic") {
+              setSubject(subjects.topics.find((t) => t.id === row.topic_id));
+              return;
+            }
+            if (row.kind === "proposal" && row.scope === "note") {
+              setSelected(notes.find((n) => n.id === row.entity_id));
+              return;
+            }
+            const item = items.find(
+              (i) => i.id === (row.item_id || row.entity_id),
+            );
+            if (item) onOpen(item);
+            else onError("Cet élément n’est plus disponible.");
+          }}
+        />
+      ) : (
+        <div className="notes-v2-list">
+          {visible.map((n, i) => (
+            <React.Fragment key={n.id}>
+              {(i === 0 ||
+                visible[i - 1].created.slice(0, 10) !==
+                  n.created.slice(0, 10)) && (
+                <h3>
+                  {new Date(n.created).toLocaleDateString("fr-FR", {
+                    day: "numeric",
+                    month: "long",
+                  })}
+                </h3>
+              )}
+              <button
+                className="notes-v2-row"
+                onClick={(e) => {
+                  trigger.current = e.currentTarget;
+                  setSelected(n);
+                  setEditing(false);
+                  setClassification(null);
+                }}
+              >
+                <FileText size={17} />
+                <div>
+                  <strong>{n.text}</strong>
+                  <small>
+                    {[...n.people, ...n.tags].slice(0, 3).join(" · ") || "Note"}
+                    {n.attachments?.length > 0 &&
+                      ` · ${n.attachments.length} pièce(s) jointe(s)`}
+                  </small>
+                </div>
+                <span className="notes-v2-indicator">
+                  {pending(n)
+                    ? "Proposition"
+                    : ["queued", "running"].includes(latest.get(n.id)?.state)
+                      ? ""
+                      : latest.get(n.id)?.state === "error"
+                        ? "À relancer"
+                        : n.due
+                          ? dateLabel(n.due)
+                          : ""}
+                </span>
+                <time>
+                  {new Date(n.created).toLocaleTimeString("fr-FR", {
+                    hour: "2-digit",
+                    minute: "2-digit",
+                  })}
+                </time>
+                <AIProgress
+                  noteId={n.id}
+                  fallback={
+                    ["queued", "running"].includes(latest.get(n.id)?.state)
+                      ? { ...latest.get(n.id), ...latest.get(n.id)?.progress }
+                      : null
+                  }
+                />
+              </button>
+            </React.Fragment>
+          ))}
+          {!visible.length && (
+            <div className="empty">
+              <FileText size={24} />
               <h3>
-                {new Date(n.created).toLocaleDateString("fr-FR", {
-                  day: "numeric",
-                  month: "long",
-                })}
+                {view === "review"
+                  ? "Tout est au clair"
+                  : "Votre carnet est prêt"}
               </h3>
-            )}
-            <button
-              className="notes-v2-row"
-              onClick={(e) => {
-                trigger.current = e.currentTarget;
-                setSelected(n);
-                setEditing(false);
-                setClassification(null);
-              }}
-            >
-              <FileText size={17} />
-              <div>
-                <strong>{n.text}</strong>
-                <small>
-                  {[...n.people, ...n.tags].slice(0, 3).join(" · ") || "Note"}
-                  {n.attachments?.length > 0 &&
-                    ` · ${n.attachments.length} pièce(s) jointe(s)`}
-                </small>
-              </div>
-              <span className="notes-v2-indicator">
-                {pending(n)
-                  ? "Proposition"
-                  : ["queued", "running"].includes(latest.get(n.id)?.state)
-                    ? ""
-                    : latest.get(n.id)?.state === "error"
-                      ? "À relancer"
-                      : n.due
-                        ? dateLabel(n.due)
-                        : ""}
-              </span>
-              <time>
-                {new Date(n.created).toLocaleTimeString("fr-FR", {
-                  hour: "2-digit",
-                  minute: "2-digit",
-                })}
-              </time>
-              <AIProgress
-                noteId={n.id}
-                fallback={
-                  ["queued", "running"].includes(latest.get(n.id)?.state)
-                    ? { ...latest.get(n.id), ...latest.get(n.id)?.progress }
-                    : null
-                }
-              />
-            </button>
-          </React.Fragment>
-        ))}
-        {!visible.length && (
-          <div className="empty">
-            <FileText size={24} />
-            <h3>
-              {view === "review"
-                ? "Tout est au clair"
-                : "Votre carnet est prêt"}
-            </h3>
-            <p>
-              {view === "review"
-                ? "Les propositions à examiner apparaîtront ici."
-                : "Notez un échange ou joignez un document pour commencer."}
-            </p>
-          </div>
-        )}
-      </div>
+              <p>
+                {view === "review"
+                  ? "Les propositions à examiner apparaîtront ici."
+                  : "Notez un échange ou joignez un document pour commencer."}
+              </p>
+            </div>
+          )}
+        </div>
+      )}
       <small className="notes-v2-privacy">
         Organisé sur ce Mac · Les changements de roadmap restent à valider
       </small>

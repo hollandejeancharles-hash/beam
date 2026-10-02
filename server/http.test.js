@@ -34,6 +34,7 @@ test("production API: authentication, private visibility, suggestions, persisten
       });
     assert.equal((await request("admin/items")).status, 401);
     for (const endpoint of [
+      "inbox",
       "search",
       "publications",
       "publications/options",
@@ -48,6 +49,12 @@ test("production API: authentication, private visibility, suggestions, persisten
       assert.equal((await request("admin/" + endpoint)).status, 401);
     assert.equal((await request("public/publications")).status, 200);
     assert.equal((await request("public/search")).status, 404);
+    assert.equal((await request("public/inbox")).status, 404);
+    assert.ok(
+      Array.isArray(
+        await (await request("admin/inbox", "GET", undefined, true)).json(),
+      ),
+    );
     const searchResponse = await request(
       "admin/search",
       "GET",
