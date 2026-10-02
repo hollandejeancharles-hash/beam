@@ -1,3 +1,4 @@
+import DecisionMemory from "./components/DecisionMemory";
 import Workspace from "./components/Workspace";
 import { includesSearch } from "../shared/search";
 import Publications from "./components/Publications";
@@ -1269,6 +1270,7 @@ function App() {
                     setSearchTarget(target);
                     setPage(
                       {
+                        decision: "notes",
                         note: "notes",
                         attachment: "notes",
                         topic: "notes",
@@ -1445,6 +1447,14 @@ function App() {
               item={selected}
               api={api}
               onSignals={setSignals}
+            />
+          )}
+          {!publicMode && (
+            <DecisionMemory
+              api={api}
+              itemId={selected.id}
+              items={items}
+              onError={setToast}
             />
           )}
           {!publicMode && (

@@ -17,7 +17,12 @@ export default function ReviewInbox({
   async function decide(row, accept) {
     setBusy(row.id);
     try {
-      if (row.kind === "proposal")
+      if (row.kind === "decision")
+        await api("admin/decisions/" + row.decision_id, {
+          method: "PATCH",
+          body: JSON.stringify({ state: accept ? "confirmed" : "dismissed" }),
+        });
+      else if (row.kind === "proposal")
         await api(`admin/ai/reviews/${row.review_id}/dismiss`, {
           method: "POST",
           body: JSON.stringify({ index: row.index }),
@@ -71,13 +76,15 @@ export default function ReviewInbox({
         visible.map((row) => (
           <article className="review-inbox-card" key={row.id}>
             <small>
-              {row.kind === "proposal"
-                ? row.action === "create"
-                  ? "Nouvelle feature proposée"
-                  : "Mise à jour proposée"
-                : row.kind === "topic"
-                  ? "Sujet · Rapprochement incertain"
-                  : "Roadmap · Rapprochement incertain"}
+              {row.kind === "decision"
+                ? "Décision à confirmer"
+                : row.kind === "proposal"
+                  ? row.action === "create"
+                    ? "Nouvelle feature proposée"
+                    : "Mise à jour proposée"
+                  : row.kind === "topic"
+                    ? "Sujet · Rapprochement incertain"
+                    : "Roadmap · Rapprochement incertain"}
             </small>
             <h3>{row.title}</h3>
             <p>{row.reason}</p>
@@ -117,7 +124,11 @@ export default function ReviewInbox({
                   disabled={busy !== null}
                   onClick={() => decide(row, true)}
                 >
-                  {busy === row.id ? "Enregistrement…" : "Confirmer le lien"}
+                  {busy === row.id
+                    ? "Enregistrement…"
+                    : row.kind === "decision"
+                      ? "Confirmer la décision"
+                      : "Confirmer le lien"}
                 </button>
               )}
             </div>

@@ -1,3 +1,4 @@
+import { createDecisions } from "./decisions.js";
 import { buildInbox } from "../shared/inbox.js";
 import { createSearch } from "./search.js";
 import { createPublications, publicPublications } from "./publications.js";
@@ -23,6 +24,7 @@ const store = createStore(process.env.BEAM_DB || "data/beam.sqlite");
 const profile = createProfile(store);
 const integrations = createIntegrations(store);
 const notes = createNotes(store);
+const decisions = createDecisions(store);
 const attachments = createAttachments(store);
 await startLocalAI();
 const ai = createAI(store, notes, integrations);
@@ -36,6 +38,7 @@ ai.setDiscovery((id) => associations.refresh({ force: true, itemId: id }));
 ai.resume();
 const topics = createTopics(store, notes, integrations, ai);
 const searchIndex = createSearch({
+  decisions,
   store,
   notes,
   topics,
@@ -170,6 +173,8 @@ const server = http.createServer(async (req, res) => {
         return send(200, activity());
       if (url.pathname === "/api/admin/ai/status")
         return send(200, await ai.status());
+      if (url.pathname === "/api/admin/decisions")
+        return send(200, decisions.list());
       if (url.pathname === "/api/admin/inbox")
         return send(
           200,
@@ -179,6 +184,7 @@ const server = http.createServer(async (req, res) => {
             items: store.list(),
             topics: topics.list().topics,
             matches: associations.list().matches,
+            decisions: decisions.list(),
           }),
         );
       if (url.pathname === "/api/admin/ai/reviews") return send(200, ai.list());
@@ -330,6 +336,13 @@ const server = http.createServer(async (req, res) => {
       if (body.text !== undefined) setImmediate(() => ai.auto(note));
       return;
     }
+    if (url.pathname === "/api/admin/decisions" && req.method === "POST")
+      return send(201, decisions.save(body));
+    const decisionMatch = url.pathname.match(
+      /^\/api\/admin\/decisions\/([a-f0-9-]+)$/,
+    );
+    if (decisionMatch && req.method === "PATCH")
+      return send(200, decisions.decide(decisionMatch[1], body.state));
     if (url.pathname === "/api/admin/product" && req.method === "PATCH")
       return send(200, await integrations.saveProduct(body));
     if (url.pathname === "/api/admin/sources" && req.method === "POST")

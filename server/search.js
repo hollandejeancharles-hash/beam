@@ -5,6 +5,7 @@ export function createSearch({
   topics,
   integrations,
   publications,
+  decisions,
 }) {
   return () =>
     buildSearchRecords({
@@ -22,6 +23,7 @@ export function createSearch({
           url,
         })),
       publications: publications.list(),
+      decisions: decisions?.list() || [],
       suggestions: store.db.prepare("SELECT * FROM suggestions").all(),
       attachments: store.db
         .prepare("SELECT id,note_id,name,text FROM note_attachments")

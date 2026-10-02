@@ -34,6 +34,7 @@ test("production API: authentication, private visibility, suggestions, persisten
       });
     assert.equal((await request("admin/items")).status, 401);
     for (const endpoint of [
+      "decisions",
       "inbox",
       "search",
       "publications",
@@ -50,6 +51,7 @@ test("production API: authentication, private visibility, suggestions, persisten
     assert.equal((await request("public/publications")).status, 200);
     assert.equal((await request("public/search")).status, 404);
     assert.equal((await request("public/inbox")).status, 404);
+    assert.equal((await request("public/decisions")).status, 404);
     assert.ok(
       Array.isArray(
         await (await request("admin/inbox", "GET", undefined, true)).json(),
@@ -152,6 +154,37 @@ test("production API: authentication, private visibility, suggestions, persisten
     assert.equal(noteResponse.status, 201);
     const note = await noteResponse.json();
     assert.equal(note.kind, "followup");
+    const decisionResponse = await request(
+      "admin/decisions",
+      "POST",
+      {
+        title: "Relance validée",
+        reason: "Arbitrage manuel",
+        kind: "decision",
+        note_id: note.id,
+        quote: note.text,
+        item_ids: [],
+      },
+      true,
+    );
+    assert.equal(decisionResponse.status, 201);
+    const decision = await decisionResponse.json();
+    assert.equal(decision.state, "confirmed");
+    assert.equal(
+      (
+        await (await request("admin/decisions", "GET", undefined, true)).json()
+      )[0].id,
+      decision.id,
+    );
+    assert.equal(
+      (
+        await request("admin/decisions/" + decision.id, "PATCH", {
+          state: "archived",
+        })
+      ).status,
+      401,
+    );
+
     const png = createCanvas(10, 10).toBuffer("image/png").toString("base64");
     assert.equal(
       (

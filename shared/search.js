@@ -50,6 +50,7 @@ export function buildSearchRecords(
     sources = [],
     publications = [],
     suggestions = [],
+    decisions = [],
   },
   publicOnly = false,
 ) {
@@ -103,6 +104,22 @@ export function buildSearchRecords(
     );
   }
   if (publicOnly) return records;
+  for (const d of decisions)
+    if (d.state !== "dismissed")
+      add(
+        "decision",
+        d.id,
+        d.title,
+        [d.reason, d.quote, d.kind].join(" "),
+        "Décision · " +
+          (d.state === "confirmed"
+            ? "Validée"
+            : d.state === "archived"
+              ? "Archivée"
+              : "À confirmer"),
+        d.state === "archived",
+        d.note_id,
+      );
   for (const n of notes)
     add(
       "note",

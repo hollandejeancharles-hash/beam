@@ -297,3 +297,62 @@ test("background analysis organizes notes without approving roadmap changes", as
   assert.equal(review.result.proposals[0].applied, undefined);
   store.db.close();
 });
+
+test("AI extracts grounded decisions for human approval and receives only confirmed memory", async () => {
+  const { createDecisions } = await import("./decisions.js");
+  const store = createStore(":memory:"),
+    notes = createNotes(store),
+    integrations = createIntegrations(store),
+    id = store.save(item);
+  const n = notes.save({
+    text: "Validé avec Sarah : reporter la prévisualisation mobile après la refonte.",
+  });
+  const decisions = createDecisions(store);
+  const proposal = {
+    title: "Reporter la prévisualisation mobile",
+    reason: "Après la refonte",
+    kind: "defer",
+    note_id: n.id,
+    quote: n.text,
+    item_ids: [id],
+  };
+  let memorySeen = [];
+  const fetcher = async (url, options) => {
+    if (url.endsWith("/api/tags"))
+      return { ok: true, json: async () => ({ models: [{ name: AI_MODEL }] }) };
+    const payload = JSON.parse(options.body);
+    memorySeen = JSON.parse(payload.messages[1].content).confirmed_decisions;
+    return {
+      ok: true,
+      json: async () => ({
+        message: {
+          content: JSON.stringify({
+            summary: "Un report acté.",
+            classification: {
+              kind: "decision",
+              people: ["Sarah"],
+              tags: [],
+              due: null,
+              linked: [id],
+            },
+            proposals: [],
+            decisions: [proposal],
+          }),
+        },
+        done: true,
+      }),
+    };
+  };
+  const ai = createAI(store, notes, integrations, { fetcher });
+  ai.configure(true);
+  const first = await ready(ai, ai.enqueue("note", n.id).id);
+  assert.equal(first.state, "ready");
+  assert.deepEqual(memorySeen, []);
+  assert.equal(decisions.list()[0].state, "proposed");
+  decisions.decide(decisions.list()[0].id, "confirmed");
+  const second = await ready(ai, ai.enqueue("note", n.id).id);
+  assert.equal(second.state, "ready");
+  assert.equal(memorySeen[0].title, proposal.title);
+  assert.equal(store.list()[0].priority, "medium");
+  store.db.close();
+});

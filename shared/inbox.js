@@ -5,6 +5,7 @@ export function buildInbox({
   items = [],
   topics = [],
   matches = [],
+  decisions = [],
 }) {
   const queue = [],
     latest = new Set(),
@@ -98,5 +99,30 @@ export function buildInbox({
           "Cette source pourrait appartenir à ce sujet. Vérifiez le rapprochement avant de le confirmer.",
         sources: [{ id: s.id, title: s.title, kind: s.kind, url: s.url }],
       });
+  for (const d of decisions.filter((d) => d.state === "proposed")) {
+    const note = noteById.get(d.note_id);
+    if (
+      !note ||
+      note.state === "archived" ||
+      note.text !== d.source_text ||
+      d.item_ids.some((id) => !itemById.has(id) || itemById.get(id).archived)
+    )
+      continue;
+    queue.unshift({
+      id: "decision:" + d.id,
+      kind: "decision",
+      decision_id: d.id,
+      note_id: d.note_id,
+      title: d.title,
+      reason: d.reason,
+      sources: [
+        {
+          id: "note:" + d.note_id,
+          title: d.quote,
+          kind: "Décision · Note source",
+        },
+      ],
+    });
+  }
   return queue;
 }

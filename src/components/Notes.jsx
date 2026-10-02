@@ -1,3 +1,4 @@
+import DecisionMemory from "./DecisionMemory";
 import ReviewInbox from "./ReviewInbox";
 import { includesSearch } from "../../shared/search";
 import AIProgress from "./AIProgress";
@@ -271,7 +272,9 @@ export default function Notes({
       const found = subjects.topics.find((t) => t.id === initialTarget.id);
       if (found) setSubject(found);
       else onError("Ce sujet n’est plus disponible.");
-    } else if (["note", "attachment"].includes(initialTarget.kind)) {
+    } else if (
+      ["note", "attachment", "decision"].includes(initialTarget.kind)
+    ) {
       const found = notes.find((n) => n.id === initialTarget.targetId);
       if (found) {
         setSelected(found);
@@ -605,6 +608,10 @@ export default function Notes({
           onError={onError}
           onExamine={(row, button) => {
             trigger.current = button;
+            if (row.kind === "decision") {
+              setSelected(notes.find((n) => n.id === row.note_id));
+              return;
+            }
             if (row.kind === "topic") {
               setSubject(subjects.topics.find((t) => t.id === row.topic_id));
               return;
@@ -708,6 +715,13 @@ export default function Notes({
             requestAnimationFrame(() => trigger.current?.focus());
           }}
         >
+          <DecisionMemory
+            api={api}
+            note={current}
+            items={items}
+            onError={onError}
+            onChange={load}
+          />
           <div className="notes-v2-detail-actions">
             <button
               className="text-button"
