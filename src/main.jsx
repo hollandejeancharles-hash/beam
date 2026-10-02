@@ -91,7 +91,7 @@ function App() {
     [page, setPage] = useState(
       (publicMode
         ? ["gantt", "kanban"]
-        : ["gantt", "kanban", "feedback", "changelog", "integrations", "notes"]
+        : ["gantt", "kanban", "feedback", "integrations", "notes"]
       ).includes(location.hash.slice(1))
         ? location.hash.slice(1)
         : "gantt",
@@ -393,11 +393,6 @@ function App() {
                   icon: <MessageSquare size={17} />,
                 },
                 {
-                  label: "Nouveautés",
-                  href: "#changelog",
-                  icon: <Radio size={17} />,
-                },
-                {
                   label: "Notes",
                   href: "#notes",
                   icon: <FileText size={17} />,
@@ -414,6 +409,21 @@ function App() {
               }}
             />
           </nav>
+          <div className="communication-nav">
+            <div className="nav-caption">COMMUNICATION</div>
+            <nav aria-label="Communication du produit">
+              <TreeNav
+                items={[
+                  {
+                    label: "Roadmap publique",
+                    href: publicPath,
+                    external: true,
+                    icon: <Globe size={17} />,
+                  },
+                ]}
+              />
+            </nav>
+          </div>
           {items.some(
             (i) => i.type === "initiative" || i.type === "project",
           ) && (
@@ -443,21 +453,6 @@ function App() {
             </div>
           )}
           <div className="sidebar-bottom">
-            <div className="portal-card">
-              <span className="portal-symbol">
-                <Globe size={19} />
-                <span />
-              </span>
-              <strong>Portail public</strong>
-              <p>
-                Votre roadmap, accessible à
-                <br />
-                la communauté {product.name}.
-              </p>
-              <a href={publicPath} target="_blank" rel="noreferrer">
-                Ouvrir le portail <ArrowUpRight size={15} />
-              </a>
-            </div>
             <div className="profile">
               <button
                 className="profile-trigger"

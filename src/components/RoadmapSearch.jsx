@@ -5,7 +5,6 @@ import {
   Integration,
   LayoutGrid,
   MessageSquare,
-  Radio,
   Search,
   SlidersHorizontal,
 } from "../icons";
@@ -20,7 +19,6 @@ export default function RoadmapSearch({ items, publicMode, onApply, onClose }) {
       ...(!publicMode
         ? [
             ["feedback", "Suggestions", MessageSquare],
-            ["changelog", "Nouveautés", Radio],
             ["integrations", "Intégrations", Integration],
             ["notes", "Notes", MessageSquare],
           ]

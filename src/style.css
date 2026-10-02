@@ -4279,3 +4279,10 @@ footer b {
 .ai-spinner-arc {
   stroke: #c4c5cd;
 }
+
+.communication-nav {
+  margin-top: 24px;
+}
+.sidebar-collapsed .communication-nav .nav-caption {
+  display: none;
+}
