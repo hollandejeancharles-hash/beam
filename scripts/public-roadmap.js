@@ -1,10 +1,12 @@
 // Explicit allowlist: private entries and per-visitor vote data never enter Pages.
 export function publicRoadmap(items) {
   const publicIds = new Set(
-    items.filter((item) => item.visibility === "public").map((item) => item.id),
+    items
+      .filter((item) => item.visibility === "public" && !item.archived)
+      .map((item) => item.id),
   );
   return items
-    .filter((item) => item.visibility === "public")
+    .filter((item) => item.visibility === "public" && !item.archived)
     .map((item) => ({
       id: item.id,
       title: item.title,

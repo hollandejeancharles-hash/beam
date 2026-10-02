@@ -17,7 +17,7 @@ const notes = createNotes(store);
 await startLocalAI();
 const ai = createAI(store, notes, integrations);
 ai.resume();
-if (process.env.BEAM_SEED === "true" || !prod) seed(store);
+if (process.env.BEAM_SEED === "true") seed(store);
 const vite = prod
   ? null
   : await (
@@ -203,6 +203,24 @@ const server = http.createServer(async (req, res) => {
       );
     if (url.pathname === "/api/admin/items" && req.method === "POST")
       return send(201, { id: store.save(body) });
+    const archiveItem = url.pathname.match(
+      /^\/api\/admin\/items\/([a-f0-9-]+)\/archive$/,
+    );
+    if (archiveItem && req.method === "PATCH") {
+      store.archive(archiveItem[1], body.archived);
+      return send(200, { ok: true });
+    }
+    const suggestionMatch = url.pathname.match(
+      /^\/api\/admin\/suggestions\/([a-f0-9-]+)$/,
+    );
+    if (suggestionMatch && req.method === "PATCH") {
+      store.suggestionAction(suggestionMatch[1], body.archived);
+      return send(200, { ok: true });
+    }
+    if (suggestionMatch && req.method === "DELETE") {
+      store.removeSuggestion(suggestionMatch[1]);
+      return send(200, { ok: true });
+    }
     const match = url.pathname.match(/^\/api\/admin\/items\/([a-f0-9-]+)$/);
     if (match) {
       if (req.method === "PATCH")

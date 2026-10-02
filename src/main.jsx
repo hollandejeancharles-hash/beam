@@ -103,6 +103,7 @@ function App() {
     [share, setShare] = useState(false),
     [suggest, setSuggest] = useState(false),
     [suggestions, setSuggestions] = useState([]),
+    [showArchives, setShowArchives] = useState(false),
     [toast, setToast] = useState(""),
     [error, setError] = useState(""),
     [loading, setLoading] = useState(true),
@@ -243,9 +244,42 @@ function App() {
       setToast(e.message);
     }
   }
+  async function manageEntry(kind, entry, remove = false) {
+    if (
+      remove &&
+      !confirm(
+        "Supprimer définitivement cet élément ? Cette action ne peut pas être annulée.",
+      )
+    )
+      return;
+    try {
+      await api(
+        `admin/${kind}/${entry.id}${kind === "items" && !remove ? "/archive" : ""}`,
+        {
+          method: remove ? "DELETE" : "PATCH",
+          ...(!remove && {
+            body: JSON.stringify({ archived: !entry.archived }),
+          }),
+        },
+      );
+      setSelected(null);
+      setEdit(null);
+      await refresh();
+      setToast(
+        remove
+          ? "Élément supprimé"
+          : entry.archived
+            ? "Élément restauré"
+            : "Élément archivé",
+      );
+    } catch (e) {
+      setToast(e.message);
+    }
+  }
   const filtered = items
     .filter(
       (i) =>
+        !!i.archived === (!publicMode && showArchives) &&
         (!query ||
           (i.title + " " + i.description)
             .toLowerCase()
@@ -580,6 +614,17 @@ function App() {
               </button>
             </nav>
           )}
+          {!publicMode && (
+            <button
+              className="button"
+              aria-pressed={showArchives}
+              onClick={() => setShowArchives(!showArchives)}
+            >
+              {showArchives
+                ? "Retour aux éléments actifs"
+                : "Voir les archives"}
+            </button>
+          )}
           {page !== "feedback" &&
             page !== "integrations" &&
             page !== "notes" && (
@@ -776,42 +821,62 @@ function App() {
             />
           ) : page === "feedback" ? (
             <div className="suggestion-list">
-              {suggestions.length ? (
-                suggestions.map((s) => (
-                  <article key={s.id}>
-                    <span className="suggestion-icon">
-                      <MessageSquare size={20} />
-                    </span>
-                    <div>
-                      <small>
-                        Idée de la communauté ·{" "}
-                        {new Date(s.created).toLocaleDateString("fr-FR")}
-                      </small>
-                      <h3>{s.title}</h3>
-                      <p>{s.description}</p>
-                    </div>
-                    <button
-                      className="button"
-                      onClick={() =>
-                        setEdit({
-                          ...blank,
-                          title: s.title,
-                          description: s.description,
-                        })
-                      }
-                    >
-                      Ajouter à la roadmap
-                      <ArrowRight size={15} />
-                    </button>
-                  </article>
-                ))
+              {suggestions.filter((s) => !!s.archived === showArchives)
+                .length ? (
+                suggestions
+                  .filter((s) => !!s.archived === showArchives)
+                  .map((s) => (
+                    <article key={s.id}>
+                      <span className="suggestion-icon">
+                        <MessageSquare size={20} />
+                      </span>
+                      <div>
+                        <small>
+                          Idée de la communauté ·{" "}
+                          {new Date(s.created).toLocaleDateString("fr-FR")}
+                        </small>
+                        <h3>{s.title}</h3>
+                        <p>{s.description}</p>
+                      </div>
+                      <button
+                        className="button"
+                        onClick={() =>
+                          setEdit({
+                            ...blank,
+                            title: s.title,
+                            description: s.description,
+                          })
+                        }
+                      >
+                        Ajouter à la roadmap
+                        <ArrowRight size={15} />
+                      </button>
+                      <button
+                        className="button"
+                        onClick={() => manageEntry("suggestions", s)}
+                      >
+                        {s.archived ? "Restaurer" : "Archiver"}
+                      </button>
+                      <button
+                        className="button danger"
+                        onClick={() => manageEntry("suggestions", s, true)}
+                      >
+                        Supprimer
+                      </button>
+                    </article>
+                  ))
               ) : (
                 <div className="empty">
                   <MessageSquare size={28} />
-                  <h3>La conversation commence ici.</h3>
+                  <h3>
+                    {showArchives
+                      ? "Aucune suggestion archivée"
+                      : "La conversation commence ici."}
+                  </h3>
                   <p>
-                    Les idées envoyées depuis le portail public apparaîtront
-                    dans cet espace.
+                    {showArchives
+                      ? "Les suggestions que vous archivez restent accessibles ici."
+                      : "Les idées envoyées depuis le portail public apparaîtront dans cet espace."}
                   </p>
                   <button className="button" onClick={() => setShare(true)}>
                     Partager le portail
@@ -1024,6 +1089,22 @@ function App() {
             <span className="tag">{selected.category}</span>
             <span className="pill">{ST[selected.status].label}</span>
           </div>
+          {!publicMode && (
+            <div className="note-actions">
+              <button
+                className="button"
+                onClick={() => manageEntry("items", selected)}
+              >
+                {selected.archived ? "Restaurer" : "Archiver"}
+              </button>
+              <button
+                className="button danger"
+                onClick={() => manageEntry("items", selected, true)}
+              >
+                Supprimer
+              </button>
+            </div>
+          )}
           <h2 className="detail-title">{selected.title}</h2>
           <p className="detail-description">
             {selected.description || "Aucune description pour le moment."}
@@ -1363,7 +1444,7 @@ function App() {
                     }
                   }}
                 >
-                  <Trash2 size={15} />
+                  <Trash2 size={15} /> Supprimer
                 </button>
               )}
               <button

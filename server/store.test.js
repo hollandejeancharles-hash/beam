@@ -74,3 +74,30 @@ test("items and votes survive closing and reopening the database", () => {
     rmSync(dir, { recursive: true, force: true });
   }
 });
+
+test("archives hide public entries, preserve votes and remain archived after editing", () => {
+  const s = createStore(":memory:");
+  const id = s.save(item);
+  s.vote(id, "a");
+  s.archive(id, true);
+  assert.equal(s.list(true).length, 0);
+  assert.throws(() => s.vote(id, "b"));
+  s.save({ title: "Updated" }, id);
+  assert.equal(s.list()[0].archived, 1);
+  s.archive(id, false);
+  assert.equal(s.list(true)[0].votes, 1);
+  s.suggest("Idea", "Description");
+  const suggestion = s.db.prepare("SELECT * FROM suggestions").get();
+  s.suggestionAction(suggestion.id, true);
+  assert.equal(
+    s.db.prepare("SELECT archived FROM suggestions").get().archived,
+    1,
+  );
+  s.suggestionAction(suggestion.id, false);
+  s.removeSuggestion(suggestion.id);
+  assert.equal(
+    s.db.prepare("SELECT count(*) AS n FROM suggestions").get().n,
+    0,
+  );
+  s.db.close();
+});

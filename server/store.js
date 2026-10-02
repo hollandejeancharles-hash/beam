@@ -14,6 +14,7 @@ export function createStore(path) {
       .map((column) => column.name),
   );
   for (const [name, definition] of Object.entries({
+    archived: "INTEGER NOT NULL DEFAULT 0",
     type: "TEXT NOT NULL DEFAULT 'feature'",
     parent_id: "TEXT",
     start_date: "TEXT",
@@ -25,12 +26,21 @@ export function createStore(path) {
     if (!columns.has(name))
       db.exec(`ALTER TABLE items ADD COLUMN ${name} ${definition}`);
   }
+  if (
+    !db
+      .prepare("PRAGMA table_info(suggestions)")
+      .all()
+      .some((c) => c.name === "archived")
+  )
+    db.exec(
+      "ALTER TABLE suggestions ADD COLUMN archived INTEGER NOT NULL DEFAULT 0",
+    );
   return {
     db,
     list(publicOnly = false, visitor = "") {
       return db
         .prepare(
-          `SELECT i.*, (SELECT count(*) FROM votes WHERE item=i.id) AS votes, EXISTS(SELECT 1 FROM votes WHERE item=i.id AND visitor=?) AS voted FROM items i ${publicOnly ? "WHERE visibility='public'" : ""} ORDER BY created DESC`,
+          `SELECT i.*, (SELECT count(*) FROM votes WHERE item=i.id) AS votes, EXISTS(SELECT 1 FROM votes WHERE item=i.id AND visitor=?) AS voted FROM items i ${publicOnly ? "WHERE visibility='public' AND archived=0" : ""} ORDER BY created DESC`,
         )
         .all(visitor)
         .map((item) => {
@@ -38,7 +48,9 @@ export function createStore(path) {
           const publicId = (id) =>
             id &&
             db
-              .prepare("SELECT 1 FROM items WHERE id=? AND visibility='public'")
+              .prepare(
+                "SELECT 1 FROM items WHERE id=? AND visibility='public' AND archived=0",
+              )
               .get(id)
               ? id
               : null;
@@ -107,20 +119,63 @@ export function createStore(path) {
         v.owner.trim(),
         v.dependency_id,
       );
+      if (old?.archived)
+        db.prepare("UPDATE items SET archived=1 WHERE id=?").run(id);
       return id;
+    },
+    archive(id, archived) {
+      if (typeof archived !== "boolean") throw Error("Archivage invalide");
+      if (
+        !db
+          .prepare("UPDATE items SET archived=? WHERE id=?")
+          .run(Number(archived), id).changes
+      )
+        throw Error("Introuvable");
+    },
+    suggestionAction(id, archived) {
+      if (typeof archived !== "boolean") throw Error("Archivage invalide");
+      if (
+        !db
+          .prepare("UPDATE suggestions SET archived=? WHERE id=?")
+          .run(Number(archived), id).changes
+      )
+        throw Error("Introuvable");
+    },
+    removeSuggestion(id) {
+      db.prepare("DELETE FROM suggestions WHERE id=?").run(id);
     },
     remove(id) {
       db.prepare("UPDATE items SET parent_id=NULL WHERE parent_id=?").run(id);
       db.prepare(
         "UPDATE items SET dependency_id=NULL WHERE dependency_id=?",
       ).run(id);
+      if (
+        db
+          .prepare("SELECT name FROM sqlite_master WHERE name='signal_links'")
+          .get()
+      )
+        db.prepare("DELETE FROM signal_links WHERE item_id=?").run(id);
+      if (
+        db.prepare("SELECT name FROM sqlite_master WHERE name='notes'").get()
+      ) {
+        for (const n of db.prepare("SELECT id,details FROM notes").all()) {
+          const d = JSON.parse(n.details);
+          d.linked = (d.linked || []).filter((x) => x !== id);
+          db.prepare("UPDATE notes SET details=? WHERE id=?").run(
+            JSON.stringify(d),
+            n.id,
+          );
+        }
+      }
       db.prepare("DELETE FROM items WHERE id=?").run(id);
       db.prepare("DELETE FROM votes WHERE item=?").run(id);
     },
     vote(id, visitor) {
       if (
         !db
-          .prepare("SELECT id FROM items WHERE id=? AND visibility='public'")
+          .prepare(
+            "SELECT id FROM items WHERE id=? AND visibility='public' AND archived=0",
+          )
           .get(id)
       )
         throw Error("Introuvable");
@@ -142,12 +197,9 @@ export function createStore(path) {
         description.length > 5000
       )
         throw Error("Suggestion invalide");
-      db.prepare("INSERT INTO suggestions VALUES(?,?,?,?)").run(
-        randomUUID(),
-        title.trim(),
-        description,
-        new Date().toISOString(),
-      );
+      db.prepare(
+        "INSERT INTO suggestions(id,title,description,created) VALUES(?,?,?,?)",
+      ).run(randomUUID(), title.trim(), description, new Date().toISOString());
     },
   };
 }

@@ -107,3 +107,7 @@ Un clic gauche sur l’icône Beam dans la barre de menus affiche la fenêtre ex
 ### IA locale pour les notes et features
 
 L’assistant **Ministral 3 8B / Ollama** prépare des classements de notes et des propositions de roadmap avec leurs sources. Les nouvelles notes sont enregistrées sans attendre l’analyse ; aucun changement de roadmap n’est appliqué sans validation. Depuis les détails d’un élément, l’assistant analyse ses notes et sources associées. Voir [installation, confidentialité et limites](docs/local-ai.md).
+
+### Espace vierge et archives
+
+Les données de démonstration ne sont chargées que si `BEAM_SEED=true` est explicitement défini. Les éléments et suggestions peuvent être archivés, restaurés depuis **Voir les archives**, ou supprimés définitivement après confirmation. Les éléments archivés sont exclus du portail public et de son export GitHub Pages.
