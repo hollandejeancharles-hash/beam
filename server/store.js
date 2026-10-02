@@ -15,6 +15,7 @@ export function createStore(path) {
   );
   for (const [name, definition] of Object.entries({
     position: "INTEGER NOT NULL DEFAULT 0",
+    kanban_position: "INTEGER NOT NULL DEFAULT 0",
     archived: "INTEGER NOT NULL DEFAULT 0",
     type: "TEXT NOT NULL DEFAULT 'feature'",
     parent_id: "TEXT",
@@ -136,9 +137,70 @@ export function createStore(path) {
           id,
         );
       }
+      const rank =
+        old?.status === v.status
+          ? old.kanban_position
+          : (db
+              .prepare(
+                "SELECT max(kanban_position) AS n FROM items WHERE status=? AND id<>?",
+              )
+              .get(v.status, id).n ?? -1) + 1;
+      db.prepare("UPDATE items SET kanban_position=? WHERE id=?").run(rank, id);
       if (old?.archived)
         db.prepare("UPDATE items SET archived=1 WHERE id=?").run(id);
       return id;
+    },
+    reorderKanban(columns) {
+      if (
+        !Array.isArray(columns) ||
+        columns.length !== statuses.length ||
+        new Set(columns.map((c) => c.id)).size !== statuses.length ||
+        columns.some((c) => !statuses.includes(c.id) || !Array.isArray(c.ids))
+      )
+        throw Error("Colonnes invalides");
+      const all = db
+        .prepare(
+          "SELECT * FROM items WHERE archived=0 ORDER BY kanban_position,created DESC,id",
+        )
+        .all();
+      const ids = columns.flatMap((c) => c.ids),
+        visible = new Set(ids);
+      if (
+        ids.length !== visible.size ||
+        ids.some((id) => !all.some((i) => i.id === id))
+      )
+        throw Error(
+          "La roadmap a changé. Actualisez avant de déplacer cet élément.",
+        );
+      db.exec("BEGIN IMMEDIATE");
+      try {
+        for (const column of columns) {
+          let cursor = 0;
+          const order = [];
+          for (const item of all.filter((i) => i.status === column.id)) {
+            if (visible.has(item.id)) {
+              if (cursor < column.ids.length) order.push(column.ids[cursor++]);
+            } else order.push(item.id);
+          }
+          order.push(...column.ids.slice(cursor));
+          order.forEach((id, rank) => {
+            const old = all.find((i) => i.id === id);
+            const progress =
+              column.id === "done"
+                ? 100
+                : old.status === "done"
+                  ? 0
+                  : old.progress;
+            db.prepare(
+              "UPDATE items SET status=?,progress=?,kanban_position=? WHERE id=?",
+            ).run(column.id, progress, rank, id);
+          });
+        }
+        db.exec("COMMIT");
+      } catch (error) {
+        db.exec("ROLLBACK");
+        throw error;
+      }
     },
     reorder(id, targetId, after = false) {
       if (typeof after !== "boolean" || id === targetId)

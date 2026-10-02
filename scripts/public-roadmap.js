@@ -10,6 +10,7 @@ export function publicRoadmap(items) {
     .map((item) => ({
       id: item.id,
       position: item.position || 0,
+      kanban_position: item.kanban_position || 0,
       title: item.title,
       description: item.description,
       category: item.category,

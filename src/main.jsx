@@ -34,6 +34,7 @@ import Profile, { initials } from "./components/Profile";
 import LocalAssistant from "./components/LocalAssistant";
 import Notes, { QuickNote } from "./components/Notes";
 import Gantt from "./components/Gantt";
+import BeamKanban from "./components/BeamKanban";
 import { TYPES, progressValue, hierarchyRows } from "../shared/planning";
 import "./style.css";
 const pagesMode = __PAGES__;
@@ -119,6 +120,7 @@ function App() {
     [profileOpen, setProfileOpen] = useState(false),
     [key, setKey] = useState(sessionStorage.getItem("beam_key") || ""),
     [sort, setSort] = useState("manual"),
+    [kanbanSaving, setKanbanSaving] = useState(false),
     [typeFilter, setTypeFilter] = useState("all"),
     [product, setProduct] = useState({ name: "PULS" }),
     [signals, setSignals] = useState([]),
@@ -956,6 +958,30 @@ function App() {
                 </div>
               )}
             </div>
+          ) : page === "kanban" && view !== "list" ? (
+            <BeamKanban
+              items={filtered}
+              sort={sort}
+              readOnly={publicMode || showArchives || kanbanSaving}
+              onOpen={setSelected}
+              onCreate={(status) => setEdit({ ...blank, status })}
+              onChange={async (columns) => {
+                setKanbanSaving(true);
+                try {
+                  await api("admin/items/kanban", {
+                    method: "POST",
+                    body: JSON.stringify({ columns }),
+                  });
+                  setSort("manual");
+                  await refresh();
+                } catch (error) {
+                  setToast(error.message);
+                  await refresh();
+                } finally {
+                  setKanbanSaving(false);
+                }
+              }}
+            />
           ) : (
             <div className={"board " + (view === "list" ? "list-view" : "")}>
               {Object.entries(ST)

@@ -270,6 +270,10 @@ const server = http.createServer(async (req, res) => {
           ? integrations.promote(signal[1])
           : integrations.link(signal[1], body.item_id, body.remove),
       );
+    if (url.pathname === "/api/admin/items/kanban" && req.method === "POST") {
+      store.reorderKanban(body.columns);
+      return send(200, { ok: true });
+    }
     if (url.pathname === "/api/admin/items/reorder" && req.method === "POST") {
       store.reorder(body.id, body.target_id, body.after);
       return send(200, { ok: true });

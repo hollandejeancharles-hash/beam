@@ -1,6 +1,7 @@
 @import "tailwindcss/theme.css" layer(theme);
 @import "tailwindcss/utilities.css" layer(utilities);
 @source "./components/ui";
+@custom-variant dark (&:where(.dark, .dark *));
 @theme inline {
   --color-background: #11131b;
   --color-foreground: #e8e8ef;

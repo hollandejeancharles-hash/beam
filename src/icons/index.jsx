@@ -42,7 +42,7 @@ function interactiveIcon(Component) {
     const reduced = useReducedMotion();
     useEffect(() => {
       const control = element.current?.closest(
-        "button, a, label, [role=option], .card",
+        "button, a, label, [role=option], [data-kanban-card], .card",
       );
       if (!control || reduced) return;
       let focused = false;

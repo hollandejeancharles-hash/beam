@@ -4024,3 +4024,64 @@ footer b {
 .gantt-row[data-drop="after"] {
   border-bottom: 2px solid #a393da;
 }
+
+/* Animated Kanban keeps the roadmap's own status colours and graphite surfaces. */
+.beam-kanban {
+  margin-top: 18px;
+  min-width: 0;
+}
+.kanban-guidance {
+  margin: 0 0 18px;
+  color: var(--muted);
+  font-size: 12px;
+}
+.beam-kanban [data-kanban-column] {
+  width: calc((100% - 24px) / 3);
+  min-width: 286px;
+  min-height: 220px;
+  background: #ffffff03;
+  border: 1px solid #ffffff07;
+}
+.beam-kanban [data-kanban-card] > div {
+  background: #1b1d26;
+  border-color: #ffffff0e;
+}
+.beam-kanban [data-kanban-card] p {
+  overflow-wrap: anywhere;
+}
+.beam-kanban button[hidden] {
+  display: none;
+}
+.beam-kanban[data-readonly="true"] [data-kanban-card] {
+  cursor: pointer;
+  touch-action: auto;
+}
+.beam-kanban [data-kanban-column="planned"] > div > span:first-child {
+  background: #9296a5;
+}
+.beam-kanban [data-kanban-column="progress"] > div > span:first-child {
+  background: #9185f2;
+}
+.beam-kanban [data-kanban-column="done"] > div > span:first-child {
+  background: #7ba98b;
+}
+.beam-kanban [data-kanban-column] > button {
+  appearance: none;
+  background: transparent;
+  border: 0;
+  box-shadow: none;
+  color: #9698a4;
+}
+.beam-kanban [data-kanban-column] > button:hover {
+  background: #ffffff08;
+  color: #e8e8ec;
+}
+.beam-kanban [data-kanban-card] p {
+  margin-top: 10px;
+}
+.beam-kanban [data-kanban-card] p + p {
+  margin-top: 4px;
+}
+.beam-kanban [data-kanban-card] h3 {
+  font-weight: 500;
+}

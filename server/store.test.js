@@ -126,3 +126,71 @@ test("manual order persists editing and rejects reparenting during reorder", () 
   );
   s.db.close();
 });
+
+test("Kanban moves persist status and order independently of the Gantt hierarchy", () => {
+  const s = createStore(":memory:");
+  const a = s.save(item),
+    b = s.save({ ...item, title: "Second" }),
+    c = s.save({ ...item, title: "Third" });
+  const positions = s.list().map((i) => [i.id, i.position]);
+  s.reorderKanban([
+    { id: "planned", ids: [c, b] },
+    { id: "progress", ids: [] },
+    { id: "done", ids: [a] },
+  ]);
+  assert.equal(s.list().find((i) => i.id === a).status, "done");
+  assert.equal(s.list().find((i) => i.id === a).progress, 100);
+  assert.deepEqual(
+    s.list().map((i) => [i.id, i.position]),
+    positions,
+  );
+  assert.deepEqual(
+    s
+      .list()
+      .filter((i) => i.status === "planned")
+      .sort((a, b) => a.kanban_position - b.kanban_position)
+      .map((i) => i.id),
+    [c, b],
+  );
+  s.save({ title: "Renamed" }, c);
+  assert.equal(s.list().find((i) => i.id === c).kanban_position, 0);
+  s.reorderKanban([
+    { id: "planned", ids: [c, b] },
+    { id: "progress", ids: [a] },
+    { id: "done", ids: [] },
+  ]);
+  assert.equal(s.list().find((i) => i.id === a).progress, 0);
+  s.db.close();
+});
+test("Filtered Kanban preserves hidden cards and invalid moves change nothing", () => {
+  const s = createStore(":memory:");
+  const a = s.save(item),
+    hidden = s.save({ ...item, title: "Hidden" }),
+    b = s.save({ ...item, title: "Last" });
+  s.reorderKanban([
+    { id: "planned", ids: [b, a] },
+    { id: "progress", ids: [] },
+    { id: "done", ids: [] },
+  ]);
+  assert.deepEqual(
+    s
+      .list()
+      .sort((a, b) => a.kanban_position - b.kanban_position)
+      .map((i) => i.id),
+    [b, hidden, a],
+  );
+  const before = s.list();
+  for (const ids of [[a, a], ["missing"], [a, hidden]]) {
+    if (ids.includes(hidden)) s.archive(hidden, true);
+    assert.throws(() =>
+      s.reorderKanban([
+        { id: "planned", ids },
+        { id: "progress", ids: [] },
+        { id: "done", ids: [] },
+      ]),
+    );
+    if (ids.includes(hidden)) s.archive(hidden, false);
+    assert.deepEqual(s.list(), before);
+  }
+  s.db.close();
+});

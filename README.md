@@ -125,3 +125,9 @@ Cliquer sur l’avatar en bas du menu pour modifier le nom affiché, le rôle, l
 ### Ordre personnalisé du Gantt
 
 Glisser la poignée à gauche d’une ligne pour la placer avant ou après un autre élément du même parent. Les enfants restent sous leur parent. L’ordre est conservé dans SQLite et retrouvé avec le tri **Ordre personnalisé** ; un déplacement réactive automatiquement ce tri. Au clavier, placer le focus sur la poignée puis utiliser **Alt + ↑ / ↓**. Le déplacement des barres continue de modifier les dates.
+
+### Kanban animé
+
+Les cartes se déplacent entre les états et se réordonnent dans chaque colonne, avec une carte flottante et un emplacement animé. Un clic ouvre le détail ; le bouton en pied de colonne crée un élément dans cet état. Au clavier : Entrée ouvre, Espace sélectionne, les flèches déplacent, Espace valide, Échap annule. Les gestes respectent la préférence de réduction des animations.
+
+L’ordre du Kanban est sauvegardé séparément du Gantt, sans modifier les rattachements. Les filtres préservent les éléments masqués. Le portail public et les archives restent en consultation. Adaptation du composant fourni, sans ses données de démonstration.
