@@ -1,0 +1,102 @@
+[
+  {
+    "id": "83f3d73d-bbf9-4389-9348-de2b14237b0e",
+    "title": "Les performances DBD du Boss",
+    "description": "J'ai besoin que mon boss soit meilleur à ce jeu de ces morts, parce qu'on DEAOUUUD tout le temps",
+    "category": "Éditeur",
+    "priority": "medium",
+    "status": "planned",
+    "visibility": "public",
+    "quarter": "T1 2027"
+  },
+  {
+    "id": "4a13af59-b210-48eb-bd45-f86d15fdb9c0",
+    "title": "Vos outils, enfin connectés",
+    "description": "Connectez PULS à vos outils grâce aux webhooks et à une API documentée.",
+    "category": "Intégrations",
+    "priority": "medium",
+    "status": "planned",
+    "visibility": "public",
+    "quarter": "T1 2027"
+  },
+  {
+    "id": "96084d33-46a9-43cd-84c4-52832f914a74",
+    "title": "Les bons rôles, au bon endroit",
+    "description": "Des permissions précises pour travailler ensemble en toute confiance.",
+    "category": "Collaboration",
+    "priority": "medium",
+    "status": "planned",
+    "visibility": "public",
+    "quarter": "T1 2027"
+  },
+  {
+    "id": "89af48c6-12d6-4bb7-8b3d-f4833065cc61",
+    "title": "Des pages plus rapides",
+    "description": "Une optimisation du chargement des images et du cache pour une navigation plus fluide.",
+    "category": "Performance",
+    "priority": "high",
+    "status": "done",
+    "visibility": "public",
+    "quarter": "T4 2026"
+  },
+  {
+    "id": "86e38c44-6745-4d23-8b45-c20b59d30ccd",
+    "title": "Historique des versions",
+    "description": "Retrouvez une ancienne version de votre contenu et restaurez-la en un clic.",
+    "category": "Contenu",
+    "priority": "medium",
+    "status": "done",
+    "visibility": "public",
+    "quarter": "T4 2026"
+  },
+  {
+    "id": "7353caa2-3a6f-423a-9799-69c26d8adea6",
+    "title": "Des liens qui restent vivants",
+    "description": "Gérez vos redirections directement dans PULS pour ne perdre aucun visiteur.",
+    "category": "Performance",
+    "priority": "low",
+    "status": "done",
+    "visibility": "public",
+    "quarter": "T4 2026"
+  },
+  {
+    "id": "d911021c-5d8c-4648-8d43-a9b5dc03a7b0",
+    "title": "Prévisualisation en temps réel",
+    "description": "Voyez exactement ce que vos lecteurs verront, sur tous les écrans, avant de publier.",
+    "category": "Éditeur",
+    "priority": "high",
+    "status": "progress",
+    "visibility": "public",
+    "quarter": "T4 2026"
+  },
+  {
+    "id": "3aa774b1-806c-4668-ab0f-f47a1735ace0",
+    "title": "Une médiathèque mieux organisée",
+    "description": "Dossiers, recherche et descriptions alternatives : chaque média trouve sa place.",
+    "category": "Contenu",
+    "priority": "medium",
+    "status": "progress",
+    "visibility": "public",
+    "quarter": "T4 2026"
+  },
+  {
+    "id": "6938c2d1-31d6-4187-a395-b9faeea4c25e",
+    "title": "Publier dans plusieurs langues",
+    "description": "Créez et gérez les versions traduites de vos pages depuis un espace commun.",
+    "category": "Contenu",
+    "priority": "high",
+    "status": "progress",
+    "visibility": "public",
+    "quarter": "T1 2027"
+  },
+  {
+    "id": "f5354467-a287-41a4-81ff-ac5f931361ad",
+    "title": "Un éditeur qui suit vos idées",
+    "description": "Une nouvelle expérience d’édition par blocs. Composez, déplacez et publiez vos contenus sans interrompre votre élan.",
+    "category": "Éditeur",
+    "priority": "high",
+    "status": "done",
+    "visibility": "public",
+    "quarter": "T4 2026"
+  }
+]
