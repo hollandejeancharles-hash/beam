@@ -479,6 +479,10 @@ export default function Notes({
           ].map(([id, label]) => (
             <button
               key={id}
+              data-view={id}
+              data-pending={
+                id === "review" && inbox.length > 0 ? "true" : undefined
+              }
               aria-pressed={view === id}
               onClick={() => {
                 setView(id);
@@ -588,7 +592,7 @@ export default function Notes({
                       {n.attachments.length > 1 ? "s" : ""}
                     </span>
                   )}
-                  {pending(n) && <i title="Proposition à examiner" />}
+                  <NoteStateLabels note={n} pending={pending(n)} />
                   <AIProgress
                     noteId={n.id}
                     fallback={
@@ -598,6 +602,7 @@ export default function Notes({
                     }
                   />
                 </span>
+                <NoteTopicLabels tags={n.tags} limit={2} />
               </button>
             </React.Fragment>
           ))}
@@ -787,7 +792,11 @@ export default function Notes({
           </form>
         ) : current ? (
           <div className="notebook-paper" key={current.id}>
-            <InlineNoteEditor note={current} update={update} />
+            <InlineNoteEditor
+              note={current}
+              update={update}
+              pending={pending(current)}
+            />
             <label className="text-button attachment-picker notebook-attach">
               Joindre un fichier
               <input
@@ -1016,7 +1025,43 @@ export default function Notes({
     </div>
   );
 }
-function InlineNoteEditor({ note, update }) {
+function NoteStateLabels({ note, pending }) {
+  return (
+    <>
+      {note.state === "done" ? (
+        <span className="note-state-chip is-done">Terminé</span>
+      ) : note.state === "open" &&
+        ["action", "followup"].includes(note.kind) ? (
+        <span className="note-state-chip is-followup">À suivre</span>
+      ) : null}
+      {pending && <span className="note-state-chip is-review">À examiner</span>}
+    </>
+  );
+}
+function NoteTopicLabels({ tags = [], limit = 3 }) {
+  const colors = ["#b3a1e5", "#8cb5d5", "#b5ab89", "#91b8aa", "#c49fae"];
+  return tags.length > 0 ? (
+    <span className="note-topic-labels">
+      {tags.slice(0, limit).map((tag) => {
+        const hash = [...tag.toLocaleLowerCase("fr")].reduce(
+          (a, c) => (a * 31 + c.codePointAt(0)) >>> 0,
+          0,
+        );
+        return (
+          <span
+            className="note-topic-label"
+            key={tag}
+            style={{ "--topic-color": colors[hash % colors.length] }}
+          >
+            <i aria-hidden="true" />
+            {tag}
+          </span>
+        );
+      })}
+    </span>
+  ) : null;
+}
+function InlineNoteEditor({ note, update, pending }) {
   const [draft, setDraft] = usePersistentDraft("note-edit:" + note.id, null);
   const [saving, setSaving] = useState(false);
   const value = draft ?? note.text;
@@ -1040,6 +1085,10 @@ function InlineNoteEditor({ note, update }) {
           hour: "2-digit",
           minute: "2-digit",
         })}
+      </div>
+      <div className="notebook-paper-labels">
+        <NoteStateLabels note={note} pending={pending} />
+        <NoteTopicLabels tags={note.tags} />
       </div>
       <textarea
         className="notebook-note-editor"
