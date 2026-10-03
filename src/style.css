@@ -6438,3 +6438,8 @@ html.native-capture,
 .menubar-capture [hidden] {display:none !important;}
 
 main.menubar-capture {margin-left:0;width:100%;}
+
+.capture-notebook .notebook-paper {width:100%;max-width:100%;box-sizing:border-box;}
+.capture-notebook .notebook-compose-actions {flex-wrap:wrap;}
+.capture-notebook .notebook-compose-actions .button {flex-shrink:0;}
+.capture-notebook .notebook-composer>textarea {min-width:0;max-width:100%;}
