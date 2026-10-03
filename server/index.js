@@ -1,3 +1,5 @@
+import { createBackups } from "./backups.js";
+import { createUpdates } from "./updates.js";
 import { createAISetup } from "./ai-setup.js";
 import { createCollaboration } from "./collaboration.js";
 import { createDecisions } from "./decisions.js";
@@ -14,12 +16,14 @@ import { createAI } from "./ai.js";
 import { createNotes } from "./notes.js";
 import http from "node:http";
 import { mkdirSync, readFileSync, existsSync } from "node:fs";
-import { resolve, extname } from "node:path";
+import { resolve, extname, dirname } from "node:path";
 import { randomUUID, timingSafeEqual } from "node:crypto";
 import { createIntegrations } from "./integrations.js";
 import { createStore, seed } from "./store.js";
 const prod = process.env.NODE_ENV === "production";
-const desktop = process.env.BEAM_DESKTOP === "1" && (!process.env.HOST || process.env.HOST === "127.0.0.1");
+const desktop =
+  process.env.BEAM_DESKTOP === "1" &&
+  (!process.env.HOST || process.env.HOST === "127.0.0.1");
 const assets = process.env.BEAM_ASSETS || "dist";
 if (prod && !desktop && !process.env.BEAM_ADMIN_TOKEN)
   throw Error("BEAM_ADMIN_TOKEN est requis en production");
@@ -28,7 +32,10 @@ const store = createStore(process.env.BEAM_DB || "data/beam.sqlite");
 const collaboration = createCollaboration(store);
 const localSave = store.save.bind(store);
 store.save = (...args) => {
-  if (collaboration.active()) throw Error("Pour partager cette proposition, créez ou modifiez l’élément depuis la Planification. L’application directe des propositions IA partagées arrive ensuite.");
+  if (collaboration.active())
+    throw Error(
+      "Pour partager cette proposition, créez ou modifiez l’élément depuis la Planification. L’application directe des propositions IA partagées arrive ensuite.",
+    );
   return localSave(...args);
 };
 const profile = createProfile(store);
@@ -38,7 +45,21 @@ const decisions = createDecisions(store);
 const attachments = createAttachments(store);
 await startLocalAI();
 const ai = createAI(store, notes, integrations);
-const aiSetup = createAISetup();
+const aiSetup = createAISetup(fetch, () => ai.configure(true));
+const backups = createBackups(store, {
+  directory: resolve(
+    dirname(process.env.BEAM_DB || "data/beam.sqlite"),
+    "backups",
+  ),
+  active: () => collaboration.active(),
+  busy: () =>
+    ai.busy() ||
+    associations.list().running ||
+    topics.list().running ||
+    applyingReviews.size > 0,
+});
+const checkUpdates = createUpdates();
+const applyingReviews = new Set();
 const publications = createPublications(store, ai, fetch, {
   notes,
   integrations,
@@ -134,7 +155,7 @@ const server = http.createServer(async (req, res) => {
       visitor = randomUUID();
       res.setHeader(
         "Set-Cookie",
-        `beam_visitor=${visitor}; Path=/; HttpOnly; SameSite=Lax; Max-Age=31536000${prod ? "; Secure" : ""}`,
+        `beam_visitor=${visitor}; Path=/; HttpOnly; SameSite=Lax; Max-Age=31536000${prod && !desktop ? "; Secure" : ""}`,
       );
     }
     const admin = url.pathname.startsWith("/api/admin");
@@ -152,18 +173,53 @@ const server = http.createServer(async (req, res) => {
         });
       return send(401, { error: "Clé d’accès incorrecte" });
     }
-    if (url.pathname === "/api/admin/ai/setup" && req.method === "GET") return send(200, await aiSetup.status());
+    if (url.pathname === "/api/admin/backup" && req.method === "GET")
+      return send(200, backups.snapshot());
+    if (url.pathname === "/api/admin/updates" && req.method === "GET")
+      return send(
+        200,
+        await checkUpdates(url.searchParams.get("force") === "true"),
+      );
+    if (url.pathname === "/api/admin/team" && req.method === "GET")
+      return send(200, await collaboration.team(url.searchParams.get("item")));
+    if (url.pathname === "/api/admin/onboarding" && req.method === "GET")
+      return send(200, {
+        complete:
+          store.db
+            .prepare(
+              "SELECT value FROM metadata WHERE key='beam_onboarding_complete'",
+            )
+            .get()?.value === "true",
+        hasData: store.list().length > 0 || notes.list().length > 0,
+      });
+    if (url.pathname === "/api/admin/ai/setup" && req.method === "GET")
+      return send(200, await aiSetup.status());
     if (url.pathname === "/api/admin/collaboration" && req.method === "GET")
       return send(200, collaboration.state());
-    if (url.pathname === "/api/admin/collaboration/events" && req.method === "GET") {
-      res.writeHead(200, { "Content-Type": "text/event-stream", "Cache-Control": "no-cache" });
+    if (
+      url.pathname === "/api/admin/collaboration/events" &&
+      req.method === "GET"
+    ) {
+      res.writeHead(200, {
+        "Content-Type": "text/event-stream",
+        "Cache-Control": "no-cache",
+      });
       res.write("data: " + JSON.stringify(collaboration.state()) + "\n\n");
-      const unsubscribe = collaboration.onChange(() => res.write("data: " + JSON.stringify(collaboration.state()) + "\n\n"));
+      const unsubscribe = collaboration.onChange(() =>
+        res.write("data: " + JSON.stringify(collaboration.state()) + "\n\n"),
+      );
       const heartbeat = setInterval(() => res.write(": heartbeat\n\n"), 20000);
-      req.on("close", () => { clearInterval(heartbeat); unsubscribe(); });
+      req.on("close", () => {
+        clearInterval(heartbeat);
+        unsubscribe();
+      });
       return;
     }
-    if (url.pathname === "/api/admin/items" && req.method === "GET" && collaboration.active()) {
+    if (
+      url.pathname === "/api/admin/items" &&
+      req.method === "GET" &&
+      collaboration.active()
+    ) {
       const result = await collaboration.items("GET", url.pathname);
       return send(result.status, result.data);
     }
@@ -241,29 +297,57 @@ const server = http.createServer(async (req, res) => {
     }
     if (
       req.headers.origin &&
-      req.headers.origin !== `${prod ? "https" : "http"}://${req.headers.host}`
+      req.headers.origin !==
+        `${prod && !desktop ? "https" : "http"}://${req.headers.host}`
     )
       return send(403, { error: "Origine refusée" });
-    let raw = "";
+    const chunks = [];
+    let bytes = 0;
     for await (const chunk of req) {
-      raw += chunk;
+      chunks.push(chunk);
+      bytes += chunk.length;
       if (
-        raw.length >
-        (url.pathname.endsWith("/attachments") && admin
-          ? 12000000
-          : ["/api/admin/profile", "/api/admin/product"].includes(url.pathname)
-            ? 800000
-            : admin && url.pathname.startsWith("/api/admin/publications")
-              ? 60000
-              : 20000)
+        bytes >
+        (url.pathname.startsWith("/api/admin/backup") && admin
+          ? 150000000
+          : url.pathname.endsWith("/attachments") && admin
+            ? 12000000
+            : [
+                  "/api/admin/profile",
+                  "/api/admin/product",
+                  "/api/admin/collaboration",
+                ].includes(url.pathname)
+              ? 800000
+              : admin && url.pathname.startsWith("/api/admin/publications")
+                ? 60000
+                : 20000)
       )
         return send(413, { error: "Contenu trop volumineux" });
     }
+    const raw = Buffer.concat(chunks).toString("utf8");
     const body = raw ? JSON.parse(raw) : {};
-    if (url.pathname === "/api/admin/ai/setup" && req.method === "POST") return send(202, await aiSetup.install());
+    if (url.pathname === "/api/admin/backup/preview" && req.method === "POST")
+      return send(200, backups.inspect(body));
+    if (url.pathname === "/api/admin/backup/restore" && req.method === "POST")
+      return send(200, backups.restore(body));
+    if (url.pathname === "/api/admin/onboarding" && req.method === "POST") {
+      store.db
+        .prepare(
+          "INSERT OR REPLACE INTO metadata VALUES('beam_onboarding_complete','true')",
+        )
+        .run();
+      return send(200, { ok: true });
+    }
+    if (url.pathname === "/api/admin/ai/setup" && req.method === "POST")
+      return send(202, await aiSetup.install());
     if (url.pathname === "/api/admin/collaboration" && req.method === "POST")
       return send(200, await collaboration.settings(body.action, body));
-    if (/^\/api\/admin\/items(?:\/(?:kanban|reorder|[a-f0-9-]+(?:\/archive)?))?$/.test(url.pathname) && collaboration.active()) {
+    if (
+      /^\/api\/admin\/items(?:\/(?:kanban|reorder|[a-f0-9-]+(?:\/archive)?))?$/.test(
+        url.pathname,
+      ) &&
+      collaboration.active()
+    ) {
       const result = await collaboration.items(req.method, url.pathname, body);
       return send(result.status, result.data);
     }
@@ -338,13 +422,38 @@ const server = http.createServer(async (req, res) => {
     const review = url.pathname.match(
       /^\/api\/admin\/ai\/reviews\/([a-f0-9-]+)\/(apply|dismiss)$/,
     );
-    if (review && req.method === "POST")
-      return send(
-        200,
-        review[2] === "apply"
-          ? ai.apply(review[1], body.index)
-          : ai.dismiss(review[1], body.index),
-      );
+    if (review && req.method === "POST") {
+      if (applyingReviews.has(review[1]))
+        return send(409, {
+          error: "Cette proposition est déjà en cours d’application.",
+        });
+      applyingReviews.add(review[1]);
+      try {
+        const sharedSave = collaboration.active()
+          ? async (input, id) => {
+              const result = await collaboration.items(
+                id ? "PATCH" : "POST",
+                "/api/admin/items" + (id ? "/" + id : ""),
+                { ...input, _revision: body._revision },
+              );
+              if (result.status >= 400) {
+                const error = Error(result.data.error);
+                error.status = result.status;
+                throw error;
+              }
+              return result.data.id;
+            }
+          : null;
+        return send(
+          200,
+          review[2] === "apply"
+            ? await ai.apply(review[1], body.index, sharedSave)
+            : ai.dismiss(review[1], body.index),
+        );
+      } finally {
+        applyingReviews.delete(review[1]);
+      }
+    }
     if (url.pathname === "/api/admin/notes" && req.method === "POST") {
       const note = notes.save(body);
       send(201, note);
@@ -450,7 +559,7 @@ const server = http.createServer(async (req, res) => {
     }
     send(404, { error: "Introuvable" });
   } catch (error) {
-    send(400, { error: error.message });
+    send(error.status || 400, { error: error.message });
   }
 });
 server.listen(

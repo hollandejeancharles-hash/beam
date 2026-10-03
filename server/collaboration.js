@@ -73,13 +73,18 @@ export function createCollaboration(store, clientFactory = createClient) {
     session = get("beam_shared_session"),
     workspace = get("beam_shared_workspace");
   let client,
+    presence = [],
     channel,
     revision = null,
     connected = false,
     lastError = "",
     queue = Promise.resolve();
   const listeners = new Set();
-  const emit = () => listeners.forEach((f) => f());
+  let changeVersion = 0;
+  const emit = () => {
+    changeVersion++;
+    listeners.forEach((f) => f());
+  };
   const exclusive = (f) => {
     const next = queue.then(f);
     queue = next.catch(() => {});
@@ -139,9 +144,48 @@ export function createCollaboration(store, clientFactory = createClient) {
     }
   }
   async function subscribe() {
+    presence = [];
+    if (client.realtime?.setAuth)
+      await client.realtime.setAuth(session.access_token);
     if (channel) await client.removeChannel(channel);
     channel = client
-      .channel("beam:" + workspace.id)
+      .channel("beam:" + workspace.id, {
+        config: { private: true, presence: { key: session.user.id } },
+      })
+      .on("presence", { event: "sync" }, () => {
+        presence = Object.keys(channel.presenceState?.() || {});
+        emit();
+      })
+      .on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table: "beam_comments",
+          filter: "workspace_id=eq." + workspace.id,
+        },
+        emit,
+      )
+      .on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table: "beam_profiles",
+          filter: "workspace_id=eq." + workspace.id,
+        },
+        emit,
+      )
+      .on(
+        "postgres_changes",
+        {
+          event: "INSERT",
+          schema: "public",
+          table: "beam_activity",
+          filter: "workspace_id=eq." + workspace.id,
+        },
+        emit,
+      )
       .on(
         "postgres_changes",
         {
@@ -155,6 +199,7 @@ export function createCollaboration(store, clientFactory = createClient) {
         },
       )
       .subscribe((status) => {
+        if (status === "SUBSCRIBED") void channel.track?.({ online: true });
         if (["CHANNEL_ERROR", "TIMED_OUT", "CLOSED"].includes(status)) {
           connected = false;
           lastError = "Connexion interrompue. Reconnexion en cours.";
@@ -165,6 +210,9 @@ export function createCollaboration(store, clientFactory = createClient) {
   function state() {
     return {
       configured: !!config,
+      presence,
+      changeVersion,
+      userId: session?.user?.id || null,
       signedIn: !!session,
       email: session?.user?.email || "",
       workspace: workspace ? { ...workspace, revision } : null,
@@ -228,6 +276,36 @@ export function createCollaboration(store, clientFactory = createClient) {
         return { ...state(), confirmationRequired: !session };
       }
       await authenticate();
+      if (action === "team-profile") {
+        if (!workspace) throw Error("Ouvrez un espace partagé.");
+        check(
+          await client.rpc("beam_team_profile", {
+            p_workspace: workspace.id,
+            p_name: b.name,
+            p_photo: b.photo || null,
+          }),
+        );
+        emit();
+        return state();
+      }
+      if (action === "comment") {
+        if (!workspace) throw Error("Ouvrez un espace partagé.");
+        if (
+          typeof b.body !== "string" ||
+          !b.body.trim() ||
+          b.body.length > 4000
+        )
+          throw Error("Écrivez un commentaire de 1 à 4 000 caractères.");
+        check(
+          await client.rpc("beam_comment", {
+            p_workspace: workspace.id,
+            p_item: b.itemId,
+            p_body: b.body,
+          }),
+        );
+        emit();
+        return state();
+      }
       if (action === "list")
         return check(await client.from("beam_workspaces").select("id,name"));
       if (action === "create" || action === "join" || action === "select") {
@@ -290,6 +368,7 @@ export function createCollaboration(store, clientFactory = createClient) {
         const backup = get("beam_local_items_backup");
         if (backup) replaceItems(store, backup);
         workspace = null;
+        presence = [];
         put("beam_shared_workspace", null);
         put("beam_local_items_backup", null);
         connected = false;
@@ -410,6 +489,39 @@ export function createCollaboration(store, clientFactory = createClient) {
     settings,
     items,
     ready,
+    async team(itemId) {
+      if (!workspace) return { profiles: [], comments: [], activity: [] };
+      await authenticate();
+      const profiles = check(
+        await client
+          .from("beam_profiles")
+          .select("user_id,name,photo")
+          .eq("workspace_id", workspace.id),
+      );
+      let comments = [],
+        activity = [];
+      if (itemId) {
+        comments = check(
+          await client
+            .from("beam_comments")
+            .select("id,user_id,body,created_at")
+            .eq("workspace_id", workspace.id)
+            .eq("item_id", itemId)
+            .order("created_at", { ascending: false })
+            .limit(100),
+        );
+        activity = check(
+          await client
+            .from("beam_activity")
+            .select("id,user_id,action,changes,created_at")
+            .eq("workspace_id", workspace.id)
+            .eq("item_id", itemId)
+            .order("created_at", { ascending: false })
+            .limit(100),
+        );
+      }
+      return { profiles, comments, activity };
+    },
     active: () => !!workspace,
     onChange: (f) => {
       listeners.add(f);

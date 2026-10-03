@@ -365,3 +365,73 @@ test("production API: authentication, private visibility, suggestions, persisten
     rmSync(directory, { recursive: true, force: true });
   }
 });
+
+test("Desktop production accepts its localhost origin for profile, onboarding and backup preview", async () => {
+  const directory = mkdtempSync(join(tmpdir(), "beam-desktop-test-"));
+  const child = spawn(process.execPath, ["server/index.js"], {
+    env: {
+      ...process.env,
+      NODE_ENV: "production",
+      BEAM_DESKTOP: "1",
+      HOST: "127.0.0.1",
+      BEAM_ADMIN_TOKEN: "",
+      BEAM_DB: join(directory, "test.sqlite"),
+      PORT: "5185",
+    },
+  });
+  try {
+    await new Promise((resolve, reject) => {
+      const timer = setTimeout(
+        () => reject(Error("Desktop server startup timeout")),
+        15000,
+      );
+      child.stdout.once("data", () => {
+        clearTimeout(timer);
+        resolve();
+      });
+      child.once("exit", (c) => {
+        clearTimeout(timer);
+        reject(Error("Server exited " + c));
+      });
+      child.once("error", reject);
+    });
+    const request = (
+      path,
+      method = "GET",
+      body,
+      origin = "http://127.0.0.1:5185",
+    ) =>
+      fetch("http://127.0.0.1:5185/api/admin/" + path, {
+        method,
+        headers: { "Content-Type": "application/json", Origin: origin },
+        body: body === undefined ? undefined : JSON.stringify(body),
+      });
+    let r = await request("profile", "PATCH", {
+      name: "Équipe 日本語",
+      role: "PM",
+    });
+    assert.equal(r.status, 200);
+    assert.equal((await r.json()).name, "Équipe 日本語");
+    assert.equal(
+      (
+        await request(
+          "profile",
+          "PATCH",
+          { name: "Forbidden" },
+          "https://outsider.invalid",
+        )
+      ).status,
+      403,
+    );
+    assert.equal((await request("onboarding", "POST", {})).status, 200);
+    assert.equal((await (await request("onboarding")).json()).complete, true);
+    const backup = await (await request("backup")).json();
+    assert.equal(backup.format, "beam-backup");
+    assert.equal((await request("backup/preview", "POST", backup)).status, 200);
+    assert.equal((await request("backup/restore", "POST", backup)).status, 200);
+  } finally {
+    child.kill("SIGTERM");
+    await new Promise((resolve) => child.once("exit", resolve));
+    rmSync(directory, { recursive: true, force: true });
+  }
+});

@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-export default function Collaboration({ api, onChange }) {
+export default function Collaboration({ api, profile, onChange }) {
   const [state, setState] = useState(null),
     [error, setError] = useState(""),
     [message, setMessage] = useState(""),
@@ -32,6 +32,10 @@ export default function Collaboration({ api, onChange }) {
       else {
         setState(r);
         onChange?.();
+        if (action === "team-profile")
+          setMessage(
+            "Votre nom et votre photo sont visibles par les membres de cet espace.",
+          );
         if (r.confirmationRequired)
           setMessage("Confirmez votre adresse e-mail, puis connectez-vous.");
       }
@@ -146,6 +150,29 @@ export default function Collaboration({ api, onChange }) {
             Les changements du Gantt et du Kanban sont partagés. Hors connexion,
             les modifications sont bloquées pour éviter les conflits.
           </p>
+          <p className="modal-copy">
+            Partagez votre nom et votre photo pour que l’équipe reconnaisse vos
+            commentaires et vos modifications. Votre e-mail de profil reste
+            local.
+          </p>
+          <button
+            className="button"
+            disabled={busy || !profile?.name?.trim()}
+            onClick={() =>
+              action("team-profile", {
+                name: profile.name,
+                photo: profile.photo,
+              })
+            }
+          >
+            Partager mon profil avec l’équipe
+          </button>
+          {!profile?.name?.trim() && (
+            <small>
+              Renseignez votre nom dans « Mon profil » pour vous présenter à
+              l’équipe.
+            </small>
+          )}
           {state.workspace.role === "owner" && (
             <>
               <button
@@ -170,6 +197,24 @@ export default function Collaboration({ api, onChange }) {
                     value={invite}
                     onFocus={(e) => e.target.select()}
                   />
+                  <button
+                    type="button"
+                    className="button"
+                    onClick={async () => {
+                      try {
+                        await navigator.clipboard.writeText(invite);
+                        setMessage(
+                          "Invitation copiée. Transmettez-la à une seule personne.",
+                        );
+                      } catch {
+                        setError(
+                          "Sélectionnez le code puis copiez-le manuellement.",
+                        );
+                      }
+                    }}
+                  >
+                    Copier l’invitation
+                  </button>
                 </label>
               )}
             </>

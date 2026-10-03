@@ -1,3 +1,6 @@
+import Welcome from "./components/Welcome";
+import Maintenance from "./components/Maintenance";
+import TeamActivity, { TeamPresence } from "./components/Team";
 import LocalAISetup from "./components/LocalAISetup";
 import Collaboration from "./components/Collaboration";
 import MenuBarCapture from "./components/MenuBarCapture";
@@ -148,11 +151,16 @@ function App() {
     [sidebarCollapsed, setSidebarCollapsed] = useState(
       localStorage.getItem("beam_sidebar_collapsed") === "true",
     );
+  const [availableUpdate, setAvailableUpdate] = useState(null);
+  const [welcomeOpen, setWelcomeOpen] = useState(false);
   const [sharedRevision, setSharedRevision] = useState(null);
   const [sharedConnection, setSharedConnection] = useState(null);
+  const roadmapReadOnly =
+    publicMode || sharedConnection?.workspace?.role === "viewer";
   async function api(path, options = {}) {
     if (
-      path.startsWith("admin/items") &&
+      (path.startsWith("admin/items") ||
+        /^admin\/ai\/reviews\/[^/]+\/apply$/.test(path)) &&
       options.method &&
       options.method !== "GET"
     ) {
@@ -230,6 +238,27 @@ function App() {
   }, [page]);
   useEffect(() => {
     refresh();
+    if (!publicMode)
+      api("admin/onboarding")
+        .then((s) => {
+          if (!s.complete && !s.hasData) setWelcomeOpen(true);
+        })
+        .catch(() => {});
+  }, []);
+  useEffect(() => {
+    if (publicMode) return;
+    const check = () =>
+      api("admin/updates")
+        .then((r) => {
+          if (r.available) setAvailableUpdate(r);
+        })
+        .catch(() => {});
+    const first = setTimeout(check, 6000),
+      timer = setInterval(check, 6 * 3600000);
+    return () => {
+      clearTimeout(first);
+      clearInterval(timer);
+    };
   }, []);
   useEffect(() => {
     if (publicMode || pagesMode || key) return;
@@ -647,6 +676,16 @@ function App() {
             </div>
           )}
           <div className="top-actions">
+            {!publicMode && availableUpdate && (
+              <a
+                className="update-notice"
+                href={availableUpdate.url}
+                target="_blank"
+                rel="noreferrer"
+              >
+                Nouvelle version <ArrowUpRight size={13} />
+              </a>
+            )}
             {!publicMode && <AIProgress />}
             <button
               className="icon-button global-search"
@@ -656,6 +695,13 @@ function App() {
             >
               <Search size={16} />
             </button>
+            {!publicMode && (
+              <TeamPresence
+                api={api}
+                state={sharedConnection}
+                onOpen={() => setWorkspaceOpen(true)}
+              />
+            )}
             <span className="live">
               <i />
               {pagesMode
@@ -732,6 +778,7 @@ function App() {
               page !== "publications" && (
                 <button
                   className="button primary"
+                  disabled={!publicMode && roadmapReadOnly}
                   onClick={() =>
                     publicMode ? setSuggest(true) : setEdit({ ...blank })
                   }
@@ -995,7 +1042,7 @@ function App() {
             <Gantt
               items={filtered}
               allItems={items}
-              readOnly={publicMode}
+              readOnly={roadmapReadOnly}
               onOpen={setSelected}
               onCreate={() => setEdit({ ...blank })}
               onSchedule={schedule}
@@ -1111,7 +1158,7 @@ function App() {
             <BeamKanban
               items={filtered}
               sort={sort}
-              readOnly={publicMode || showArchives || kanbanSaving}
+              readOnly={roadmapReadOnly || showArchives || kanbanSaving}
               onOpen={setSelected}
               onCreate={(status) => setEdit({ ...blank, status })}
               onChange={async (columns) => {
@@ -1374,6 +1421,20 @@ function App() {
           />
         </Modal>
       )}
+      {welcomeOpen && !publicMode && (
+        <Modal title="Bienvenue dans Beam" close={() => setWelcomeOpen(false)}>
+          <Welcome
+            api={api}
+            profile={profile}
+            onProfile={setProfile}
+            onChange={refresh}
+            onFinish={() => {
+              setWelcomeOpen(false);
+              void refresh();
+            }}
+          />
+        </Modal>
+      )}
       {workspaceOpen && !publicMode && (
         <Modal
           title="Réglages du workspace"
@@ -1389,8 +1450,16 @@ function App() {
             }}
             onClose={() => setWorkspaceOpen(false)}
           />
-          <Collaboration api={api} onChange={refresh} />
+          <Collaboration api={api} profile={profile} onChange={refresh} />
           <LocalAISetup api={api} />
+          <Maintenance
+            api={api}
+            onWelcome={() => {
+              setWorkspaceOpen(false);
+              setWelcomeOpen(true);
+            }}
+            onRestore={refreshAssistant}
+          />
         </Modal>
       )}
       {profileOpen && (
@@ -1417,7 +1486,7 @@ function App() {
             <span className="tag">{selected.category}</span>
             <span className="pill">{ST[selected.status].label}</span>
           </div>
-          {!publicMode && (
+          {!roadmapReadOnly && (
             <div className="note-actions">
               <button
                 className="button"
@@ -1483,6 +1552,13 @@ function App() {
               </strong>
             </div>
           </div>
+          {!publicMode && sharedConnection?.workspace && (
+            <TeamActivity
+              api={api}
+              itemId={selected.id}
+              state={sharedConnection}
+            />
+          )}
           {!publicMode && (
             <SignalLinks
               signals={signals}
@@ -1529,6 +1605,7 @@ function App() {
                     )}
                   <button
                     className="button primary"
+                    disabled={roadmapReadOnly}
                     onClick={() => {
                       setEdit({ ...selected });
                       setSelected(null);

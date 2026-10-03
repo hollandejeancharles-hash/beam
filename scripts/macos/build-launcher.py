@@ -7,6 +7,7 @@ import subprocess
 import sys
 import tempfile
 import argparse
+import json
 
 repo = Path(__file__).resolve().parents[2]
 node = shutil.which('node')
@@ -39,7 +40,8 @@ with tempfile.TemporaryDirectory(prefix='beam-mac-') as scratch:
             filename = f'icon_{size}x{size}' + ('@2x' if scale == 2 else '') + '.png'
             subprocess.run(['sips', '-z', str(size * scale), str(size * scale), str(original), '--out', str(iconset / filename)], check=True, stdout=subprocess.DEVNULL)
     subprocess.run(['iconutil', '-c', 'icns', str(iconset), '-o', str(contents / 'Resources' / 'Beam.icns')], check=True)
-    info = {'CFBundleName': 'Beam', 'CFBundleDisplayName': 'Beam', 'CFBundleIdentifier': 'local.beam.desktop', 'CFBundleExecutable': 'Beam', 'CFBundlePackageType': 'APPL', 'CFBundleShortVersionString': '2.0', 'CFBundleVersion': '2', 'CFBundleIconFile': 'Beam.icns', 'NSHighResolutionCapable': True, 'LSMinimumSystemVersion': '12.0', 'BeamRepository': str(repo), 'BeamNode': node}
+    version = json.loads((repo / 'shared/version.json').read_text())['version']
+    info = {'CFBundleName': 'Beam', 'CFBundleDisplayName': 'Beam', 'CFBundleIdentifier': 'local.beam.desktop', 'CFBundleExecutable': 'Beam', 'CFBundlePackageType': 'APPL', 'CFBundleShortVersionString': version.split('-')[0], 'CFBundleVersion': '3', 'BeamVersion': version, 'CFBundleIconFile': 'Beam.icns', 'NSHighResolutionCapable': True, 'LSMinimumSystemVersion': '12.0', 'BeamRepository': str(repo), 'BeamNode': node}
     if args.portable:
         runtime = contents / 'Resources' / 'runtime'
         runtime.mkdir()

@@ -7,7 +7,14 @@ export const initials = (name) =>
     .map((s) => s[0])
     .join("")
     .toUpperCase() || "U";
-export default function Profile({ profile, api, onSave, onClose }) {
+export default function Profile({
+  profile,
+  api,
+  onSave,
+  onClose,
+  saveLabel = "Enregistrer",
+  cancelLabel = "Annuler",
+}) {
   const [draft, setDraft] = useState({ ...profile }),
     [busy, setBusy] = useState(false),
     [error, setError] = useState("");
@@ -138,10 +145,10 @@ export default function Profile({ profile, api, onSave, onClose }) {
       )}
       <div className="modal-actions">
         <button type="button" className="button" onClick={onClose}>
-          Annuler
+          {cancelLabel}
         </button>
         <button className="button primary" disabled={busy}>
-          {busy ? "Enregistrement…" : "Enregistrer"}
+          {busy ? "Enregistrement…" : saveLabel}
         </button>
       </div>
     </form>

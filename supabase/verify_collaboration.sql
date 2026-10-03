@@ -10,7 +10,7 @@ select set_config('beam.test.workspace',public.beam_create_workspace('Beam trans
 select set_config('beam.test.invite',public.beam_invite(current_setting('beam.test.workspace')::uuid,'editor'),true);
 select set_config('request.jwt.claims','{"sub":"22222222-2222-4222-8222-222222222222","role":"authenticated"}',true);
 select public.beam_join(current_setting('beam.test.invite'));
-select public.beam_save_roadmap(current_setting('beam.test.workspace')::uuid,0,'[{"title":"Test change"}]');
+select public.beam_save_roadmap(current_setting('beam.test.workspace')::uuid,0,'[{"id":"aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa","title":"Test change"}]');
 do $$ begin
  begin
  perform public.beam_save_roadmap(current_setting('beam.test.workspace')::uuid,0,'[]');

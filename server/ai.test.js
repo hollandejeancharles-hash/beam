@@ -356,3 +356,35 @@ test("AI extracts grounded decisions for human approval and receives only confir
   assert.equal(store.list()[0].priority, "medium");
   store.db.close();
 });
+
+test("Approved AI proposal uses shared save and remains unapplied on a remote conflict", async () => {
+  const t = setup();
+  try {
+    t.ai.configure(true);
+    const queued = t.ai.enqueue("note", t.n.id, true);
+    await ready(t.ai, queued.id);
+    const review = t.ai.list().find((r) => r.id === queued.id);
+    await assert.rejects(
+      t.ai.apply(review.id, 0, async () => {
+        throw Error("BEAM_CONFLICT");
+      }),
+      /BEAM_CONFLICT/,
+    );
+    assert.equal(
+      t.ai.list().find((r) => r.id === review.id).result.proposals[0].applied,
+      undefined,
+    );
+    let saved;
+    const applied = await t.ai.apply(review.id, 0, async (input, id) => {
+      saved = { input, id };
+      t.store.save(input, id);
+      return id;
+    });
+    assert.equal(saved.id, t.id);
+    assert.equal(applied.result.proposals[0].applied, true);
+    assert.ok(t.notes.list()[0].linked.includes(t.id));
+  } finally {
+    t.ai.close();
+    t.store.db.close();
+  }
+});

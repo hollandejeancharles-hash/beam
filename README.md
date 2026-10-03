@@ -171,3 +171,14 @@ L’IA locale rédige **Nouveautés**, **Améliorations** et **Corrections**, sa
 Beam peut partager le Gantt et le Kanban via Supabase tout en conservant les notes et l’IA sur chaque Mac. Cliquer sur le workspace, puis **Espace partagé** pour se connecter, créer/rejoindre un espace et générer des invitations éditeur ou lecteur. La copie de la roadmap locale exige une option explicite. Les notes et pièces jointes restent locales. Voir [configuration, installation Mac et limites](supabase/README.md).
 
 L’installateur Mac autonome se construit avec `python3 scripts/macos/build-launcher.py --portable`. Il embarque Node, Beam et Ollama et conserve les données dans Application Support ; le modèle IA se télécharge depuis les réglages. Le DMG est signé ad hoc pour les tests, pas encore notarifié pour une distribution publique fluide.
+
+
+## Accueil, collaboration et sauvegardes (bêta 2)
+
+- Premier lancement vierge : profil, création/rejoindre un espace, installation et activation de l’assistant. Le guide reste accessible dans les réglages du workspace.
+- Dans un espace partagé : partager explicitement son nom/photo, consulter les personnes connectées et commenter un élément. L’historique indique l’auteur et les propriétés modifiées. Les lecteurs consultent sans modifier ni commenter.
+- Les propositions IA validées peuvent créer ou modifier une feature partagée, avec contrôle de révision et des sources périmées. Le texte validé est partagé, les notes sources restent locales. La promotion directe d’une source reste à faire depuis le Gantt.
+- Réglages du workspace → Votre installation : vérifier les versions et exporter/importer une sauvegarde JSON incluant les notes et pièces jointes. Les sessions et clés sont exclues. Une copie locale précède chaque restauration ; restaurer nécessite de quitter l’espace partagé et d’attendre les analyses en cours.
+- Supabase : exécuter `002_team.sql` après `001_collaboration.sql`. `verify_team.sql` vérifie les permissions et annule ses données de test.
+
+La présence indique les sessions Beam connectées, pas une activité récente au clavier. Les 100 derniers commentaires/modifications par élément sont affichés. Les mises à jour sont téléchargées manuellement depuis GitHub ; quitter Beam avant de remplacer l’app dans Applications.

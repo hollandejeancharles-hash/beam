@@ -1,23 +1,64 @@
 import React, { useEffect, useState } from "react";
-export default function LocalAISetup({ api }) {
+export default function LocalAISetup({ api, showReady = false }) {
   const [status, setStatus] = useState(null),
-    [error, setError] = useState("");
+    [error, setError] = useState(""),
+    [enabled, setEnabled] = useState(null);
   useEffect(() => {
     let alive = true;
     const update = () =>
       api("admin/ai/setup")
         .then((s) => {
-          if (alive) setStatus(s);
+          if (alive) {
+            setStatus(s);
+            if (s.state === "ready") setEnabled(true);
+          }
         })
         .catch(() => {});
     update();
+    api("admin/ai/status")
+      .then((s) => {
+        if (alive) setEnabled(s.enabled);
+      })
+      .catch(() => {});
     const timer = setInterval(update, 2500);
     return () => {
       alive = false;
       clearInterval(timer);
     };
   }, []);
-  if (!status || status.installed) return null;
+  if (!status)
+    return <p className="modal-copy">Vérification de l’assistant local…</p>;
+  if (status.installed)
+    return showReady ? (
+      <section className="collaboration-settings">
+        <h3>Votre assistant est prêt</h3>
+        <p className="modal-copy">
+          Le modèle IA est installé sur ce Mac.{" "}
+          {enabled
+            ? "L’organisation automatique de vos notes est active."
+            : "Activez l’organisation automatique pour classer vos notes et extraire des sujets."}
+        </p>
+        {enabled === false && (
+          <button
+            className="button"
+            onClick={async () => {
+              try {
+                await api("admin/ai/settings", {
+                  method: "PATCH",
+                  body: JSON.stringify({ enabled: true }),
+                });
+                setEnabled(true);
+              } catch (e) {
+                setError(e.message);
+              }
+            }}
+          >
+            Activer l’organisation automatique
+          </button>
+        )}
+        {error && <p role="alert">{error}</p>}
+      </section>
+    ) : null;
   const busy = status.state === "downloading",
     percent = status.total
       ? Math.floor((status.completed / status.total) * 100)
@@ -63,7 +104,7 @@ export default function LocalAISetup({ api }) {
             }
           }}
         >
-          Télécharger le modèle IA
+          Télécharger et activer l’assistant
         </button>
       )}
       {!status.available && (

@@ -1,6 +1,6 @@
 # Installer Beam sur Mac
 
-[Télécharger Beam pour Mac Apple Silicon](https://github.com/hollandejeancharles-hash/beam/releases/tag/v2.0.0-beta.1)
+[Télécharger Beam pour Mac Apple Silicon](https://github.com/hollandejeancharles-hash/beam/releases/tag/v2.0.0-beta.2)
 
 ## À savoir avant de télécharger
 
@@ -23,3 +23,7 @@ Cette exception concerne Beam ; ne désactivez pas les protections générales d
 - Le moteur IA est inclus. Le modèle se télécharge depuis les réglages du workspace : prévoyez environ **6 Go** supplémentaires et une connexion Internet pour ce téléchargement.
 - Pour rejoindre votre équipe : ouvrez le workspace → **Espace partagé**, créez votre compte et saisissez le code d’invitation reçu.
 - Le Gantt et le Kanban de l’espace partagé se synchronisent en ligne. Les notes, pièces jointes et analyses IA restent sur votre Mac.
+
+## Mettre Beam à jour
+
+Beam signale les nouvelles versions dans l’interface. Vous pouvez aussi vérifier depuis les réglages du workspace → **Votre installation**. Quittez Beam, téléchargez le nouveau DMG, puis remplacez Beam dans Applications et relancez-le. Vos données sont conservées dans Application Support ; exportez une sauvegarde avant une mise à jour importante. Une nouvelle version non notarisée peut demander une nouvelle autorisation macOS.

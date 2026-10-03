@@ -405,6 +405,14 @@ export default function LocalAssistant({
                             );
                           })}
                         </details>
+                        {items?.some((i) => i._revision !== undefined) &&
+                          !p.applied && (
+                            <p className="assistant-help">
+                              En validant, vous partagez le texte de cette
+                              proposition avec votre équipe. Les notes sources
+                              restent sur ce Mac.
+                            </p>
+                          )}
                         <div className="assistant-controls">
                           <button
                             type="button"

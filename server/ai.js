@@ -553,7 +553,7 @@ export function createAI(
       setImmediate(() => void drain());
     }
   }
-  function apply(id, index) {
+  function apply(id, index, sharedSave = null) {
     const row = read(db.prepare("SELECT * FROM ai_reviews WHERE id=?").get(id));
     if (!row || row.state !== "ready") throw Error("Proposition indisponible");
     const currentNotes = notes.list();
@@ -626,6 +626,56 @@ export function createAI(
         throw Error(
           "Une feature porte déjà ce titre. Relancez l’analyse pour proposer une association.",
         );
+      if (sharedSave) {
+        const date = now();
+        const input =
+          p.action === "create"
+            ? {
+                title: p.title,
+                description: p.description,
+                priority: p.priority || "medium",
+                category: p.category,
+                status: "planned",
+                visibility: "private",
+                quarter: `T${Math.floor(date.getMonth() / 3) + 1} ${date.getFullYear()}`,
+              }
+            : {
+                description: p.description
+                  ? current.description +
+                    (current.description ? "\n\n" : "") +
+                    p.description
+                  : current.description,
+                priority: p.priority || current.priority,
+              };
+        return sharedSave(input, p.action === "update" ? p.item_id : null).then(
+          (itemId) => {
+            // The shared write succeeded. Never retry it if local linking fails.
+            p.applied = true;
+            p.applied_item_id = itemId;
+            db.prepare("UPDATE ai_reviews SET result=? WHERE id=?").run(
+              JSON.stringify(row.result),
+              row.id,
+            );
+            for (const noteId of p.note_ids) {
+              const n = notes.list().find((n) => n.id === noteId);
+              if (n)
+                notes.save(
+                  {
+                    classification: {
+                      linked: [...new Set([...n.linked, itemId])],
+                    },
+                  },
+                  noteId,
+                );
+            }
+            for (const signalId of p.signal_ids)
+              integrations.link(signalId, itemId);
+            return read(
+              db.prepare("SELECT * FROM ai_reviews WHERE id=?").get(id),
+            );
+          },
+        );
+      }
       db.exec("BEGIN IMMEDIATE");
       try {
         const date = now(),

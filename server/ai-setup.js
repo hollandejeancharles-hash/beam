@@ -1,6 +1,6 @@
 import { totalmem } from "node:os";
 import { AI_MODEL } from "./ai.js";
-export function createAISetup(fetcher = fetch) {
+export function createAISetup(fetcher = fetch, onInstalled = () => {}) {
   let state = { state: "idle", completed: 0, total: 0, message: "" };
   const layers = new Map();
   async function status() {
@@ -63,6 +63,7 @@ export function createAISetup(fetcher = fetch) {
       if (buffer.trim()) update(buffer);
       if (!(await status()).installed)
         throw Error("Le modèle téléchargé n’est pas encore disponible.");
+      onInstalled();
       state.state = "ready";
       state.message = "Assistant prêt sur ce Mac";
     } catch (e) {
