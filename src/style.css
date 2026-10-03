@@ -5852,3 +5852,223 @@ html.native-capture,
 .beam-account-dialog .beam-account header h1 {
   font-size: 24px;
 }
+
+.side-panel.profile-settings-panel {
+  width: 520px;
+  background: #17181e;
+  padding: 24px 28px;
+}
+.profile-settings-panel > .modal-header {
+  background: #17181e;
+  border-color: #ffffff0b;
+}
+.profile-intro {
+  margin-bottom: 26px;
+}
+.profile-overline {
+  color: #818391;
+  font-size: 9px;
+  letter-spacing: 1.3px;
+}
+.profile-intro h3 {
+  margin: 12px 0 9px;
+  font-size: 21px;
+  font-weight: 550;
+  letter-spacing: -0.65px;
+}
+.profile-intro p {
+  color: var(--muted);
+  margin: 0;
+  font-size: 12px;
+  line-height: 1.6;
+}
+.profile-settings-panel .user-profile-photo {
+  padding: 20px 0 24px;
+  margin: 0 0 25px;
+  gap: 18px;
+  border-bottom: 1px solid #ffffff0b;
+}
+.profile-settings-panel .user-profile-photo > .avatar {
+  width: 72px;
+  height: 72px;
+  flex-shrink: 0;
+  border-radius: 19px;
+  background: #292734;
+  border: 1px solid #ffffff0d;
+}
+.profile-settings-panel .user-profile-photo img {
+  border-radius: inherit;
+}
+.profile-photo-content {
+  min-width: 0;
+}
+.profile-preview-name {
+  display: block;
+  font-size: 16px;
+  font-weight: 550;
+  overflow-wrap: anywhere;
+}
+.profile-preview-role {
+  display: block;
+  margin: 4px 0 12px;
+  font-size: 11px;
+  color: var(--muted);
+}
+.profile-photo-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+}
+.profile-settings-panel .profile-photo-actions .button {
+  padding: 6px 9px;
+  font-size: 11px;
+  min-height: 0;
+}
+.profile-settings-panel .profile-photo-actions .text-button {
+  font-size: 11px;
+  margin: 0;
+}
+.profile-settings-panel .user-profile-photo small {
+  margin-top: 8px;
+  font-size: 9px;
+}
+.profile-fields-heading {
+  margin-bottom: 18px;
+  font-size: 13px;
+  font-weight: 500;
+}
+.profile-settings-panel .user-profile-form > label {
+  margin: 0 0 18px;
+  font-size: 11px;
+  gap: 7px;
+  color: #b3b4c0;
+}
+.profile-settings-panel .user-profile-form > label input {
+  margin: 0;
+  padding: 10px 12px;
+  font-size: 13px;
+  background: #111218;
+  border-color: #ffffff0c;
+}
+.profile-contact-help {
+  margin: -7px 0 22px;
+  font-size: 10px;
+  line-height: 1.6;
+  color: #858796;
+}
+.profile-privacy-note {
+  display: flex;
+  align-items: flex-start;
+  gap: 9px;
+  padding: 12px 0;
+}
+.profile-privacy-dot {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: #aaa3d4;
+  margin-top: 5px;
+  flex-shrink: 0;
+}
+.profile-privacy-note p {
+  margin: 0;
+  font-size: 11px;
+  color: #c8c7d3;
+}
+.profile-privacy-note p span {
+  display: block;
+  margin-top: 5px;
+  font-size: 10px;
+  line-height: 1.6;
+  color: #858796;
+}
+.profile-account-section {
+  border-top: 1px solid #ffffff0b;
+  margin-top: 14px;
+  padding: 22px 0;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+}
+.profile-account-section > div {
+  flex: 1;
+  min-width: 150px;
+}
+.profile-account-section h4 {
+  margin: 9px 0 5px;
+  font-size: 13px;
+  font-weight: 500;
+}
+.profile-account-section p {
+  font-size: 10px;
+  color: #858796;
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+.profile-account-section .profile-account-link {
+  width: auto;
+  margin: 0;
+  padding: 8px 10px;
+  border: 1px solid #ffffff10;
+  border-radius: 6px;
+  font-size: 11px;
+  align-items: center;
+}
+.profile-account-section small {
+  flex-basis: 100%;
+  color: #858796;
+  font-size: 10px;
+}
+.profile-settings-panel .modal-actions {
+  position: static;
+  margin-top: 0;
+  padding: 18px 0 0;
+  background: transparent;
+  border-color: #ffffff0b;
+}
+.profile-settings-panel .modal-actions .button {
+  font-size: 12px;
+  padding: 8px 12px;
+}
+@media (max-width: 520px) {
+  .side-panel.profile-settings-panel {
+    width: 100%;
+  }
+}
+.profile-settings-panel .modal-actions {
+  position: sticky;
+  bottom: -24px;
+  z-index: 2;
+  padding: 16px 0;
+  background: #17181e;
+}
+.profile-settings-panel .profile-intro {
+  margin-bottom: 12px;
+}
+.profile-settings-panel .profile-intro h3 {
+  font-size: 19px;
+}
+.profile-settings-panel .profile-account-section {
+  padding: 18px 0;
+}
+.profile-settings-panel .profile-preview-role {
+  margin-bottom: 8px;
+}
+.profile-settings-panel .profile-photo-actions > label {
+  margin: 0;
+}
+.profile-settings-panel .user-profile-photo {
+  padding: 12px 0 18px;
+  margin-bottom: 20px;
+}
+.profile-settings-panel .user-profile-form > label {
+  margin-bottom: 14px;
+}
+.profile-settings-panel .profile-contact-help {
+  margin-bottom: 14px;
+}
+.profile-settings-panel .profile-account-section {
+  padding: 16px 0;
+}

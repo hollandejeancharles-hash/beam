@@ -1487,7 +1487,12 @@ function App() {
         </Modal>
       )}
       {profileOpen && (
-        <Modal title="Mon profil" side close={() => setProfileOpen(false)}>
+        <Modal
+          title="Mon profil"
+          className="profile-settings-panel"
+          side
+          close={() => setProfileOpen(false)}
+        >
           <Profile
             profile={profile}
             api={api}
