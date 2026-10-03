@@ -1,3 +1,4 @@
+import { invitationCode } from "../shared/invitations.js";
 import { publicRoadmap } from "../scripts/public-roadmap.js";
 import { createWorkspaces } from "./workspaces.js";
 import { inWorkspace } from "./ai-progress.js";
@@ -528,6 +529,16 @@ const server = http.createServer(async (req, res) => {
         url.pathname === "/api/admin/collaboration" &&
         req.method === "POST"
       ) {
+        if (body.action === "join") {
+          const code = invitationCode(body.code);
+          if (!code)
+            throw Error(
+              "Lien d’invitation invalide. Collez le lien reçu de votre collègue.",
+            );
+          if (!collaboration.state().signedIn)
+            throw Error("Connectez-vous pour rejoindre ce workspace.");
+          body.code = code;
+        }
         let target = collaboration;
         let targetId = workspaceId;
         if (["join", "select"].includes(body.action)) {

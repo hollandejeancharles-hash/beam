@@ -9,6 +9,7 @@ export default function AccountAccess({
   onLocal,
   compact = false,
   initialMode = "signup",
+  continueLabel = "Revenir à Beam",
 }) {
   const [mode, setMode] = useState(initialMode);
   const [name, setName] = useState(profile?.name || "");
@@ -147,7 +148,7 @@ export default function AccountAccess({
         {state?.signedIn ? (
           <div>
             <button className="beam-account-submit" onClick={onContinue}>
-              Revenir à Beam <span aria-hidden="true">→</span>
+              {continueLabel} <span aria-hidden="true">→</span>
             </button>
             <button
               className="text-button"

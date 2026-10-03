@@ -1,7 +1,20 @@
 import { createPortal } from "react-dom";
 import React, { useState, useRef } from "react";
-import { Plus, CheckCheck, SlidersHorizontal, ChevronDown } from "../icons";
-export default function WorkspaceSwitcher({ state, product, api, onSettings }) {
+import {
+  Plus,
+  CheckCheck,
+  SlidersHorizontal,
+  ChevronDown,
+  Link2,
+} from "../icons";
+export default function WorkspaceSwitcher({
+  state,
+  product,
+  api,
+  onSettings,
+  onJoin,
+  onInvite,
+}) {
   const trigger = useRef(null);
   const [open, setOpen] = useState(false),
     [creating, setCreating] = useState(false),
@@ -122,6 +135,26 @@ export default function WorkspaceSwitcher({ state, product, api, onSettings }) {
                   <SlidersHorizontal size={14} />
                   Réglages du workspace
                 </button>
+                <button
+                  onClick={() => {
+                    setOpen(false);
+                    onJoin();
+                  }}
+                >
+                  <Link2 size={14} />
+                  Rejoindre un workspace
+                </button>
+                {onInvite && (
+                  <button
+                    onClick={() => {
+                      setOpen(false);
+                      onInvite();
+                    }}
+                  >
+                    <Plus size={14} />
+                    Inviter des personnes
+                  </button>
+                )}
                 <button onClick={() => setCreating(!creating)}>
                   <Plus size={14} />
                   Nouveau workspace

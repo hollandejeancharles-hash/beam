@@ -6,7 +6,9 @@ Le sélecteur en haut du menu permet de créer un workspace, de changer d’espa
 
 Un workspace personnel peut devenir partagé : Réglages → Équipe → Activer la collaboration. Sa roadmap et son nom sont conservés. Les notes et documents restent sur votre Mac. Désactiver la collaboration conserve la dernière roadmap sur ce Mac ; cela ne supprime pas l’espace de l’équipe.
 
-Rejoindre une équipe avec une invitation ouvre un autre workspace dans le sélecteur. Vos espaces personnels ne sont pas remplacés. Retrouver un espace partagé déjà ouvert réutilise son workspace local.
+Pour rejoindre, ouvrez le lien reçu : la page propose « Ouvrir dans Beam ». Vous pouvez aussi cliquer sur le sélecteur → Rejoindre un workspace et coller le lien ou l’ancien code. La connexion est demandée uniquement si nécessaire, et le parcours reprend l’invitation après connexion. Rejoindre une équipe ouvre un autre workspace dans le sélecteur. Vos espaces personnels ne sont pas remplacés. Retrouver un espace partagé déjà ouvert réutilise son workspace local.
+
+Pour inviter : sélecteur → Inviter des personnes → choisissez Modifier ou Consulter → Copier le lien. Une invitation est valable 7 jours pour une seule personne. L’ouverture directe sur Mac nécessite Beam beta.10 ou plus récent ; le lien peut aussi être collé dans le formulaire. Le code reste dans le fragment de l’adresse publique et n’est pas transmis au serveur GitHub Pages.
 
 Le compte et le profil sont communs aux workspaces. Le nom et la photo suivent vos modifications dans les équipes ; une synchronisation échouée est reprise lors de la reconnexion. L’e-mail de contact reste local et ne change pas l’adresse de connexion. Le nom et l’image du produit peuvent être personnalisés localement.
 

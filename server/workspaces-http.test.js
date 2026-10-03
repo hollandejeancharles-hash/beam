@@ -67,6 +67,34 @@ test("Workspace API isolates roadmap, notes, sources and public links; pinned wi
     assert.deepEqual((await call("admin/notes")).data, []);
     assert.deepEqual((await call("admin/sources")).data, []);
     assert.equal((await call("admin/profile")).data.name, "One person");
+    const beforeJoin = (await call("admin/workspaces")).data.workspaces.length;
+    assert.equal(
+      (
+        await call(
+          "admin/collaboration",
+          "POST",
+          { action: "join", code: "not-a-link" },
+          second,
+        )
+      ).status,
+      400,
+    );
+    assert.equal(
+      (
+        await call(
+          "admin/collaboration",
+          "POST",
+          { action: "join", code: "ab".repeat(24) },
+          second,
+        )
+      ).status,
+      400,
+    );
+    assert.equal(
+      (await call("admin/workspaces")).data.workspaces.length,
+      beforeJoin,
+    );
+
     assert.equal(
       (
         await call(

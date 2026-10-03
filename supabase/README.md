@@ -2,9 +2,10 @@
 
 1. Ouvrir le projet `auerxzzdzhgawkcvqeiq` dans Supabase, puis SQL Editor.
 2. Exécuter une fois `001_collaboration.sql`, puis `002_team.sql` pour les profils, commentaires, historique et présence privée. Les tables sont protégées par RLS ; seul un membre voit sa roadmap. Les mises à jour passent par une fonction atomique qui refuse une révision périmée.
-3. Dans Beam, cliquer sur le workspace → **Espace partagé** → créer un compte ou se connecter. Confirmer l’e-mail si Supabase le demande.
-4. Créer un espace vide, ou cocher explicitement le partage de la roadmap locale. Les notes, PDF, images, jetons GitHub et analyses ne sont jamais inclus dans la synchronisation.
-5. Créer une invitation éditeur/lecteur. Le code est valable 7 jours et utilisable une fois. Le destinataire installe Beam, crée son compte et saisit le code dans les mêmes réglages.
+3. Dans Beam, cliquer sur le sélecteur du workspace → **Inviter des personnes**. Connectez-vous ou créez votre compte si nécessaire ; confirmez l’e-mail si Supabase le demande.
+4. Choisissez Modifier ou Consulter et créez votre lien. Si le workspace est personnel, « Partager et inviter » partage explicitement sa roadmap actuelle. Les notes, pièces jointes, jetons et analyses restent locaux.
+5. Le destinataire ouvre le lien → **Ouvrir dans Beam** → **Rejoindre le workspace**. La connexion est demandée si nécessaire et l’invitation est conservée. Un lien peut aussi être collé dans **Rejoindre un workspace**, directement dans le sélecteur, même depuis un workspace déjà partagé. L’ouverture directe sur Mac nécessite beta.10 ou plus récent ; chaque lien reste valable 7 jours pour une utilisation.
+
 
 ## Limites de la première version
 

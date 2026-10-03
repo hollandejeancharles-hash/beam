@@ -47,6 +47,7 @@ final class BeamDelegate: NSObject, NSApplicationDelegate, WKNavigationDelegate,
     var capturePending = false
     var starting = false
     var destination = "#gantt"
+    var pendingInvitation: String?
     let base = "http://127.0.0.1:5173/"
     var portable: Bool { Bundle.main.object(forInfoDictionaryKey: "BeamPortable") as? Bool ?? false }
     var repo: String { portable ? Bundle.main.resourceURL!.appendingPathComponent("runtime").path : Bundle.main.object(forInfoDictionaryKey: "BeamRepository") as? String ?? "" }
@@ -93,6 +94,14 @@ final class BeamDelegate: NSObject, NSApplicationDelegate, WKNavigationDelegate,
             editMenu.addItem(withTitle: title, action: Selector(action), keyEquivalent: key)
         }
         NSApplication.shared.mainMenu = root
+    }
+    func application(_ application: NSApplication, open urls: [URL]) {
+        guard let url = urls.first, url.scheme == "beam", url.host == "join",
+              let code = URLComponents(url: url, resolvingAgainstBaseURL: false)?.queryItems?.first(where: { $0.name == "code" })?.value,
+              code.range(of: "^[a-fA-F0-9]{48}$", options: .regularExpression) != nil else { return }
+        pendingInvitation = "#invite=" + code.lowercased()
+        capturePending = false; capturePanel?.orderOut(nil)
+        open(pendingInvitation!)
     }
     func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows flag: Bool) -> Bool {
         if window != nil { present() } else { openBeam() }; return false
@@ -194,7 +203,7 @@ final class BeamDelegate: NSObject, NSApplicationDelegate, WKNavigationDelegate,
     func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
         if webView === captureView { webView.evaluateJavaScript("window.__beamFocusCapture?.()", completionHandler: nil) }
     }
-    @objc func openBeam() { capturePending = false; capturePanel?.orderOut(nil); open("#gantt") }
+    @objc func openBeam() { capturePending = false; capturePanel?.orderOut(nil); open(pendingInvitation ?? "#gantt"); pendingInvitation = nil }
     @objc func openNotes() { capturePending = false; capturePanel?.orderOut(nil); open("#notes") }
     @objc func quit() { NSApplication.shared.terminate(nil) }
     func open(_ path: String) {
@@ -279,6 +288,7 @@ final class BeamDelegate: NSObject, NSApplicationDelegate, WKNavigationDelegate,
         }
         let target = URL(string: base + destination)!
         if webView?.url != target { webView?.load(URLRequest(url: target)) }
+        if target.fragment?.hasPrefix("invite=") == true { pendingInvitation = nil }
         present()
     }
     func isLocal(_ url: URL) -> Bool {

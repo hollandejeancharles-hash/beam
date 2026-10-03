@@ -1,3 +1,7 @@
+import JoinWorkspace from "./components/JoinWorkspace";
+import WorkspaceInvite from "./components/WorkspaceInvite";
+import InvitationLanding from "./components/InvitationLanding";
+import { invitationCode } from "../shared/invitations";
 import { usePersistentDraft } from "./usePersistentDraft";
 import WorkspaceSwitcher from "./components/WorkspaceSwitcher";
 import AccountAccess from "./components/ui/neural-access-login";
@@ -95,6 +99,15 @@ function Mark() {
   );
 }
 function App() {
+  const [joinOpen, setJoinOpen] = useState(
+    !pagesMode &&
+      location.pathname !== "/roadmap" &&
+      new URLSearchParams(location.hash.slice(1)).has("invite"),
+  );
+  const [joinValue, setJoinValue] = useState(
+    invitationCode(location.href) || "",
+  );
+  const [inviteOpen, setInviteOpen] = useState(false);
   const [publicationItem, setPublicationItem] = useState(null);
   const [inboxCount, setInboxCount] = useState(0);
   const [searchTarget, setSearchTarget] = useState(null);
@@ -261,6 +274,19 @@ function App() {
     }
   }
   useEffect(() => {
+    if (publicMode) return;
+    const receive = () => {
+      const code = invitationCode(location.href);
+      if (code) {
+        setJoinValue(code);
+        setJoinOpen(true);
+        setWelcomeOpen(false);
+      }
+    };
+    window.addEventListener("hashchange", receive);
+    return () => window.removeEventListener("hashchange", receive);
+  }, []);
+  useEffect(() => {
     localStorage.setItem("beam_sidebar_collapsed", String(sidebarCollapsed));
   }, [sidebarCollapsed]);
   useEffect(() => {
@@ -275,7 +301,7 @@ function App() {
     if (!publicMode)
       api("admin/onboarding")
         .then((s) => {
-          if (!s.complete && !s.hasData) setWelcomeOpen(true);
+          if (!s.complete && !s.hasData && !joinOpen) setWelcomeOpen(true);
         })
         .catch(() => {});
   }, []);
@@ -538,6 +564,16 @@ function App() {
             state={workspaceList}
             product={product}
             api={api}
+            onJoin={() => {
+              setJoinValue("");
+              setJoinOpen(true);
+            }}
+            onInvite={
+              !sharedConnection?.workspace ||
+              sharedConnection.workspace.role === "owner"
+                ? () => setInviteOpen(true)
+                : undefined
+            }
             onSettings={() => {
               setWorkspaceSection("general");
               setWorkspaceOpen(true);
@@ -1494,6 +1530,46 @@ function App() {
           />
         </Modal>
       )}
+      {joinOpen && !publicMode && (
+        <Modal
+          title="Rejoindre un workspace"
+          className="workspace-access-dialog"
+          close={() => {
+            setJoinOpen(false);
+            setJoinValue("");
+          }}
+        >
+          <JoinWorkspace
+            key={joinValue}
+            api={api}
+            profile={profile}
+            onProfile={setProfile}
+            initialValue={joinValue}
+            onJoined={(id) => {
+              const params = new URLSearchParams(location.search);
+              params.set("workspace", id);
+              location.assign(location.pathname + "?" + params + "#gantt");
+            }}
+          />
+        </Modal>
+      )}
+      {inviteOpen && !publicMode && (
+        <Modal
+          title="Inviter dans le workspace"
+          className="workspace-access-dialog"
+          close={() => {
+            setInviteOpen(false);
+            void refresh();
+          }}
+        >
+          <WorkspaceInvite
+            api={api}
+            product={product}
+            profile={profile}
+            onProfile={setProfile}
+          />
+        </Modal>
+      )}
       {workspaceOpen && !publicMode && (
         <Modal
           title="Réglages du workspace"
@@ -2252,6 +2328,8 @@ if (
 createRoot(document.getElementById("root")).render(
   new URLSearchParams(location.search).get("capture") === "1" && !pagesMode ? (
     <MenuBarCapture />
+  ) : pagesMode && new URLSearchParams(location.hash.slice(1)).has("invite") ? (
+    <InvitationLanding />
   ) : (
     <App />
   ),

@@ -1,3 +1,4 @@
+import { invitationLink } from "../../shared/invitations";
 import React, { useEffect, useState } from "react";
 import AccountAccess from "./ui/neural-access-login";
 export default function Collaboration({
@@ -5,7 +6,7 @@ export default function Collaboration({
   profile,
   onChange,
   onAccount,
-  product,
+  product = { name: "Votre workspace" },
 }) {
   const [state, setState] = useState(null),
     [error, setError] = useState(""),
@@ -169,10 +170,10 @@ export default function Collaboration({
               </button>
               {invite && (
                 <label>
-                  Code à transmettre · un usage · valable 7 jours
+                  Lien à transmettre · une personne · valable 7 jours
                   <textarea
                     readOnly
-                    value={invite}
+                    value={invitationLink(invite)}
                     onFocus={(e) => e.target.select()}
                   />
                   <button
@@ -180,9 +181,11 @@ export default function Collaboration({
                     className="button"
                     onClick={async () => {
                       try {
-                        await navigator.clipboard.writeText(invite);
+                        await navigator.clipboard.writeText(
+                          invitationLink(invite),
+                        );
                         setMessage(
-                          "Invitation copiée. Transmettez-la à une seule personne.",
+                          "Lien copié. La personne l’ouvre pour rejoindre votre workspace.",
                         );
                       } catch {
                         setError(
@@ -191,7 +194,7 @@ export default function Collaboration({
                       }
                     }}
                   >
-                    Copier l’invitation
+                    Copier le lien
                   </button>
                 </label>
               )}
