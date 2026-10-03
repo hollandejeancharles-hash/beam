@@ -153,7 +153,20 @@ final class BeamDelegate: NSObject, NSApplicationDelegate, WKNavigationDelegate,
             let panel = CapturePanel(contentRect: view.frame, styleMask: [.borderless], backing: .buffered, defer: false)
             panel.contentViewController = controller
             panel.isOpaque = false; panel.backgroundColor = .clear
-            panel.hasShadow = true; panel.level = .floating
+            // A borderless window's system shadow can retain the rectangular
+            // backing extent when the glass changes appearance on activation.
+            // Glass provides its own edge treatment; keep the host fully clipped.
+            panel.hasShadow = false; panel.level = .floating
+            controller.view.wantsLayer = true
+            controller.view.layer?.backgroundColor = NSColor.clear.cgColor
+            controller.view.layer?.cornerRadius = 20
+            controller.view.layer?.masksToBounds = true
+            if let frameView = panel.contentView?.superview {
+                frameView.wantsLayer = true
+                frameView.layer?.backgroundColor = NSColor.clear.cgColor
+                frameView.layer?.cornerRadius = 20
+                frameView.layer?.masksToBounds = true
+            }
             panel.isReleasedWhenClosed = false
             panel.hidesOnDeactivate = false
             panel.appearance = NSAppearance(named: .darkAqua)
