@@ -116,11 +116,19 @@ final class BeamDelegate: NSObject, NSApplicationDelegate, WKNavigationDelegate,
             configuration.userContentController.add(self, name: "beamCapture")
             let view = WKWebView(frame: NSRect(x: 0, y: 0, width: 420, height: 320), configuration: configuration)
             view.navigationDelegate = self; view.uiDelegate = self
+            // WKWebView's native focus ring must not outline the rectangular host.
+            // The textarea retains its own visible focus treatment.
+            view.focusRingType = .none
             view.underPageBackgroundColor = .clear
             view.setValue(false, forKey: "drawsBackground")
             view.autoresizingMask = [.width, .height]
             let controller = NSViewController()
             let content = NSView(frame: view.frame)
+            content.focusRingType = .none
+            content.wantsLayer = true
+            content.layer?.backgroundColor = NSColor.clear.cgColor
+            content.layer?.cornerRadius = 20
+            content.layer?.masksToBounds = true
             content.addSubview(view)
             let handle = CaptureDragHandle(frame: NSRect(x: 0, y: 262, width: 355, height: 58))
             handle.autoresizingMask = [.width, .minYMargin]
@@ -136,6 +144,9 @@ final class BeamDelegate: NSObject, NSApplicationDelegate, WKNavigationDelegate,
                 material.material = .popover
                 material.blendingMode = .behindWindow
                 material.state = .active
+                material.wantsLayer = true
+                material.layer?.cornerRadius = 20
+                material.layer?.masksToBounds = true
                 material.addSubview(content)
                 controller.view = material
             }
