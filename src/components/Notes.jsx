@@ -474,6 +474,7 @@ export default function Notes({
           {[
             ["all", "Toutes"],
             ["followup", "À suivre"],
+            ["review", "À examiner"],
             ["archives", "Archives"],
           ].map(([id, label]) => (
             <button
@@ -483,25 +484,16 @@ export default function Notes({
                 setView(id);
                 setComposing(false);
                 setSubject(null);
+                if (id === "review") setSelected(null);
               }}
             >
-              {label}
+              <span>{label}</span>
+              {id === "review" && inbox.length > 0 && (
+                <small className="notebook-view-count">{inbox.length}</small>
+              )}
             </button>
           ))}
         </nav>
-        <button
-          className={`notebook-review ${view === "review" ? "active" : ""}`}
-          onClick={() => {
-            setView("review");
-            setComposing(false);
-            setSelected(null);
-            setSubject(null);
-          }}
-        >
-          <Activity size={14} />
-          <span>À examiner</span>
-          <small>{inbox.length || ""}</small>
-        </button>
         {(topics.length > 0 || subjects.topics.length > 0) && (
           <details className="notebook-topics">
             <summary>

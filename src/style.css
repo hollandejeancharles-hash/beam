@@ -6408,3 +6408,7 @@ html.native-capture,
 .notebook-inbox .review-inbox {margin-top:0;}
 @media(max-width:1000px){.notes-notebook{grid-template-columns:245px minmax(0,1fr);}.notebook-paper{padding:24px;}}
 @media(max-width:700px){.notes-notebook{grid-template-columns:1fr;height:auto;min-height:600px;}.notebook-index{min-height:600px;border-right:0;}.notebook-detail{display:none;}.notes-notebook.has-detail .notebook-index{display:none;}.notes-notebook.has-detail .notebook-detail{display:block;min-height:600px;}.notebook-back{display:inline-flex;}.notebook-paper{padding:24px 20px;}.notebook-detail-toolbar{padding:10px 15px;}.notebook-detail-toolbar>span{display:none;}.notebook-compose-actions,.notebook-edit-status{flex-wrap:wrap;}}
+
+.notebook-views {flex-direction:column;align-items:stretch;gap:2px;}
+.notebook-views button {display:flex;align-items:center;justify-content:space-between;min-height:30px;text-align:left;font-size:12px;}
+.notebook-view-count {font-size:10px;color:#a89dd1;min-width:18px;text-align:center;}
