@@ -3,7 +3,7 @@ import { existsSync, mkdirSync, openSync, closeSync } from "node:fs";
 import { resolve } from "node:path";
 // Optional workspace installation; no download or cloud fallback at runtime.
 export async function startLocalAI() {
-  const binary = resolve("data/ai/runtime/ollama");
+  const binary = resolve(process.env.BEAM_OLLAMA || "data/ai/runtime/ollama");
   if (!existsSync(binary)) return;
   try {
     const r = await fetch("http://127.0.0.1:11434/api/tags", {
@@ -17,7 +17,7 @@ export async function startLocalAI() {
     env: {
       ...process.env,
       OLLAMA_HOST: "127.0.0.1:11434",
-      OLLAMA_MODELS: resolve("data/ai/models"),
+      OLLAMA_MODELS: resolve(process.env.BEAM_MODELS || "data/ai/models"),
       OLLAMA_NO_CLOUD: "1",
       OLLAMA_NUM_PARALLEL: "1",
       OLLAMA_MAX_LOADED_MODELS: "1",

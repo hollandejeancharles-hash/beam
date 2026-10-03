@@ -1,3 +1,5 @@
+import { createAISetup } from "./ai-setup.js";
+import { createCollaboration } from "./collaboration.js";
 import { createDecisions } from "./decisions.js";
 import { buildInbox } from "../shared/inbox.js";
 import { createSearch } from "./search.js";
@@ -17,10 +19,18 @@ import { randomUUID, timingSafeEqual } from "node:crypto";
 import { createIntegrations } from "./integrations.js";
 import { createStore, seed } from "./store.js";
 const prod = process.env.NODE_ENV === "production";
-if (prod && !process.env.BEAM_ADMIN_TOKEN)
+const desktop = process.env.BEAM_DESKTOP === "1" && (!process.env.HOST || process.env.HOST === "127.0.0.1");
+const assets = process.env.BEAM_ASSETS || "dist";
+if (prod && !desktop && !process.env.BEAM_ADMIN_TOKEN)
   throw Error("BEAM_ADMIN_TOKEN est requis en production");
 mkdirSync("data", { recursive: true });
 const store = createStore(process.env.BEAM_DB || "data/beam.sqlite");
+const collaboration = createCollaboration(store);
+const localSave = store.save.bind(store);
+store.save = (...args) => {
+  if (collaboration.active()) throw Error("Pour partager cette proposition, créez ou modifiez l’élément depuis la Planification. L’application directe des propositions IA partagées arrive ensuite.");
+  return localSave(...args);
+};
 const profile = createProfile(store);
 const integrations = createIntegrations(store);
 const notes = createNotes(store);
@@ -28,6 +38,7 @@ const decisions = createDecisions(store);
 const attachments = createAttachments(store);
 await startLocalAI();
 const ai = createAI(store, notes, integrations);
+const aiSetup = createAISetup();
 const publications = createPublications(store, ai, fetch, {
   notes,
   integrations,
@@ -59,7 +70,7 @@ const vite = prod
     ).createServer({ server: { middlewareMode: true }, appType: "spa" });
 const token = process.env.BEAM_ADMIN_TOKEN;
 const authorized = (req) =>
-  (!token && !prod) ||
+  (!token && (!prod || desktop)) ||
   (() => {
     const a = Buffer.from(
       req.headers.authorization?.replace(/^Bearer /, "") || "",
@@ -84,13 +95,13 @@ const server = http.createServer(async (req, res) => {
   const url = new URL(req.url, "http://localhost");
   if (!url.pathname.startsWith("/api/")) {
     if (vite) return vite.middlewares(req, res);
-    const path = resolve("dist", "." + decodeURIComponent(url.pathname));
-    if (!path.startsWith(resolve("dist") + "/") && path !== resolve("dist")) {
+    const path = resolve(assets, "." + decodeURIComponent(url.pathname));
+    if (!path.startsWith(resolve(assets) + "/") && path !== resolve(assets)) {
       res.writeHead(403);
       return res.end();
     }
     const file =
-      existsSync(path) && extname(path) ? path : resolve("dist/index.html");
+      existsSync(path) && extname(path) ? path : resolve(assets, "index.html");
     try {
       res.setHeader(
         "Content-Type",
@@ -140,6 +151,21 @@ const server = http.createServer(async (req, res) => {
           error: "Trop de tentatives. Réessayez dans une minute.",
         });
       return send(401, { error: "Clé d’accès incorrecte" });
+    }
+    if (url.pathname === "/api/admin/ai/setup" && req.method === "GET") return send(200, await aiSetup.status());
+    if (url.pathname === "/api/admin/collaboration" && req.method === "GET")
+      return send(200, collaboration.state());
+    if (url.pathname === "/api/admin/collaboration/events" && req.method === "GET") {
+      res.writeHead(200, { "Content-Type": "text/event-stream", "Cache-Control": "no-cache" });
+      res.write("data: " + JSON.stringify(collaboration.state()) + "\n\n");
+      const unsubscribe = collaboration.onChange(() => res.write("data: " + JSON.stringify(collaboration.state()) + "\n\n"));
+      const heartbeat = setInterval(() => res.write(": heartbeat\n\n"), 20000);
+      req.on("close", () => { clearInterval(heartbeat); unsubscribe(); });
+      return;
+    }
+    if (url.pathname === "/api/admin/items" && req.method === "GET" && collaboration.active()) {
+      const result = await collaboration.items("GET", url.pathname);
+      return send(result.status, result.data);
     }
     const attachmentFile = url.pathname.match(
       /^\/api\/admin\/attachments\/([a-f0-9-]+)$/,
@@ -234,6 +260,13 @@ const server = http.createServer(async (req, res) => {
         return send(413, { error: "Contenu trop volumineux" });
     }
     const body = raw ? JSON.parse(raw) : {};
+    if (url.pathname === "/api/admin/ai/setup" && req.method === "POST") return send(202, await aiSetup.install());
+    if (url.pathname === "/api/admin/collaboration" && req.method === "POST")
+      return send(200, await collaboration.settings(body.action, body));
+    if (/^\/api\/admin\/items(?:\/(?:kanban|reorder|[a-f0-9-]+(?:\/archive)?))?$/.test(url.pathname) && collaboration.active()) {
+      const result = await collaboration.items(req.method, url.pathname, body);
+      return send(result.status, result.data);
+    }
     if (
       url.pathname === "/api/admin/publications/generate" &&
       req.method === "POST"

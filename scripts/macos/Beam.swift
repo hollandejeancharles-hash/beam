@@ -48,8 +48,10 @@ final class BeamDelegate: NSObject, NSApplicationDelegate, WKNavigationDelegate,
     var starting = false
     var destination = "#gantt"
     let base = "http://127.0.0.1:5173/"
-    var repo: String { Bundle.main.object(forInfoDictionaryKey: "BeamRepository") as? String ?? "" }
-    var node: String { Bundle.main.object(forInfoDictionaryKey: "BeamNode") as? String ?? "" }
+    var portable: Bool { Bundle.main.object(forInfoDictionaryKey: "BeamPortable") as? Bool ?? false }
+    var repo: String { portable ? Bundle.main.resourceURL!.appendingPathComponent("runtime").path : Bundle.main.object(forInfoDictionaryKey: "BeamRepository") as? String ?? "" }
+    var workDirectory: String { portable ? FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0].appendingPathComponent("Beam").path : repo }
+    var node: String { portable ? Bundle.main.resourceURL!.appendingPathComponent("node").path : Bundle.main.object(forInfoDictionaryKey: "BeamNode") as? String ?? "" }
     func applicationDidFinishLaunching(_ notification: Notification) {
         statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.squareLength)
         let icon = beamMark(20); icon.isTemplate = true
@@ -220,16 +222,24 @@ final class BeamDelegate: NSObject, NSApplicationDelegate, WKNavigationDelegate,
         }
         let process = Process()
         process.executableURL = URL(fileURLWithPath: node)
-        process.arguments = ["server/index.js"]
-        process.currentDirectoryURL = URL(fileURLWithPath: repo)
+        process.arguments = [repo + "/server/index.js"]
+        try? FileManager.default.createDirectory(atPath: workDirectory + "/data", withIntermediateDirectories: true)
+        process.currentDirectoryURL = URL(fileURLWithPath: workDirectory)
         var env = ProcessInfo.processInfo.environment
         env["HOST"] = "127.0.0.1"; env["PORT"] = "5173"; env["NODE_ENV"] = "development"
-        env["BEAM_DB"] = repo + "/data/beam.sqlite"
+        env["BEAM_DB"] = workDirectory + "/data/beam.sqlite"
+        if portable {
+            env["NODE_ENV"] = "production"; env["BEAM_DESKTOP"] = "1"
+            env["BEAM_ASSETS"] = repo + "/dist"
+            env["BEAM_OLLAMA"] = Bundle.main.resourceURL!.appendingPathComponent("ai/runtime/ollama").path
+            let bundledModels = Bundle.main.resourceURL!.appendingPathComponent("ai/models").path
+            env["BEAM_MODELS"] = FileManager.default.fileExists(atPath: bundledModels) ? bundledModels : workDirectory + "/data/ai/models"
+        }
         // The launcher serves this Mac only; inherited deployment settings must not change that scope.
         env.removeValue(forKey: "BEAM_ADMIN_TOKEN"); env.removeValue(forKey: "BEAM_SEED")
         process.environment = env
-        let logPath = repo + "/data/launcher.log"
-        try? FileManager.default.createDirectory(atPath: repo + "/data", withIntermediateDirectories: true)
+        let logPath = workDirectory + "/data/launcher.log"
+        try? FileManager.default.createDirectory(atPath: workDirectory + "/data", withIntermediateDirectories: true)
         FileManager.default.createFile(atPath: logPath, contents: nil)
         let log = FileHandle(forWritingAtPath: logPath)
         process.standardOutput = log; process.standardError = log

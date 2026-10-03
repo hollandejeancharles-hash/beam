@@ -1,9 +1,11 @@
+import { chmodSync } from "node:fs";
 import { DatabaseSync } from "node:sqlite";
 import { randomUUID } from "node:crypto";
 import { validatePlanning } from "../shared/planning.js";
 export const statuses = ["planned", "progress", "done"];
 export function createStore(path) {
   const db = new DatabaseSync(path);
+  if (path !== ":memory:") chmodSync(path, 0o600);
   db.exec(
     `PRAGMA journal_mode=WAL; CREATE TABLE IF NOT EXISTS metadata(key TEXT PRIMARY KEY,value TEXT); CREATE TABLE IF NOT EXISTS items(id TEXT PRIMARY KEY,title TEXT NOT NULL,description TEXT NOT NULL,category TEXT NOT NULL,priority TEXT NOT NULL,status TEXT NOT NULL,visibility TEXT NOT NULL,quarter TEXT NOT NULL,created TEXT NOT NULL); CREATE TABLE IF NOT EXISTS votes(item TEXT,visitor TEXT,PRIMARY KEY(item,visitor)); CREATE TABLE IF NOT EXISTS suggestions(id TEXT PRIMARY KEY,title TEXT,description TEXT,created TEXT);`,
   );

@@ -4695,3 +4695,12 @@ html.native-capture, .native-capture body, .native-capture #root { background: t
 .menubar-capture .capture-signature { margin-left: 4px; font-size: 11px; font-weight: 500; opacity: .65; }
 .menubar-capture .icon-button { color: #c1c1cc; }
 .menubar-capture .icon-button:focus-visible { outline: 2px solid #aaa4ef; outline-offset: 2px; }
+
+.collaboration-settings { border-top: 1px solid var(--line); margin-top: 28px; padding-top: 22px; }
+.collaboration-settings form { margin: 20px 0; }
+.collaboration-settings > .button, .collaboration-settings form > .button { margin: 10px 6px 0 0; }
+.shared-workspace-summary { display: grid; gap: 8px; padding: 16px; border: 1px solid var(--line); border-radius: 8px; }
+.shared-workspace-summary span, .shared-workspace-summary small { color: var(--muted); font-size: 12px; }
+.shared-checkbox { display: flex; align-items: center; gap: 8px; }
+.shared-checkbox input { width: 16px; height: 16px; }
+.collaboration-settings small { color: var(--muted); font-size: 11px; line-height: 1.6; }

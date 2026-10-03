@@ -1,3 +1,5 @@
+import LocalAISetup from "./components/LocalAISetup";
+import Collaboration from "./components/Collaboration";
 import MenuBarCapture from "./components/MenuBarCapture";
 import DecisionMemory from "./components/DecisionMemory";
 import Workspace from "./components/Workspace";
@@ -146,7 +148,26 @@ function App() {
     [sidebarCollapsed, setSidebarCollapsed] = useState(
       localStorage.getItem("beam_sidebar_collapsed") === "true",
     );
+  const [sharedRevision, setSharedRevision] = useState(null);
+  const [sharedConnection, setSharedConnection] = useState(null);
   async function api(path, options = {}) {
+    if (
+      path.startsWith("admin/items") &&
+      options.method &&
+      options.method !== "GET"
+    ) {
+      const body = options.body ? JSON.parse(options.body) : {};
+      const revision =
+        (path.match(/^admin\/items\/[a-f0-9-]+$/)
+          ? selected?._revision
+          : null) ??
+        items[0]?._revision ??
+        sharedRevision;
+      options = {
+        ...options,
+        body: JSON.stringify({ ...body, _revision: revision }),
+      };
+    }
     const response = await fetch("/api/" + path, {
       ...options,
       headers: {
@@ -158,6 +179,7 @@ function App() {
     const data = await response.json();
     if (!response.ok) {
       if (response.status === 401) setAuth(true);
+      if (response.status === 409) void refresh();
       throw Error(data.error || "Une erreur est survenue");
     }
     return data;
@@ -209,6 +231,18 @@ function App() {
   useEffect(() => {
     refresh();
   }, []);
+  useEffect(() => {
+    if (publicMode || pagesMode || key) return;
+    const events = new EventSource("/api/admin/collaboration/events");
+    events.onmessage = (event) => {
+      const state = JSON.parse(event.data);
+      setSharedRevision(state.workspace?.revision ?? null);
+      setSharedConnection(state);
+      if (state.workspace) void refresh();
+    };
+    return () => events.close();
+  }, [key]);
+
   useEffect(() => {
     if (publicMode) return;
     let alive = true;
@@ -628,7 +662,12 @@ function App() {
                 ? "Roadmap publique"
                 : publicMode
                   ? "En direct de l’équipe"
-                  : "Espace produit"}
+                  : sharedConnection?.workspace
+                    ? sharedConnection.workspace.name +
+                      (sharedConnection.connected
+                        ? " · Partagé"
+                        : " · Hors connexion")
+                    : "Espace produit"}
             </span>
             {publicMode ? (
               <span className="powered">
@@ -1350,6 +1389,8 @@ function App() {
             }}
             onClose={() => setWorkspaceOpen(false)}
           />
+          <Collaboration api={api} onChange={refresh} />
+          <LocalAISetup api={api} />
         </Modal>
       )}
       {profileOpen && (
@@ -1982,7 +2023,11 @@ function Modal({ title, close, children, side = false, className = "" }) {
   );
 }
 // Let AppKit's glass remain visible through the capture web content.
-if (new URLSearchParams(location.search).get("capture") === "1" && !pagesMode && window.webkit?.messageHandlers?.beamCapture) {
+if (
+  new URLSearchParams(location.search).get("capture") === "1" &&
+  !pagesMode &&
+  window.webkit?.messageHandlers?.beamCapture
+) {
   document.documentElement.classList.add("native-capture");
 }
 createRoot(document.getElementById("root")).render(
