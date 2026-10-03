@@ -4671,3 +4671,23 @@ button.workspace:focus-visible { outline: 2px solid #8c80dc; outline-offset: 3px
 .menubar-capture small, .menubar-capture form > p { color: #989bab; font-size: 11px; line-height: 1.5; }
 .menubar-capture form > p { min-height: 16px; margin-bottom: 0; }
 .menubar-capture form > p[role=alert] { color: #e3a2a9; }
+
+/* Native menu-bar capture: the optical material is rendered by AppKit. */
+html.native-capture, .native-capture body, .native-capture #root { background: transparent; }
+.native-capture .menubar-capture { background: transparent; font-family: -apple-system, BlinkMacSystemFont, sans-serif; }
+.native-capture .menubar-capture textarea {
+  background: rgba(12, 14, 20, .22);
+  border: 1px solid rgba(255, 255, 255, .16);
+  border-radius: 14px;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, .04);
+  transition: border-color .18s, background .18s;
+}
+.native-capture .menubar-capture textarea:focus { border-color: rgba(190, 183, 255, .65); background: rgba(12, 14, 20, .3); }
+.native-capture .menubar-capture textarea::placeholder { color: #babac5; }
+.native-capture .menubar-capture small, .native-capture .menubar-capture form > p { color: #c1c1cc; }
+.native-capture .menubar-capture .button { border-radius: 999px; }
+.native-capture .menubar-capture .icon-button { border-radius: 50%; }
+@media (prefers-reduced-transparency: reduce) {
+  .native-capture .menubar-capture { background: #202128; }
+  .native-capture .menubar-capture textarea { background: #15161c; }
+}

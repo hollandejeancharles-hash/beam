@@ -1981,6 +1981,10 @@ function Modal({ title, close, children, side = false, className = "" }) {
     </div>
   );
 }
+// Let AppKit's glass remain visible through the capture web content.
+if (new URLSearchParams(location.search).get("capture") === "1" && !pagesMode && window.webkit?.messageHandlers?.beamCapture) {
+  document.documentElement.classList.add("native-capture");
+}
 createRoot(document.getElementById("root")).render(
   new URLSearchParams(location.search).get("capture") === "1" && !pagesMode ? (
     <MenuBarCapture />

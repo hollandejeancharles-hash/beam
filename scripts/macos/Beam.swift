@@ -107,8 +107,24 @@ final class BeamDelegate: NSObject, NSApplicationDelegate, WKNavigationDelegate,
             configuration.userContentController.add(self, name: "beamCapture")
             let view = WKWebView(frame: NSRect(x: 0, y: 0, width: 420, height: 320), configuration: configuration)
             view.navigationDelegate = self; view.uiDelegate = self
-            view.underPageBackgroundColor = NSColor(calibratedRed: 0.08, green: 0.09, blue: 0.12, alpha: 1)
-            let controller = NSViewController(); controller.view = view
+            view.underPageBackgroundColor = .clear
+            view.setValue(false, forKey: "drawsBackground")
+            view.autoresizingMask = [.width, .height]
+            let controller = NSViewController()
+            if #available(macOS 26.0, *) {
+                let glass = NSGlassEffectView(frame: view.frame)
+                glass.style = .regular
+                glass.cornerRadius = 20
+                glass.contentView = view
+                controller.view = glass
+            } else {
+                let material = NSVisualEffectView(frame: view.frame)
+                material.material = .popover
+                material.blendingMode = .behindWindow
+                material.state = .active
+                material.addSubview(view)
+                controller.view = material
+            }
             let popover = NSPopover(); popover.contentSize = NSSize(width: 420, height: 320)
             popover.behavior = .transient; popover.animates = true
             popover.appearance = NSAppearance(named: .darkAqua)
