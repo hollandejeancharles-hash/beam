@@ -1,3 +1,4 @@
+import { usePresenceActivity } from "./Team";
 import React, { useEffect, useRef, useState } from "react";
 import { useDraft } from "./Notes";
 import { Close, ArrowRight, FileText } from "../icons";
@@ -7,6 +8,37 @@ export default function MenuBarCapture() {
     [message, setMessage] = useState(""),
     [error, setError] = useState("");
   const [workspace, setWorkspace] = useState(null);
+  const [presenceState, setPresenceState] = useState(null);
+  const captureApi = async (path, options = {}) => {
+    const r = await fetch(
+      "/api/" +
+        path +
+        "?workspace=" +
+        encodeURIComponent(workspace?.id || "default"),
+      {
+        ...options,
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: "Bearer " + (sessionStorage.getItem("beam_key") || ""),
+        },
+      },
+    );
+    if (!r.ok) throw Error("Présence indisponible");
+    return r.json();
+  };
+  useEffect(() => {
+    if (!workspace?.id) return;
+    let alive = true;
+    captureApi("admin/collaboration")
+      .then((s) => {
+        if (alive) setPresenceState(s);
+      })
+      .catch(() => {});
+    return () => {
+      alive = false;
+    };
+  }, [workspace?.id]);
+  usePresenceActivity(captureApi, presenceState, "notes");
   const input = useRef(null);
   const close = () =>
     window.webkit?.messageHandlers?.beamCapture?.postMessage("close");

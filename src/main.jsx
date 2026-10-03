@@ -791,6 +791,11 @@ function App() {
               <TeamPresence
                 api={api}
                 state={sharedConnection}
+                activity={
+                  workspaceOpen || profileOpen || accountOpen
+                    ? "settings"
+                    : page
+                }
                 onOpen={() => setWorkspaceOpen(true)}
               />
             )}

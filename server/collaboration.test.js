@@ -78,6 +78,9 @@ function fixture(role = "owner") {
     },
     channel() {
       return {
+        async track(value) {
+          remote.lastPresence = value;
+        },
         on() {
           return this;
         },
@@ -262,6 +265,48 @@ test("Logging out retains shared workspace and roadmap while marking it offline"
     assert.equal(state.connected, false);
     assert.equal(state.workspace.id, "w");
     assert.equal(f.store.list().length, 1);
+  } finally {
+    await f.c.close();
+    f.store.db.close();
+  }
+});
+
+test("Presence shares only a screen category and follows the recently used window", async () => {
+  const f = fixture();
+  try {
+    await connect(f);
+    const now = Date.now();
+    await f.c.settings("presence", {
+      clientId: "first",
+      activity: "gantt",
+      interactedAt: now - 1000,
+      body: "Private note",
+    });
+    await f.c.settings("presence", {
+      clientId: "second",
+      activity: "notes",
+      interactedAt: now,
+    });
+    await f.c.settings("presence", {
+      clientId: "first",
+      activity: "gantt",
+      interactedAt: now - 1000,
+    });
+    assert.equal(f.remote.lastPresence.activity, "notes");
+    assert.equal(f.c.state().presenceActivity.user, "notes");
+    assert.deepEqual(Object.keys(f.remote.lastPresence).sort(), [
+      "activity",
+      "interactedAt",
+      "online",
+      "updatedAt",
+    ]);
+    await f.c.settings("presence", {
+      clientId: "second",
+      activity: "idle",
+      interactedAt: now,
+    });
+    assert.equal(f.remote.lastPresence.activity, "gantt");
+    assert.equal(f.store.list()[0].title, "Feature");
   } finally {
     await f.c.close();
     f.store.db.close();

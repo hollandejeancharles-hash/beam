@@ -1,3 +1,4 @@
+import { safeActivity, recentActivity } from "../shared/presence.js";
 import { readFileSync } from "node:fs";
 import { createClient } from "@supabase/supabase-js";
 import { createStore } from "./store.js";
@@ -85,11 +86,44 @@ export function createCollaboration(
     workspace = get("beam_shared_workspace");
   let client,
     presence = [],
+    presenceActivity = {},
     channel,
     revision = null,
     connected = false,
     lastError = "",
     queue = Promise.resolve();
+  const activityClients = new Map();
+  async function reportActivity(b) {
+    if (!workspace || !session || !channel) return state();
+    if (
+      typeof b.clientId !== "string" ||
+      !/^[a-zA-Z0-9-]{1,64}$/.test(b.clientId)
+    )
+      throw Error("Présence invalide.");
+    const now = Date.now();
+    for (const [id, value] of activityClients)
+      if (now - value.updatedAt >= 45000) activityClients.delete(id);
+    activityClients.set(b.clientId, {
+      activity: safeActivity(b.activity),
+      interactedAt: Number.isFinite(b.interactedAt)
+        ? Math.min(now, b.interactedAt)
+        : now,
+      updatedAt: now,
+    });
+    const current = [...activityClients.values()].sort(
+      (a, b) =>
+        (a.activity === "idle") - (b.activity === "idle") ||
+        b.interactedAt - a.interactedAt,
+    )[0];
+    await channel.track?.({
+      online: true,
+      interactedAt: current?.interactedAt || now,
+      activity: recentActivity([...activityClients.values()], now),
+      updatedAt: now,
+    });
+    emit();
+    return state();
+  }
   const listeners = new Set();
   let changeVersion = 0;
   const emit = () => {
@@ -191,7 +225,14 @@ export function createCollaboration(
         config: { private: true, presence: { key: session.user.id } },
       })
       .on("presence", { event: "sync" }, () => {
-        presence = Object.keys(channel.presenceState?.() || {});
+        const peers = channel.presenceState?.() || {};
+        presence = Object.keys(peers);
+        presenceActivity = Object.fromEntries(
+          Object.entries(peers).map(([id, entries]) => [
+            id,
+            recentActivity(entries),
+          ]),
+        );
         emit();
       })
       .on(
@@ -237,7 +278,12 @@ export function createCollaboration(
         },
       )
       .subscribe((status) => {
-        if (status === "SUBSCRIBED") void channel.track?.({ online: true });
+        if (status === "SUBSCRIBED")
+          void channel.track?.({
+            online: true,
+            activity: "browsing",
+            updatedAt: Date.now(),
+          });
         if (["CHANNEL_ERROR", "TIMED_OUT", "CLOSED"].includes(status)) {
           connected = false;
           lastError = "Connexion interrompue. Reconnexion en cours.";
@@ -250,6 +296,12 @@ export function createCollaboration(
     return {
       configured: !!config,
       presence,
+      presenceActivity: {
+        ...presenceActivity,
+        ...(session?.user?.id && activityClients.size
+          ? { [session.user.id]: recentActivity([...activityClients.values()]) }
+          : {}),
+      },
       changeVersion,
       userId: session?.user?.id || null,
       signedIn: !!session,
@@ -260,6 +312,7 @@ export function createCollaboration(
     };
   }
   async function settings(action, b = {}) {
+    if (action === "presence") return reportActivity(b);
     return exclusive(async () => {
       if (action === "configure") {
         const u = new URL(b.url);

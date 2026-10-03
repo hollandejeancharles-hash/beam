@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from "react";
+import { activityPhrase } from "../../shared/presence";
 import { initials } from "./Profile";
 const labels = {
   title: "Titre",
@@ -29,7 +30,54 @@ const values = {
   private: "Interne",
   public: "Publique",
 };
-export function TeamPresence({ api, state, onOpen }) {
+export function usePresenceActivity(api, state, activity) {
+  useEffect(() => {
+    if (!state?.workspace || !state?.signedIn) return;
+    const clientId = crypto.randomUUID();
+    let lastInteraction = Date.now(),
+      lastReported = 0;
+    const publish = () => {
+      lastReported = Date.now();
+      return api("admin/collaboration", {
+        method: "POST",
+        body: JSON.stringify({
+          action: "presence",
+          clientId,
+          interactedAt: lastInteraction,
+          activity:
+            document.hidden || Date.now() - lastInteraction > 120000
+              ? "idle"
+              : activity,
+        }),
+      }).catch(() => {});
+    };
+    const interact = () => {
+      const wasIdle = Date.now() - lastInteraction > 120000;
+      lastInteraction = Date.now();
+      if (wasIdle || lastInteraction - lastReported > 5000) void publish();
+    };
+    void publish();
+    const timer = setInterval(publish, 15000);
+    document.addEventListener("visibilitychange", publish);
+    window.addEventListener("pointerdown", interact);
+    window.addEventListener("keydown", interact);
+    return () => {
+      clearInterval(timer);
+      document.removeEventListener("visibilitychange", publish);
+      window.removeEventListener("pointerdown", interact);
+      window.removeEventListener("keydown", interact);
+      void api("admin/collaboration", {
+        method: "POST",
+        body: JSON.stringify({
+          action: "presence",
+          clientId,
+          activity: "idle",
+        }),
+      }).catch(() => {});
+    };
+  }, [state?.workspace?.id, state?.signedIn, activity]);
+}
+export function TeamPresence({ api, state, onOpen, activity = "browsing" }) {
   const [profiles, setProfiles] = useState([]);
   useEffect(() => {
     let alive = true;
@@ -44,18 +92,31 @@ export function TeamPresence({ api, state, onOpen }) {
       alive = false;
     };
   }, [state?.workspace?.id, state?.presence?.join(","), state?.changeVersion]);
+  usePresenceActivity(api, state, activity);
   if (!state?.workspace) return null;
   const online = profiles.filter((p) => state.presence?.includes(p.user_id));
   return (
     <button
       className="team-presence"
       onClick={onOpen}
-      title="Personnes connectées et espace partagé"
       aria-label={`${online.length} personne(s) connectée(s). Ouvrir l’espace partagé`}
     >
       {online.slice(0, 4).map((p) => (
-        <span className="avatar" key={p.user_id} title={p.name}>
-          {p.photo ? <img src={p.photo} alt="" /> : initials(p.name)}
+        <span
+          className="presence-person"
+          key={p.user_id}
+          tabIndex={0}
+          aria-label={activityPhrase(
+            p.name,
+            state.presenceActivity?.[p.user_id],
+          )}
+        >
+          <span className="avatar">
+            {p.photo ? <img src={p.photo} alt="" /> : initials(p.name)}
+          </span>
+          <span className="presence-tooltip" role="tooltip">
+            {activityPhrase(p.name, state.presenceActivity?.[p.user_id])}
+          </span>
         </span>
       ))}
       <span>{online.length ? `${online.length} en ligne` : "Équipe"}</span>
