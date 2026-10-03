@@ -141,7 +141,7 @@ final class BeamDelegate: NSObject, NSApplicationDelegate, WKNavigationDelegate,
             content.layer?.cornerRadius = 20
             content.layer?.masksToBounds = true
             content.addSubview(view)
-            let handle = CaptureDragHandle(frame: NSRect(x: 0, y: 262, width: 355, height: 58))
+            let handle = CaptureDragHandle(frame: NSRect(x: 0, y: 262, width: 325, height: 58))
             handle.autoresizingMask = [.width, .minYMargin]
             content.addSubview(handle)
             if #available(macOS 26.0, *) {
@@ -199,16 +199,14 @@ final class BeamDelegate: NSObject, NSApplicationDelegate, WKNavigationDelegate,
     func userContentController(_ userContentController: WKUserContentController, didReceive message: WKScriptMessage) {
         guard message.webView === captureView else { return }
         if message.body as? String == "close" { capturePanel?.orderOut(nil); return }
-        guard let payload = message.body as? [String: String], payload["action"] == "expand",
-              let workspaceId = payload["workspaceId"], workspaceId == "default" || UUID(uuidString: workspaceId) != nil else { return }
-        var components = URLComponents()
-        var query = [URLQueryItem(name: "workspace", value: workspaceId)]
-        if let noteId = payload["noteId"], UUID(uuidString: noteId) != nil { query.append(URLQueryItem(name: "note", value: noteId)) }
-        else if let transferId = payload["transferId"], UUID(uuidString: transferId) != nil { query.append(URLQueryItem(name: "captureTransfer", value: transferId)) }
-        else { return }
-        components.queryItems = query; components.fragment = "notes"
-        capturePending = false; capturePanel?.orderOut(nil)
-        open(components.string ?? "#notes")
+        guard let payload = message.body as? [String: String], payload["action"] == "resize", let panel = capturePanel else { return }
+        let expanded = payload["mode"] == "notebook"
+        let visible = panel.screen?.visibleFrame ?? NSScreen.main!.visibleFrame
+        let size = NSSize(width: min(expanded ? 940 : 420, visible.width - 16), height: min(expanded ? 680 : 320, visible.height - 16))
+        let old = panel.frame
+        let origin = NSPoint(x: min(max(old.minX, visible.minX + 8), visible.maxX - size.width - 8), y: min(max(old.maxY - size.height, visible.minY + 8), visible.maxY - size.height - 8))
+        panel.setFrame(NSRect(origin: origin, size: size), display: true, animate: true)
+        panel.makeKeyAndOrderFront(nil)
     }
     func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
         if webView === captureView { webView.evaluateJavaScript("window.__beamFocusCapture?.()", completionHandler: nil) }

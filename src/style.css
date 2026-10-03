@@ -6428,3 +6428,13 @@ html.native-capture,
 .notebook-insights > summary > .animated-icon {color:#b3a1e5;}
 
 .capture-window-actions {display:flex;align-items:center;gap:5px;}
+
+.capture-shrink-icon {display:flex;transform:rotate(180deg);}
+.menubar-capture.capture-notebook {padding:16px 18px;height:100vh;min-height:0;overflow:hidden;}
+.capture-notebook-content {height:calc(100vh - 65px);overflow:auto;}
+.capture-notebook .notes-notebook {height:100%;min-height:0;margin:0;grid-template-columns:245px minmax(0,1fr);background:#14151bc9;}
+.capture-notebook .notebook-index,.capture-notebook .notebook-detail {min-height:0;}
+.capture-notebook .notebook-paper {padding:24px;}
+.menubar-capture [hidden] {display:none !important;}
+
+main.menubar-capture {margin-left:0;width:100%;}

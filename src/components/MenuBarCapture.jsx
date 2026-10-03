@@ -1,6 +1,6 @@
 import { usePresenceActivity } from "./Team";
 import React, { useEffect, useRef, useState } from "react";
-import { useDraft } from "./Notes";
+import Notes, { useDraft } from "./Notes";
 import { Close, ArrowRight, FileText, ArrowUpRight } from "../icons";
 export default function MenuBarCapture() {
   const [workspace, setWorkspace] = useState(null);
@@ -8,6 +8,12 @@ export default function MenuBarCapture() {
     [busy, setBusy] = useState(false),
     [message, setMessage] = useState(""),
     [error, setError] = useState("");
+  const pinnedWorkspace = useRef(false);
+  const [notebookOpened, setNotebookOpened] = useState(false);
+  const [expanded, setExpanded] = useState(false);
+  const [target, setTarget] = useState(null);
+  const [captureDraft, setCaptureDraft] = useState(null);
+  const [items, setItems] = useState([]);
   const [lastSaved, setLastSaved] = useState(null);
   const [presenceState, setPresenceState] = useState(null);
   const captureApi = async (path, options = {}) => {
@@ -24,8 +30,9 @@ export default function MenuBarCapture() {
         },
       },
     );
-    if (!r.ok) throw Error("Présence indisponible");
-    return r.json();
+    const data = await r.json();
+    if (!r.ok) throw Error(data.error || "Impossible de charger le carnet.");
+    return data;
   };
   useEffect(() => {
     if (!workspace?.id) return;
@@ -44,18 +51,19 @@ export default function MenuBarCapture() {
   const close = () =>
     window.webkit?.messageHandlers?.beamCapture?.postMessage("close");
   useEffect(() => {
-    window.__beamFocusCapture = () => input.current?.focus();
+    window.__beamFocusCapture = () => expanded ? document.querySelector(".capture-notebook .notebook-detail textarea")?.focus() : input.current?.focus();
     input.current?.focus();
     return () => {
       delete window.__beamFocusCapture;
     };
-  }, []);
+  }, [expanded]);
   useEffect(() => {
     if (!busy) input.current?.focus();
   }, [busy]);
   useEffect(() => {
-    const apply = (state) =>
-      setWorkspace(state.workspaces.find((w) => w.id === state.active));
+    const apply = (state) => {
+      if (!pinnedWorkspace.current) setWorkspace(state.workspaces.find((w) => w.id === state.active));
+    };
     fetch("/api/admin/workspaces", {
       headers: {
         Authorization: "Bearer " + (sessionStorage.getItem("beam_key") || ""),
@@ -127,27 +135,25 @@ export default function MenuBarCapture() {
           JSON.stringify({ workspaceId: workspace.id, text }),
         );
       }
-      if (bridge) bridge.postMessage(payload);
-      else {
-        const url = new URL(location.href);
-        url.searchParams.delete("capture");
-        url.searchParams.set("workspace", workspace.id);
-        url.searchParams.set(
-          payload.noteId ? "note" : "captureTransfer",
-          payload.noteId || payload.transferId,
-        );
-        url.hash = "notes";
-        location.assign(url);
-      }
+      const url = new URL(location.href);
+      url.searchParams.set("workspace", workspace.id);
+      history.replaceState(null, "", url.pathname + url.search);
+      setTarget(payload.noteId ? { kind: "note", id: payload.noteId, targetId: payload.noteId } : { kind: "capture", id: payload.transferId });
+      pinnedWorkspace.current = true;
+      setNotebookOpened(true);
+      setExpanded(true);
+      setError("");
+      bridge?.postMessage({ action: "resize", mode: "notebook" });
+      captureApi("admin/items").then(setItems).catch(() => {});
     } catch (e) {
-      setError("Impossible d’ouvrir le carnet. Votre brouillon est conservé.");
+      setError("Impossible d’agrandir la note. Votre brouillon est conservé.");
     }
   }
   return (
-    <main className="menubar-capture">
+    <main className={`menubar-capture ${expanded ? "capture-notebook" : ""}`}>
       <header>
         <span>
-          <FileText size={15} /> Nouvelle note
+          <FileText size={15} /> {expanded ? "Carnet" : "Nouvelle note"}
           <small className="capture-signature" title="Workspace actif">
             {workspace?.name || "beam"}
           </small>
@@ -155,12 +161,19 @@ export default function MenuBarCapture() {
         <div className="capture-window-actions">
           <button
             className="icon-button"
-            aria-label="Ouvrir dans le carnet"
-            title="Ouvrir dans le carnet"
-            disabled={busy || !workspace}
-            onClick={expand}
+            aria-label={expanded ? "Réduire la fenêtre" : "Agrandir en mode carnet"}
+            title={expanded && captureDraft?.hasFiles ? "Enregistrez les pièces jointes avant de réduire" : expanded ? "Réduire la fenêtre" : "Agrandir en mode carnet"}
+            disabled={busy || !workspace || (expanded && (captureDraft?.hasFiles || captureDraft?.busy))}
+            onClick={() => {
+              if (!expanded) return expand();
+              setText(captureDraft?.composing ? captureDraft.text : "");
+              setLastSaved(null);
+              setExpanded(false);
+              window.webkit?.messageHandlers?.beamCapture?.postMessage({ action: "resize", mode: "quick" });
+              requestAnimationFrame(() => input.current?.focus());
+            }}
           >
-            <ArrowUpRight size={17} />
+            <span className={expanded ? "capture-shrink-icon" : ""}><ArrowUpRight size={17} /></span>
           </button>
           <button
             className="icon-button"
@@ -171,7 +184,11 @@ export default function MenuBarCapture() {
           </button>
         </div>
       </header>
-      <form onSubmit={save}>
+      {notebookOpened ? <div hidden={!expanded} className="capture-notebook-content">
+        <Notes api={captureApi} items={items} initialTarget={target} onTargetConsumed={() => setTarget(null)} onError={setError} onCaptureDraft={setCaptureDraft} onRefresh={() => captureApi("admin/items").then(setItems)} onOpen={() => setError("Les détails de la roadmap sont disponibles dans la fenêtre principale de Beam.")} onPrepare={() => setError("La création d’un élément de roadmap est disponible dans la fenêtre principale de Beam.")} />
+        {error && <p role="alert">{error}</p>}
+      </div> : null}
+      <form onSubmit={save} hidden={expanded}>
         <textarea
           ref={input}
           aria-label="Votre note"

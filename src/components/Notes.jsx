@@ -239,6 +239,7 @@ export default function Notes({
   onRefresh,
   onPrepare,
   onInboxCount,
+  onCaptureDraft,
 }) {
   const workspaceId =
     new URLSearchParams(location.search).get("workspace") || "default";
@@ -264,6 +265,9 @@ export default function Notes({
     () => composerKey !== "note-composer" && !initialTarget,
   );
   const composer = useRef(null);
+  useEffect(() => {
+    onCaptureDraft?.({ text, composing, hasFiles: files.length > 0, busy });
+  }, [text, composing, files.length, busy, onCaptureDraft]);
   useEffect(() => {
     if (composerKey === "note-composer") return;
     const marker = "beam-capture-composer:" + workspaceId;
@@ -358,6 +362,7 @@ export default function Notes({
         (n) => n.id === (initialTarget.targetId || initialTarget.id),
       );
       if (found) {
+        setComposing(false);
         setSelected(found);
         setView(found.state === "archived" ? "archives" : "all");
         setQuery("");
