@@ -27,12 +27,21 @@ if CommandLine.arguments.count == 3 && CommandLine.arguments[1] == "--render-ico
     exit(0)
 }
 
+// Keep text editing separate from the native window drag surface.
+final class CapturePanel: NSPanel {
+    override var canBecomeKey: Bool { true }
+    override var canBecomeMain: Bool { false }
+}
+final class CaptureDragHandle: NSView {
+    override func mouseDown(with event: NSEvent) { window?.performDrag(with: event) }
+}
+
 final class BeamDelegate: NSObject, NSApplicationDelegate, WKNavigationDelegate, WKUIDelegate, WKScriptMessageHandler {
     var window: NSWindow?
     var webView: WKWebView?
     var statusItem: NSStatusItem!
     var statusMenu: NSMenu?
-    var capturePopover: NSPopover?
+    var capturePanel: CapturePanel?
     var captureView: WKWebView?
     var server: Process?
     var capturePending = false
@@ -95,13 +104,13 @@ final class BeamDelegate: NSObject, NSApplicationDelegate, WKNavigationDelegate,
         } else { captureNote() }
     }
     @objc func captureNote() {
-        if capturePopover?.isShown == true { capturePopover?.performClose(nil); return }
+        if capturePanel?.isVisible == true { capturePanel?.orderOut(nil); return }
         capturePending = true
         open(destination)
     }
     func showCapture() {
         capturePending = false
-        if capturePopover == nil {
+        if capturePanel == nil {
             let configuration = WKWebViewConfiguration()
             configuration.websiteDataStore = .default()
             configuration.userContentController.add(self, name: "beamCapture")
@@ -111,41 +120,56 @@ final class BeamDelegate: NSObject, NSApplicationDelegate, WKNavigationDelegate,
             view.setValue(false, forKey: "drawsBackground")
             view.autoresizingMask = [.width, .height]
             let controller = NSViewController()
+            let content = NSView(frame: view.frame)
+            content.addSubview(view)
+            let handle = CaptureDragHandle(frame: NSRect(x: 0, y: 262, width: 355, height: 58))
+            handle.autoresizingMask = [.width, .minYMargin]
+            content.addSubview(handle)
             if #available(macOS 26.0, *) {
                 let glass = NSGlassEffectView(frame: view.frame)
                 glass.style = .regular
                 glass.cornerRadius = 20
-                glass.contentView = view
+                glass.contentView = content
                 controller.view = glass
             } else {
                 let material = NSVisualEffectView(frame: view.frame)
                 material.material = .popover
                 material.blendingMode = .behindWindow
                 material.state = .active
-                material.addSubview(view)
+                material.addSubview(content)
                 controller.view = material
             }
-            let popover = NSPopover(); popover.contentSize = NSSize(width: 420, height: 320)
-            popover.behavior = .transient; popover.animates = true
-            popover.appearance = NSAppearance(named: .darkAqua)
-            popover.contentViewController = controller
-            capturePopover = popover; captureView = view
+            let panel = CapturePanel(contentRect: view.frame, styleMask: [.borderless], backing: .buffered, defer: false)
+            panel.contentViewController = controller
+            panel.isOpaque = false; panel.backgroundColor = .clear
+            panel.hasShadow = true; panel.level = .floating
+            panel.isReleasedWhenClosed = false
+            panel.hidesOnDeactivate = false
+            panel.appearance = NSAppearance(named: .darkAqua)
+            panel.collectionBehavior = [.moveToActiveSpace, .fullScreenAuxiliary]
+            if let button = statusItem.button, let statusWindow = button.window {
+                let anchor = statusWindow.convertToScreen(button.convert(button.bounds, to: nil))
+                let screen = statusWindow.screen ?? NSScreen.main
+                let visible = screen?.visibleFrame ?? anchor
+                let x = min(max(anchor.midX - 210, visible.minX + 8), visible.maxX - 428)
+                let y = max(visible.minY + 8, min(anchor.minY - 328, visible.maxY - 328))
+                panel.setFrameOrigin(NSPoint(x: x, y: y))
+            }
+            capturePanel = panel; captureView = view
             view.load(URLRequest(url: URL(string: base + "?capture=1")!))
         }
-        guard let button = statusItem.button else { return }
-        capturePopover?.show(relativeTo: button.bounds, of: button, preferredEdge: .minY)
-        capturePopover?.contentViewController?.view.window?.makeKey()
+        capturePanel?.makeKeyAndOrderFront(nil)
         captureView?.evaluateJavaScript("window.__beamFocusCapture?.()", completionHandler: nil)
     }
     func userContentController(_ userContentController: WKUserContentController, didReceive message: WKScriptMessage) {
         guard message.webView === captureView, message.body as? String == "close" else { return }
-        capturePopover?.performClose(nil)
+        capturePanel?.orderOut(nil)
     }
     func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
         if webView === captureView { webView.evaluateJavaScript("window.__beamFocusCapture?.()", completionHandler: nil) }
     }
-    @objc func openBeam() { capturePending = false; capturePopover?.performClose(nil); open("#gantt") }
-    @objc func openNotes() { capturePending = false; capturePopover?.performClose(nil); open("#notes") }
+    @objc func openBeam() { capturePending = false; capturePanel?.orderOut(nil); open("#gantt") }
+    @objc func openNotes() { capturePending = false; capturePanel?.orderOut(nil); open("#notes") }
     @objc func quit() { NSApplication.shared.terminate(nil) }
     func open(_ path: String) {
         destination = path
