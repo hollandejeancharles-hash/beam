@@ -38,7 +38,7 @@ export default function MenuBarCapture() {
       if (!response.ok)
         throw Error(result.error || "Impossible d’enregistrer la note.");
       setText("");
-      setMessage("Note enregistrée · Elle sera organisée dans Beam.");
+      setMessage("Note enregistrée");
       input.current?.focus();
     } catch (e) {
       setError(e.message);
@@ -50,7 +50,8 @@ export default function MenuBarCapture() {
     <main className="menubar-capture">
       <header>
         <span>
-          <FileText size={18} /> Une note, simplement.
+          <FileText size={15} /> Nouvelle note
+          <small className="capture-signature">beam</small>
         </span>
         <button
           className="icon-button"
@@ -64,7 +65,8 @@ export default function MenuBarCapture() {
         <textarea
           ref={input}
           aria-label="Votre note"
-          placeholder="Une pensée, un échange, une suite à donner…"
+          placeholder="Une note, simplement.
+Une pensée, un échange, une suite à donner…"
           value={text}
           disabled={busy}
           onChange={(e) => {
@@ -86,7 +88,7 @@ export default function MenuBarCapture() {
           }}
         />
         <div className="menubar-capture-footer">
-          <small>Brouillon conservé · ⌘↵</small>
+          <small>⌘ Entrée pour enregistrer</small>
           <button className="button primary" disabled={busy || !text.trim()}>
             {busy ? "Enregistrement…" : "Enregistrer"}
             <ArrowRight size={14} />
@@ -96,7 +98,7 @@ export default function MenuBarCapture() {
           <p role="alert">{error}</p>
         ) : (
           <p role="status">
-            {message || "L’assistant organise votre note en arrière-plan."}
+            {message}
           </p>
         )}
       </form>
