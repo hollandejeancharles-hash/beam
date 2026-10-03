@@ -166,6 +166,8 @@ L’IA locale rédige **Nouveautés**, **Améliorations** et **Corrections**, sa
 
 ## Collaboration et installation autonome Mac
 
+**Avant de télécharger : la bêta Mac n’est pas notarisée par Apple et peut être bloquée à la première ouverture.** Consultez le [guide d’installation Mac](docs/installation-mac.md), qui explique comment autoriser Beam depuis les réglages de macOS.
+
 Beam peut partager le Gantt et le Kanban via Supabase tout en conservant les notes et l’IA sur chaque Mac. Cliquer sur le workspace, puis **Espace partagé** pour se connecter, créer/rejoindre un espace et générer des invitations éditeur ou lecteur. La copie de la roadmap locale exige une option explicite. Les notes et pièces jointes restent locales. Voir [configuration, installation Mac et limites](supabase/README.md).
 
 L’installateur Mac autonome se construit avec `python3 scripts/macos/build-launcher.py --portable`. Il embarque Node, Beam et Ollama et conserve les données dans Application Support ; le modèle IA se télécharge depuis les réglages. Le DMG est signé ad hoc pour les tests, pas encore notarifié pour une distribution publique fluide.

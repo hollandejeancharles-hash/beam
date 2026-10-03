@@ -66,6 +66,7 @@ with tempfile.TemporaryDirectory(prefix='beam-mac-') as scratch:
         disk.mkdir()
         shutil.move(str(app), disk / 'Beam.app')
         (disk / 'Applications').symlink_to('/Applications')
+        shutil.copy2(repo / 'docs/installation-mac.md', disk / 'LIRE AVANT INSTALLATION.md')
         subprocess.run(['hdiutil', 'create', '-volname', 'Beam', '-srcfolder', str(disk), '-format', 'UDZO', '-ov', str(output)], check=True)
         print(output)
         sys.exit(0)

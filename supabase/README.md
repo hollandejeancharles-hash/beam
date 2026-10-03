@@ -19,6 +19,8 @@
 
 ## Package Mac autonome
 
+Pour les utilisateurs : [installation et autorisation à la première ouverture](../docs/installation-mac.md). La bêta n’est pas notarisée par Apple ; macOS peut demander une autorisation manuelle.
+
 `python3 scripts/macos/build-launcher.py --portable`
 
 Produit `../outputs/Beam-AppleSilicon.dmg` avec Node, les dépendances, l’interface compilée et Ollama. Le modèle Ministral 3 8B se télécharge depuis les réglages du workspace au premier lancement (bouton explicite et suivi des octets reçus). `--with-model` permet aussi de construire un DMG complet pour une installation sans téléchargement du modèle. Aucune base utilisateur ni donnée du dossier data n’est embarquée, à l’exception des fichiers du moteur IA et des poids du modèle. Les données du destinataire vivent dans `~/Library/Application Support/Beam/data`.
