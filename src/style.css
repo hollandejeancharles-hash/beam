@@ -6491,3 +6491,23 @@ main.menubar-capture {margin-left:0;width:100%;}
   .native-capture .capture-notebook .notebook-detail,
   .native-capture .capture-notebook .notebook-detail-toolbar {background:#1a1b24;backdrop-filter:none;-webkit-backdrop-filter:none;}
 }
+
+/* Workspace sections use the same animated tree as the main sidebar. */
+.workspace-settings-nav .tree-nav {
+  position:relative;margin:0;padding:0 0 0 24px;list-style:none;width:100%;gap:4px;
+}
+.workspace-settings-nav .tree-nav a {
+  display:flex;align-items:center;gap:9px;height:36px;padding-right:8px;font-size:12px;text-decoration:none;
+}
+.workspace-settings-nav .tree-icon {display:flex;align-items:center;flex-shrink:0;}
+.workspace-settings-nav .tree-label {min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.workspace-settings-nav .tree-nav a[aria-current="page"] {color:#eeecfa;}
+.workspace-settings-nav .tree-nav>span:last-of-type {height:36px !important;background:#b4a2ed12;}
+.workspace-settings-nav .tree-rail,.workspace-settings-nav .tree-terminal {background:#343540;}
+.workspace-settings-nav .tree-accent,.workspace-settings-nav .tree-marker {background:#b9b0ec;}
+@media(max-width:600px) {
+  .workspace-settings-panel .workspace-settings-nav {flex-direction:column;padding:18px 20px 0;}
+}
+
+.workspace-settings-shell {grid-template-columns:185px minmax(0,1fr);}
+@media(max-width:600px) {.workspace-settings-shell {grid-template-columns:1fr;}}

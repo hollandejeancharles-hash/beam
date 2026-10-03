@@ -1,5 +1,6 @@
 import React, { useState } from "react";
 import Workspace from "./Workspace";
+import { TreeNav } from "./ui/tree-nav";
 import Collaboration from "./Collaboration";
 import LocalAISetup from "./LocalAISetup";
 import Maintenance from "./Maintenance";
@@ -68,18 +69,18 @@ export default function WorkspaceSettings({
         className="workspace-settings-nav"
         aria-label="Sections des réglages"
       >
-        {sections.map(({ id, label, icon: Icon }) => (
-          <button
-            key={id}
-            type="button"
-            aria-current={active === id ? "page" : undefined}
-            className={active === id ? "active" : ""}
-            onClick={() => setActive(id)}
-          >
-            <Icon size={16} />
-            {label}
-          </button>
-        ))}
+        <TreeNav
+          activeHref={"#workspace-settings-" + active}
+          items={sections.map(({ id, label, icon: Icon }) => ({
+            href: "#workspace-settings-" + id,
+            label,
+            icon: <Icon size={17} />,
+          }))}
+          onSelect={(item, event) => {
+            event.preventDefault();
+            setActive(item.href.replace("#workspace-settings-", ""));
+          }}
+        />
       </nav>
       <div className="workspace-settings-content">
         <header className="workspace-settings-heading">
