@@ -102,7 +102,7 @@ L’app peut être déplacée, mais le chemin du dépôt et celui de Node sont e
 
 La fenêtre utilise WebKit et conserve ses données de navigation localement. Les notes et la roadmap retrouvent la même base SQLite. Fermer la fenêtre garde Beam disponible dans la barre de menus ; cliquer dans le Dock la réaffiche sans recharger la page. Les liens externes et le portail partagé ouvrent le navigateur habituel. Les raccourcis Copier/Coller et ceux de Beam restent disponibles.
 
-Un clic gauche sur l’icône Beam dans la barre de menus affiche la fenêtre existante et ouvre directement la capture rapide, avec le curseur dans le champ. Le clic droit conserve le menu (roadmap, carnet et quitter). Le clic ne change pas l’écran courant et conserve le brouillon. Si un autre dialogue est ouvert, fermez-le avant de demander la capture.
+Le bouton ↗ de la capture rapide ouvre le carnet complet dans le même workspace. Le texte en cours devient un brouillon de l’éditeur, sans enregistrement automatique et sans remplacer un autre brouillon du carnet. Après un enregistrement, ce bouton ouvre la note enregistrée. Le transfert reste local sur le Mac ; le texte n’est jamais placé dans l’URL.
 
 ### IA locale pour les notes et features
 

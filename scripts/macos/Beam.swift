@@ -197,8 +197,18 @@ final class BeamDelegate: NSObject, NSApplicationDelegate, WKNavigationDelegate,
         captureView?.evaluateJavaScript("window.__beamFocusCapture?.()", completionHandler: nil)
     }
     func userContentController(_ userContentController: WKUserContentController, didReceive message: WKScriptMessage) {
-        guard message.webView === captureView, message.body as? String == "close" else { return }
-        capturePanel?.orderOut(nil)
+        guard message.webView === captureView else { return }
+        if message.body as? String == "close" { capturePanel?.orderOut(nil); return }
+        guard let payload = message.body as? [String: String], payload["action"] == "expand",
+              let workspaceId = payload["workspaceId"], workspaceId == "default" || UUID(uuidString: workspaceId) != nil else { return }
+        var components = URLComponents()
+        var query = [URLQueryItem(name: "workspace", value: workspaceId)]
+        if let noteId = payload["noteId"], UUID(uuidString: noteId) != nil { query.append(URLQueryItem(name: "note", value: noteId)) }
+        else if let transferId = payload["transferId"], UUID(uuidString: transferId) != nil { query.append(URLQueryItem(name: "captureTransfer", value: transferId)) }
+        else { return }
+        components.queryItems = query; components.fragment = "notes"
+        capturePending = false; capturePanel?.orderOut(nil)
+        open(components.string ?? "#notes")
     }
     func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
         if webView === captureView { webView.evaluateJavaScript("window.__beamFocusCapture?.()", completionHandler: nil) }

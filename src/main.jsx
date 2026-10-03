@@ -111,7 +111,16 @@ function App() {
   const [inviteOpen, setInviteOpen] = useState(false);
   const [publicationItem, setPublicationItem] = useState(null);
   const [inboxCount, setInboxCount] = useState(0);
-  const [searchTarget, setSearchTarget] = useState(null);
+  const [searchTarget, setSearchTarget] = useState(() => {
+    const params = new URLSearchParams(location.search);
+    const transfer = params.get("captureTransfer"),
+      note = params.get("note");
+    return transfer
+      ? { kind: "capture", id: transfer }
+      : note
+        ? { kind: "note", id: note, targetId: note }
+        : null;
+  });
   const [logoReplay, setLogoReplay] = useState(0);
   const publicMode = pagesMode || location.pathname === "/roadmap";
   const [items, setItems] = useState([]),
@@ -1138,7 +1147,17 @@ function App() {
               onOpen={setSelected}
               onRefresh={refresh}
               initialTarget={searchTarget}
-              onTargetConsumed={() => setSearchTarget(null)}
+              onTargetConsumed={() => {
+                setSearchTarget(null);
+                const url = new URL(location.href);
+                url.searchParams.delete("captureTransfer");
+                url.searchParams.delete("note");
+                history.replaceState(
+                  null,
+                  "",
+                  url.pathname + url.search + url.hash,
+                );
+              }}
               onPrepare={(draft) => {
                 setEdit({ ...blank, ...draft, visibility: "private" });
               }}

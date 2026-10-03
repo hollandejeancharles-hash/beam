@@ -6426,3 +6426,5 @@ html.native-capture,
 .notebook-paper-labels {display:flex;justify-content:center;align-items:center;gap:10px;flex-wrap:wrap;margin:-16px 0 24px;}
 .notebook-paper-labels:empty {display:none;}
 .notebook-insights > summary > .animated-icon {color:#b3a1e5;}
+
+.capture-window-actions {display:flex;align-items:center;gap:5px;}

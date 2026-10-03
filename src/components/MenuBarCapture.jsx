@@ -1,13 +1,14 @@
 import { usePresenceActivity } from "./Team";
 import React, { useEffect, useRef, useState } from "react";
 import { useDraft } from "./Notes";
-import { Close, ArrowRight, FileText } from "../icons";
+import { Close, ArrowRight, FileText, ArrowUpRight } from "../icons";
 export default function MenuBarCapture() {
-  const [text, setText] = useDraft(),
+  const [workspace, setWorkspace] = useState(null);
+  const [text, setText] = useDraft(workspace?.id),
     [busy, setBusy] = useState(false),
     [message, setMessage] = useState(""),
     [error, setError] = useState("");
-  const [workspace, setWorkspace] = useState(null);
+  const [lastSaved, setLastSaved] = useState(null);
   const [presenceState, setPresenceState] = useState(null);
   const captureApi = async (path, options = {}) => {
     const r = await fetch(
@@ -102,6 +103,7 @@ export default function MenuBarCapture() {
       const result = await response.json();
       if (!response.ok)
         throw Error(result.error || "Impossible d’enregistrer la note.");
+      setLastSaved({ id: result.id, workspaceId: workspaceState.active });
       setText("");
       setMessage("Note enregistrée");
       input.current?.focus();
@@ -109,6 +111,36 @@ export default function MenuBarCapture() {
       setError(e.message);
     } finally {
       setBusy(false);
+    }
+  }
+  function expand() {
+    if (busy || !workspace) return;
+    try {
+      const bridge = window.webkit?.messageHandlers?.beamCapture;
+      const payload = { action: "expand", workspaceId: workspace.id };
+      if (!text.trim() && lastSaved?.workspaceId === workspace.id)
+        payload.noteId = lastSaved.id;
+      else {
+        payload.transferId = crypto.randomUUID();
+        localStorage.setItem(
+          "beam-note-transfer:" + payload.transferId,
+          JSON.stringify({ workspaceId: workspace.id, text }),
+        );
+      }
+      if (bridge) bridge.postMessage(payload);
+      else {
+        const url = new URL(location.href);
+        url.searchParams.delete("capture");
+        url.searchParams.set("workspace", workspace.id);
+        url.searchParams.set(
+          payload.noteId ? "note" : "captureTransfer",
+          payload.noteId || payload.transferId,
+        );
+        url.hash = "notes";
+        location.assign(url);
+      }
+    } catch (e) {
+      setError("Impossible d’ouvrir le carnet. Votre brouillon est conservé.");
     }
   }
   return (
@@ -120,13 +152,24 @@ export default function MenuBarCapture() {
             {workspace?.name || "beam"}
           </small>
         </span>
-        <button
-          className="icon-button"
-          aria-label="Fermer la capture"
-          onClick={close}
-        >
-          <Close size={17} />
-        </button>
+        <div className="capture-window-actions">
+          <button
+            className="icon-button"
+            aria-label="Ouvrir dans le carnet"
+            title="Ouvrir dans le carnet"
+            disabled={busy || !workspace}
+            onClick={expand}
+          >
+            <ArrowUpRight size={17} />
+          </button>
+          <button
+            className="icon-button"
+            aria-label="Fermer la capture"
+            onClick={close}
+          >
+            <Close size={17} />
+          </button>
+        </div>
       </header>
       <form onSubmit={save}>
         <textarea
@@ -135,10 +178,11 @@ export default function MenuBarCapture() {
           placeholder="Une note, simplement.
 Une pensée, un échange, une suite à donner…"
           value={text}
-          disabled={busy}
+          disabled={busy || !workspace}
           onChange={(e) => {
             setText(e.target.value);
             setMessage("");
+            setLastSaved(null);
           }}
           onKeyDown={(e) => {
             if (e.key === "Escape") {

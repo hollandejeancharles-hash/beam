@@ -1,3 +1,4 @@
+import { receiveNoteTransfer } from "../../shared/note-transfer";
 import { usePersistentDraft } from "../usePersistentDraft";
 import DecisionMemory from "./DecisionMemory";
 import ReviewInbox from "./ReviewInbox";
@@ -25,33 +26,39 @@ const dateLabel = (d) =>
     day: "numeric",
     month: "short",
   });
-export function useDraft() {
-  const [text, setText] = useState(
-    () =>
-      localStorage.getItem(
-        "beam_note_draft:" +
-          (new URLSearchParams(location.search).get("workspace") || "default"),
-      ) || "",
-  );
+export function useDraft(workspaceId) {
+  const key =
+    "beam_note_draft:" +
+    (workspaceId ||
+      new URLSearchParams(location.search).get("workspace") ||
+      "default");
+  const [entry, setEntry] = useState(() => ({
+    key,
+    text: localStorage.getItem(key) || "",
+  }));
+  const text = entry.key === key ? entry.text : localStorage.getItem(key) || "";
   useEffect(() => {
-    localStorage.setItem(
-      "beam_note_draft:" +
-        (new URLSearchParams(location.search).get("workspace") || "default"),
-      text,
-    );
-  }, [text]);
+    if (entry.key !== key) {
+      setEntry({ key, text });
+      return;
+    }
+    localStorage.setItem(key, text);
+  }, [key, text, entry.key]);
   useEffect(() => {
     const sync = (e) => {
-      if (
-        e.key ===
-        "beam_note_draft:" +
-          (new URLSearchParams(location.search).get("workspace") || "default")
-      )
-        setText(e.newValue || "");
+      if (e.key === key) setEntry({ key, text: e.newValue || "" });
     };
     window.addEventListener("storage", sync);
     return () => window.removeEventListener("storage", sync);
-  }, []);
+  }, [key]);
+  const setText = (value) =>
+    setEntry((previous) => ({
+      key,
+      text:
+        typeof value === "function"
+          ? value(previous.key === key ? previous.text : text)
+          : value,
+    }));
   return [text, setText];
 }
 export function QuickNote({ api, items, onError }) {
@@ -233,8 +240,15 @@ export default function Notes({
   onPrepare,
   onInboxCount,
 }) {
+  const workspaceId =
+    new URLSearchParams(location.search).get("workspace") || "default";
+  const [composerKey, setComposerKey] = useState(
+    () =>
+      sessionStorage.getItem("beam-capture-composer:" + workspaceId) ||
+      "note-composer",
+  );
   const [notes, setNotes] = useState([]),
-    [text, setText] = usePersistentDraft("note-composer", ""),
+    [text, setText] = usePersistentDraft(composerKey, ""),
     [files, setFiles] = useState([]),
     [busy, setBusy] = useState(false),
     [view, setView] = useState("all"),
@@ -246,8 +260,17 @@ export default function Notes({
     [settings, setSettings] = useState(false),
     [data, setData] = useState({ status: null, reviews: [] }),
     [classification, setClassification] = useState(null);
-  const [composing, setComposing] = useState(false);
+  const [composing, setComposing] = useState(
+    () => composerKey !== "note-composer" && !initialTarget,
+  );
   const composer = useRef(null);
+  useEffect(() => {
+    if (composerKey === "note-composer") return;
+    const marker = "beam-capture-composer:" + workspaceId;
+    if (text.trim() || files.length)
+      sessionStorage.setItem(marker, composerKey);
+    else sessionStorage.removeItem(marker);
+  }, [composerKey, text, files.length]);
   useEffect(() => {
     if (!files.length) return;
     const protect = (event) => {
@@ -259,6 +282,29 @@ export default function Notes({
   }, [files.length]);
   const [inbox, setInbox] = useState([]);
   const [loaded, setLoaded] = useState(false);
+  useEffect(() => {
+    if (initialTarget?.kind !== "capture") return;
+    try {
+      const slot = receiveNoteTransfer({
+        local: localStorage,
+        session: sessionStorage,
+        workspaceId,
+        transferId: initialTarget.id,
+      });
+      setComposerKey(slot);
+      setComposing(true);
+      setSelected(null);
+      setSubject(null);
+      setView("all");
+      setQuery("");
+      setTopic("Tous");
+      onTargetConsumed?.();
+      requestAnimationFrame(() => composer.current?.focus());
+    } catch (e) {
+      onError(e.message);
+      onTargetConsumed?.();
+    }
+  }, [initialTarget]);
   async function load() {
     try {
       const [n, status, reviews, groups, queue] = await Promise.all([
@@ -407,6 +453,8 @@ export default function Notes({
       await load();
       setSelected(n);
       setComposing(false);
+      sessionStorage.removeItem("beam-capture-composer:" + workspaceId);
+      setComposerKey("note-composer");
     } catch (e) {
       onError(e.message);
     } finally {
