@@ -1,3 +1,4 @@
+import { BellIcon } from "./vendor/bell";
 import { XIcon } from "./vendor/x";
 import { ArrowUpIcon } from "./vendor/arrow-up";
 import { LockIcon } from "./vendor/lock";
@@ -133,3 +134,5 @@ export const Lock = interactiveIcon(LockIcon);
 export const ArrowUp = interactiveIcon(ArrowUpIcon);
 
 export const Close = interactiveIcon(XIcon);
+
+export const Bell = interactiveIcon(BellIcon);

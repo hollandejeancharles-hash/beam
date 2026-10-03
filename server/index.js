@@ -1,3 +1,4 @@
+import { createNotifications, notificationRows } from "./notifications.js";
 import { invitationCode } from "../shared/invitations.js";
 import { publicRoadmap } from "../scripts/public-roadmap.js";
 import { createWorkspaces } from "./workspaces.js";
@@ -86,6 +87,7 @@ function context(id) {
         const integrations = createIntegrations(store);
         const notes = createNotes(store);
         const decisions = createDecisions(store);
+        const notifications = createNotifications(store);
         const attachments = createAttachments(store);
         const ai = createAI(store, notes, integrations);
         const aiSetup = createAISetup(fetch, () => ai.configure(true));
@@ -135,6 +137,7 @@ function context(id) {
           associations,
           topics,
           searchIndex,
+          notifications,
         };
       }),
     );
@@ -252,6 +255,7 @@ const server = http.createServer(async (req, res) => {
       integrations,
       notes,
       decisions,
+      notifications,
       attachments,
       ai,
       aiSetup,
@@ -310,6 +314,41 @@ const server = http.createServer(async (req, res) => {
           200,
           await checkUpdates(url.searchParams.get("force") === "true"),
         );
+      if (url.pathname === "/api/admin/notifications" && req.method === "GET") {
+        const connection = collaboration.state();
+        const since = notifications.since(connection.userId);
+        const team = await collaboration
+          .notificationEvents(since)
+          .catch(() => ({
+            profiles: [],
+            comments: [],
+            activity: [],
+            warning:
+              "Les notifications de l’équipe ne sont pas disponibles pour le moment.",
+          }));
+        const inbox = buildInbox({
+          reviews: ai.list(),
+          notes: notes.list(),
+          items: store.list(),
+          topics: topics.list().topics,
+          matches: associations.list().matches,
+          decisions: decisions.list(),
+        });
+        return send(200, {
+          warning: team.warning,
+          ...notifications.list(
+            connection.userId,
+            notificationRows({
+              inbox,
+              team,
+              items: store.list(),
+              userId: connection.userId,
+              since,
+              connection,
+            }),
+          ),
+        });
+      }
       if (url.pathname === "/api/admin/team" && req.method === "GET")
         return send(
           200,
@@ -475,6 +514,14 @@ const server = http.createServer(async (req, res) => {
           error:
             "Le workspace a changé ou cette fenêtre doit être actualisée. Rechargez Beam avant de continuer.",
         });
+      if (
+        url.pathname === "/api/admin/notifications/read" &&
+        req.method === "POST"
+      )
+        return send(
+          200,
+          notifications.read(collaboration.state().userId, body.ids),
+        );
       if (url.pathname === "/api/admin/workspaces" && req.method === "POST") {
         const result = workspaces.create(body);
         context(result.active);

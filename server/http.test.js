@@ -57,6 +57,26 @@ test("production API: authentication, private visibility, suggestions, persisten
         await (await request("admin/inbox", "GET", undefined, true)).json(),
       ),
     );
+    assert.equal((await request("public/notifications")).status, 404);
+    const feed = await request("admin/notifications", "GET", undefined, true);
+    assert.equal(feed.status, 200);
+    assert.deepEqual((await feed.json()).notifications, []);
+    assert.equal(
+      (
+        await request(
+          "admin/notifications/read",
+          "POST",
+          { ids: ["ai:test"] },
+          true,
+        )
+      ).status,
+      200,
+    );
+    assert.equal(
+      (await request("admin/notifications/read", "POST", { ids: [{}] }, true))
+        .status,
+      400,
+    );
     const searchResponse = await request(
       "admin/search",
       "GET",

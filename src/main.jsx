@@ -1,3 +1,4 @@
+import { ActivityDropdown } from "./components/ui/activity-dropdown";
 import JoinWorkspace from "./components/JoinWorkspace";
 import WorkspaceInvite from "./components/WorkspaceInvite";
 import InvitationLanding from "./components/InvitationLanding";
@@ -787,6 +788,22 @@ function App() {
             >
               <Search size={16} />
             </button>
+            {!publicMode && (
+              <ActivityDropdown
+                api={api}
+                workspaceId={workspaceList?.active}
+                onNavigate={(target) => {
+                  if (target.kind === "item")
+                    setSelected(items.find((i) => i.id === target.id));
+                  else if (target.kind === "review") {
+                    setPage("notes");
+                    setSearchTarget({ kind: "review" });
+                  } else if (target.kind === "workspace")
+                    setWorkspaceOpen(true);
+                  else setPage("gantt");
+                }}
+              />
+            )}
             {!publicMode && (
               <TeamPresence
                 api={api}

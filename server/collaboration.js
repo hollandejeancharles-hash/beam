@@ -621,6 +621,36 @@ export function createCollaboration(
       }
       return { profiles, comments, activity };
     },
+    async notificationEvents(since) {
+      if (!workspace || !session)
+        return { profiles: [], comments: [], activity: [] };
+      await authenticate();
+      const profiles = check(
+        await client
+          .from("beam_profiles")
+          .select("user_id,name")
+          .eq("workspace_id", workspace.id),
+      );
+      const comments = check(
+        await client
+          .from("beam_comments")
+          .select("id,user_id,item_id,body,created_at")
+          .eq("workspace_id", workspace.id)
+          .gte("created_at", since)
+          .order("created_at", { ascending: false })
+          .limit(100),
+      );
+      const activity = check(
+        await client
+          .from("beam_activity")
+          .select("id,user_id,item_id,action,changes,created_at")
+          .eq("workspace_id", workspace.id)
+          .gte("created_at", since)
+          .order("created_at", { ascending: false })
+          .limit(100),
+      );
+      return { profiles, comments, activity };
+    },
     active: () => !!workspace,
     onChange: (f) => {
       listeners.add(f);
