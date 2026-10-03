@@ -2,6 +2,7 @@ import React, { useState } from "react";
 import Profile from "./Profile";
 import Collaboration from "./Collaboration";
 import LocalAISetup from "./LocalAISetup";
+import AccountAccess from "./ui/neural-access-login";
 export default function Welcome({
   api,
   profile,
@@ -9,7 +10,7 @@ export default function Welcome({
   onChange,
   onFinish,
 }) {
-  const [step, setStep] = useState(0),
+  const [step, setStep] = useState(-1),
     [error, setError] = useState("");
   const titles = ["Votre profil", "Votre équipe", "Votre assistant"];
   async function finish() {
@@ -20,6 +21,19 @@ export default function Welcome({
       setError(e.message);
     }
   }
+  if (step === -1)
+    return (
+      <AccountAccess
+        api={api}
+        profile={profile}
+        onProfile={onProfile}
+        onContinue={() => {
+          onChange?.();
+          setStep(1);
+        }}
+        onLocal={() => setStep(0)}
+      />
+    );
   return (
     <div className="welcome-flow">
       <p className="eyebrow">BIENVENUE DANS BEAM</p>

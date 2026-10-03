@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from "react";
+import AccountAccess from "./ui/neural-access-login";
 export default function Collaboration({ api, profile, onChange }) {
   const [state, setState] = useState(null),
     [error, setError] = useState(""),
@@ -8,8 +9,6 @@ export default function Collaboration({ api, profile, onChange }) {
     [invite, setInvite] = useState("");
   const [url, setUrl] = useState("https://auerxzzdzhgawkcvqeiq.supabase.co"),
     [key, setKey] = useState(""),
-    [email, setEmail] = useState(""),
-    [password, setPassword] = useState(""),
     [name, setName] = useState("PULS"),
     [code, setCode] = useState(""),
     [share, setShare] = useState(false);
@@ -39,7 +38,6 @@ export default function Collaboration({ api, profile, onChange }) {
         if (r.confirmationRequired)
           setMessage("Confirmez votre adresse e-mail, puis connectez-vous.");
       }
-      setPassword("");
     } catch (e) {
       setError(e.message);
     } finally {
@@ -91,47 +89,15 @@ export default function Collaboration({ api, profile, onChange }) {
           </button>
         </form>
       ) : !state.signedIn ? (
-        <form
-          onSubmit={(e) => {
-            e.preventDefault();
-            action("login", { email, password });
+        <AccountAccess
+          compact
+          api={api}
+          profile={profile}
+          onContinue={async () => {
+            setState(await api("admin/collaboration"));
+            onChange?.();
           }}
-        >
-          <label>
-            Votre e-mail
-            <input
-              type="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              required
-              autoComplete="username"
-            />
-          </label>
-          <label>
-            Mot de passe
-            <input
-              type="password"
-              minLength={8}
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              autoComplete="current-password"
-              required
-            />
-          </label>
-          <div className="modal-actions">
-            <button
-              type="button"
-              className="button"
-              disabled={busy || !email || password.length < 8}
-              onClick={() => action("signup", { email, password })}
-            >
-              Créer mon compte
-            </button>
-            <button className="button primary" disabled={busy}>
-              Se connecter
-            </button>
-          </div>
-        </form>
+        />
       ) : state.workspace ? (
         <>
           <div className="shared-workspace-summary">

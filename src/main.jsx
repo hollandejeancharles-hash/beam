@@ -1422,7 +1422,7 @@ function App() {
         </Modal>
       )}
       {welcomeOpen && !publicMode && (
-        <Modal title="Bienvenue dans Beam" close={() => setWelcomeOpen(false)}>
+        <Modal title="Bienvenue dans Beam" className="welcome-screen">
           <Welcome
             api={api}
             profile={profile}

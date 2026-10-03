@@ -5167,3 +5167,322 @@ html.native-capture,
   padding: 10px 0;
   flex-wrap: wrap;
 }
+
+/* First launch: the supplied Mercury direction, scoped to Beam's account flow. */
+.modal.welcome-screen {
+  width: 100vw;
+  max-width: none;
+  height: 100dvh;
+  max-height: none;
+  border: 0;
+  border-radius: 0;
+  padding: 0;
+  background: #0b0c10;
+}
+.welcome-screen > .modal-header {
+  display: none;
+}
+.welcome-screen > .welcome-flow {
+  width: min(600px, 100%);
+  margin: 40px auto;
+  padding: 28px;
+}
+.beam-account {
+  position: relative;
+  min-height: 100dvh;
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+  isolation: isolate;
+  background: #0b0c10;
+  color: #f1f1f4;
+}
+.beam-mercury {
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  overflow: hidden;
+  pointer-events: none;
+  opacity: 0.35;
+}
+.beam-mercury span {
+  position: absolute;
+  width: calc(210px + var(--orb) * 27px);
+  aspect-ratio: 1;
+  left: calc(var(--orb) * 19% - 20%);
+  top: calc(10% + var(--orb) * 12%);
+  border-radius: 50%;
+  background: radial-gradient(
+    circle at 30% 25%,
+    #adb3c3,
+    #484b5e 50%,
+    #16171f 75%
+  );
+  filter: blur(34px);
+  animation: beam-mercury-float 24s ease-in-out infinite alternate;
+  animation-delay: calc(var(--orb) * -4s);
+}
+@keyframes beam-mercury-float {
+  from {
+    transform: translate(-40px, -70px) scale(0.9);
+  }
+  to {
+    transform: translate(65px, 90px) scale(1.2);
+  }
+}
+.beam-account-card {
+  width: min(460px, 100%);
+  padding: 35px 32px;
+}
+.beam-account-brand {
+  font-size: 25px;
+  letter-spacing: -3px;
+  color: #b7b2ee;
+  margin-bottom: 36px;
+}
+.beam-account-brand span {
+  margin-left: 10px;
+  font-size: 27px;
+  font-weight: 650;
+  letter-spacing: -1.4px;
+  color: #efeff4;
+}
+.beam-account-kicker {
+  font-size: 10px;
+  letter-spacing: 2px;
+  color: #9394a2;
+  margin: 0 0 15px;
+}
+.beam-account header h1 {
+  font-size: clamp(32px, 4vw, 43px);
+  line-height: 1.08;
+  letter-spacing: -1.7px;
+  margin: 0 0 18px;
+  font-weight: 600;
+}
+.beam-account header > p:last-child {
+  color: #9c9eac;
+  font-size: 14px;
+  line-height: 1.6;
+  margin-bottom: 25px;
+}
+.beam-account form {
+  display: grid;
+  gap: 18px;
+}
+.beam-account label {
+  display: block;
+  font-size: 12px;
+  color: #b6b6c3;
+}
+.beam-account input {
+  display: block;
+  width: 100%;
+  margin-top: 5px;
+  padding: 10px 0;
+  background: transparent;
+  border: 0;
+  border-bottom: 1px solid #42434d;
+  border-radius: 0;
+  font-size: 15px;
+  color: #f0f0f5;
+  box-shadow: none;
+  transition: border-color 0.2s;
+}
+.beam-account input:focus {
+  outline: 0;
+  border-color: #bcb7f4;
+  box-shadow: 0 1px #bcb7f4;
+}
+.beam-account input::placeholder {
+  color: #757784;
+}
+.beam-password {
+  position: relative;
+}
+.beam-password input {
+  padding-right: 68px;
+}
+.beam-password button {
+  position: absolute;
+  right: 0;
+  top: 11px;
+  color: #b6b6c3;
+  font-size: 11px;
+}
+.beam-account-submit {
+  width: 100%;
+  margin-top: 8px;
+  min-height: 48px;
+  border-radius: 10px;
+  background: #e6e4f6;
+  color: #181721;
+  padding: 12px 18px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-weight: 600;
+  transition:
+    background 0.2s,
+    box-shadow 0.2s;
+}
+.beam-account-submit:hover {
+  background: #faf9ff;
+  box-shadow: 0 0 25px #b9b4fa20;
+}
+.beam-account button:disabled {
+  opacity: 0.5;
+  cursor: wait;
+}
+.beam-account button:focus-visible {
+  outline: 2px solid #bcb7f4;
+  outline-offset: 4px;
+}
+.beam-account-switch {
+  margin: 0;
+  text-align: center;
+  font-size: 12px;
+  color: #9799a7;
+}
+.beam-account-switch button {
+  color: #ecebf3;
+  margin-left: 5px;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+.beam-account-local {
+  display: block;
+  margin: 25px auto 0;
+  font-size: 12px;
+  color: #c0bfce;
+}
+.beam-account footer {
+  margin-top: 25px;
+  text-align: center;
+  font-size: 11px;
+  line-height: 1.7;
+  color: #868896;
+}
+.beam-account-notice,
+.beam-account-error {
+  font-size: 13px;
+  line-height: 1.6;
+  border: 1px solid #42434d;
+  border-radius: 10px;
+  padding: 14px;
+  margin-bottom: 20px;
+  background: #181922;
+}
+.beam-account-error {
+  color: #f2b1b1;
+  border-color: #713d47;
+}
+.beam-account-compact {
+  min-height: 0;
+  background: transparent;
+}
+.beam-account-compact .beam-account-card {
+  padding: 18px 0;
+}
+.beam-account-compact .beam-account-brand {
+  display: none;
+}
+.beam-account-compact header h1 {
+  font-size: 28px;
+}
+@media (prefers-reduced-motion: reduce) {
+  .beam-mercury span {
+    animation: none;
+  }
+}
+@media (max-width: 480px) {
+  .beam-account-card {
+    padding: 26px 24px;
+  }
+  .beam-account-brand {
+    margin-bottom: 24px;
+  }
+}
+.welcome-screen .beam-account-card {
+  padding: 24px 32px;
+}
+.welcome-screen .beam-account-brand {
+  margin-bottom: 24px;
+}
+.modal .beam-account form {
+  margin: 0;
+}
+.modal .beam-account form > label {
+  margin: 0;
+  gap: 0;
+}
+.modal .beam-account input {
+  padding: 9px 0;
+  border: 0;
+  border-bottom: 1px solid #42434d;
+  border-radius: 0;
+  background: transparent;
+}
+.modal .beam-account input:focus {
+  border-color: #bcb7f4;
+}
+.modal .beam-account .beam-password input {
+  padding-right: 68px;
+}
+.modal .beam-account .beam-password button,
+.modal .beam-account-switch button,
+.modal .beam-account-local {
+  background: transparent;
+  border: 0;
+  padding: 0;
+  border-radius: 0;
+}
+.modal .beam-account .beam-password button {
+  top: 9px;
+}
+.modal .beam-account-submit {
+  border: 0;
+}
+.welcome-screen .beam-account footer {
+  margin-top: 18px;
+}
+@media (max-height: 780px) {
+  .welcome-screen .beam-account-brand {
+    margin-bottom: 18px;
+  }
+  .welcome-screen .beam-account header > p:last-child {
+    margin-bottom: 18px;
+  }
+  .welcome-screen .beam-account form {
+    gap: 12px;
+  }
+  .welcome-screen .beam-account-local {
+    margin-top: 18px;
+  }
+}
+.beam-account-brand {
+  display: flex;
+  align-items: center;
+}
+.beam-account-brand svg {
+  width: 32px;
+  height: 32px;
+}
+.beam-account-brand:hover svg {
+  animation: beam-access-mark 0.7s ease-out;
+}
+@keyframes beam-access-mark {
+  50% {
+    filter: drop-shadow(0 0 8px #bcb7f4);
+    transform: translateX(3px);
+  }
+}
+.modal .beam-account footer {
+  padding: 0;
+  border: 0;
+}
+@media (prefers-reduced-motion: reduce) {
+  .beam-account-brand:hover svg {
+    animation: none;
+  }
+}

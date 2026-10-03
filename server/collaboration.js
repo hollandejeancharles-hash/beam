@@ -262,14 +262,17 @@ export function createCollaboration(store, clientFactory = createClient) {
       if (action === "signup" || action === "login") {
         if (
           typeof b.email !== "string" ||
+          b.email.length > 180 ||
+          !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(b.email.trim()) ||
           typeof b.password !== "string" ||
-          b.password.length < 8
+          b.password.length < 8 ||
+          b.password.length > 128
         )
           throw Error("E-mail et mot de passe (8 caractères minimum) requis.");
         const result = check(
           await client.auth[
             action === "signup" ? "signUp" : "signInWithPassword"
-          ]({ email: b.email, password: b.password }),
+          ]({ email: b.email.trim(), password: b.password }),
         );
         session = result.session;
         put("beam_shared_session", session);

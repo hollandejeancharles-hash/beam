@@ -19,13 +19,21 @@ function fixture(role = "owner") {
   const store = createStore(":memory:");
   const id = store.save(item);
   const remote = { items: cleanItems(store.list()), revision: 0 };
+  const authCalls = [];
   let session = { user: { id: "user", email: "team@example.test" } };
   const fake = {
     auth: {
       onAuthStateChange() {},
       getSession: async () => ({ data: { session } }),
       setSession: async () => ({ data: { session } }),
-      signInWithPassword: async () => ({ data: { session } }),
+      signInWithPassword: async (values) => {
+        authCalls.push(values);
+        return { data: { session } };
+      },
+      signUp: async (values) => {
+        authCalls.push(values);
+        return { data: { session: null } };
+      },
       stopAutoRefresh() {},
     },
     from(table) {
@@ -72,7 +80,7 @@ function fixture(role = "owner") {
     removeChannel: async () => {},
   };
   const c = createCollaboration(store, () => fake);
-  return { store, id, remote, c };
+  return { store, id, remote, c, authCalls };
 }
 async function connect(f) {
   await f.c.settings("login", {
@@ -85,14 +93,12 @@ test("Only roadmap fields are shared, never arbitrary metadata or note content",
   const s = createStore(":memory:");
   s.save(item);
   const rows = cleanItems(
-    s
-      .list()
-      .map((i) => ({
-        ...i,
-        token: "secret",
-        notes: "private note",
-        _revision: 42,
-      })),
+    s.list().map((i) => ({
+      ...i,
+      token: "secret",
+      notes: "private note",
+      _revision: 42,
+    })),
   );
   assert.equal(rows[0].token, undefined);
   assert.equal(rows[0].notes, undefined);
@@ -181,4 +187,32 @@ test("Failed snapshot import rolls back instead of emptying the local roadmap", 
   assert.equal(f.store.list()[0].title, "Feature");
   void f.c.close();
   f.store.db.close();
+});
+
+test("Account creation requests confirmation and normalizes email without retaining the password", async () => {
+  const f = fixture();
+  try {
+    const result = await f.c.settings("signup", {
+      email: " team@example.test ",
+      password: "password123",
+    });
+    assert.equal(result.confirmationRequired, true);
+    assert.equal(result.signedIn, false);
+    assert.equal(f.authCalls[0].email, "team@example.test");
+    const metadata = JSON.stringify(
+      f.store.db.prepare("SELECT * FROM metadata").all(),
+    );
+    assert.equal(metadata.includes("password123"), false);
+    for (const values of [
+      { email: "bad", password: "password123" },
+      { email: "team@example.test", password: "short" },
+      { email: "team@example.test", password: "x".repeat(129) },
+    ]) {
+      await assert.rejects(f.c.settings("signup", values), /requis/);
+    }
+    assert.equal(f.authCalls.length, 1);
+  } finally {
+    await f.c.close();
+    f.store.db.close();
+  }
 });
