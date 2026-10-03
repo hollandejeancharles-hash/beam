@@ -1,3 +1,4 @@
+import AccountAccess from "./components/ui/neural-access-login";
 import WorkspaceSettings from "./components/WorkspaceSettings";
 import Welcome from "./components/Welcome";
 import TeamActivity, { TeamPresence } from "./components/Team";
@@ -136,7 +137,9 @@ function App() {
       photo: null,
     }),
     [workspaceOpen, setWorkspaceOpen] = useState(false),
+    [workspaceSection, setWorkspaceSection] = useState("general"),
     [profileOpen, setProfileOpen] = useState(false),
+    [accountOpen, setAccountOpen] = useState(false),
     [key, setKey] = useState(sessionStorage.getItem("beam_key") || ""),
     [sort, setSort] = useState("manual"),
     [kanbanSaving, setKanbanSaving] = useState(false),
@@ -1441,6 +1444,7 @@ function App() {
         >
           <WorkspaceSettings
             product={product}
+            initialSection={workspaceSection}
             profile={profile}
             api={api}
             onSave={(p) => {
@@ -1450,9 +1454,34 @@ function App() {
             onClose={() => setWorkspaceOpen(false)}
             onChange={refresh}
             onRestore={refreshAssistant}
+            onAccount={() => {
+              setWorkspaceOpen(false);
+              setAccountOpen(true);
+            }}
             onWelcome={() => {
               setWorkspaceOpen(false);
               setWelcomeOpen(true);
+            }}
+          />
+        </Modal>
+      )}
+      {accountOpen && !publicMode && (
+        <Modal
+          title="Compte Beam"
+          className="beam-account-dialog"
+          close={() => setAccountOpen(false)}
+        >
+          <AccountAccess
+            initialMode="login"
+            compact
+            api={api}
+            profile={profile}
+            onProfile={setProfile}
+            onContinue={() => {
+              setAccountOpen(false);
+              setWorkspaceSection("team");
+              setWorkspaceOpen(true);
+              void refresh();
             }}
           />
         </Modal>
@@ -1462,6 +1491,10 @@ function App() {
           <Profile
             profile={profile}
             api={api}
+            onAccount={() => {
+              setProfileOpen(false);
+              setAccountOpen(true);
+            }}
             onSave={(p) => {
               setProfile(p);
               setToast("Profil mis à jour");

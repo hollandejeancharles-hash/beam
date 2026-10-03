@@ -17,8 +17,8 @@ const sections = [
     id: "team",
     label: "Équipe",
     icon: Integration,
-    title: "Compte et collaboration",
-    description: "Connectez-vous et choisissez la roadmap à partager.",
+    title: "Espace partagé",
+    description: "Une roadmap commune pour avancer en équipe.",
   },
   {
     id: "assistant",
@@ -44,11 +44,26 @@ export default function WorkspaceSettings({
   onChange,
   onRestore,
   onWelcome,
+  onAccount,
+  initialSection = "general",
 }) {
-  const [active, setActive] = useState("general");
+  const [active, setActive] = useState(initialSection);
   const section = sections.find((s) => s.id === active);
   return (
     <div className="workspace-settings-shell">
+      <div className="workspace-settings-identity">
+        <span className="workspace-identity-image">
+          {product.image ? (
+            <img src={product.image} alt="" />
+          ) : (
+            product.name.slice(0, 1)
+          )}
+        </span>
+        <div>
+          <strong>{product.name}</strong>
+          <span>Réglages du produit</span>
+        </div>
+      </div>
       <nav
         className="workspace-settings-nav"
         aria-label="Sections des réglages"
@@ -80,7 +95,12 @@ export default function WorkspaceSettings({
           />
         </div>
         <div hidden={active !== "team"}>
-          <Collaboration api={api} profile={profile} onChange={onChange} />
+          <Collaboration
+            api={api}
+            profile={profile}
+            onChange={onChange}
+            onAccount={onAccount}
+          />
         </div>
         <div hidden={active !== "assistant"}>
           <LocalAISetup api={api} showReady />

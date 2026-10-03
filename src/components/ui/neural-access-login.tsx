@@ -8,8 +8,9 @@ export default function AccountAccess({
   onContinue,
   onLocal,
   compact = false,
+  initialMode = "signup",
 }) {
-  const [mode, setMode] = useState("signup");
+  const [mode, setMode] = useState(initialMode);
   const [name, setName] = useState(profile?.name || "");
   const [email, setEmail] = useState(profile?.email || "");
   const [password, setPassword] = useState("");

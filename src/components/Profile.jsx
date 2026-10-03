@@ -14,6 +14,7 @@ export default function Profile({
   onClose,
   saveLabel = "Enregistrer",
   cancelLabel = "Annuler",
+  onAccount,
 }) {
   const [draft, setDraft] = useState({ ...profile }),
     [busy, setBusy] = useState(false),
@@ -151,6 +152,15 @@ export default function Profile({
           {busy ? "Enregistrement…" : saveLabel}
         </button>
       </div>
+      {onAccount && (
+        <button
+          type="button"
+          className="profile-account-link"
+          onClick={onAccount}
+        >
+          Compte Beam <span>Connexion et collaboration →</span>
+        </button>
+      )}
     </form>
   );
 }

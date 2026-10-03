@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from "react";
 import AccountAccess from "./ui/neural-access-login";
-export default function Collaboration({ api, profile, onChange }) {
+export default function Collaboration({ api, profile, onChange, onAccount }) {
   const [state, setState] = useState(null),
     [error, setError] = useState(""),
     [message, setMessage] = useState(""),
@@ -89,15 +89,38 @@ export default function Collaboration({ api, profile, onChange }) {
           </button>
         </form>
       ) : !state.signedIn ? (
-        <AccountAccess
-          compact
-          api={api}
-          profile={profile}
-          onContinue={async () => {
-            setState(await api("admin/collaboration"));
-            onChange?.();
-          }}
-        />
+        onAccount ? (
+          <div className="workspace-team-connect">
+            <span className="workspace-section-label">
+              AUCUN ESPACE PARTAGÉ
+            </span>
+            <h4>Votre équipe, sur la même roadmap.</h4>
+            <p>
+              Connectez votre compte Beam pour créer un espace ou rejoindre
+              celui de vos collègues.
+            </p>
+            <button
+              type="button"
+              className="button primary"
+              onClick={onAccount}
+            >
+              Connecter mon compte <span aria-hidden="true">→</span>
+            </button>
+            <small>
+              Vous travaillez actuellement sur la roadmap locale de ce Mac.
+            </small>
+          </div>
+        ) : (
+          <AccountAccess
+            compact
+            api={api}
+            profile={profile}
+            onContinue={async () => {
+              setState(await api("admin/collaboration"));
+              onChange?.();
+            }}
+          />
+        )
       ) : state.workspace ? (
         <>
           <div className="shared-workspace-summary">

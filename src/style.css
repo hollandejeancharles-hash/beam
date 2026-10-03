@@ -5622,3 +5622,233 @@ html.native-capture,
   margin: 0;
   min-width: 0;
 }
+
+/* Product settings use a quiet rail instead of a generic segmented control. */
+.side-panel.workspace-settings-panel {
+  width: 700px;
+  padding: 0;
+  background: #17181e;
+}
+.workspace-settings-panel > .modal-header {
+  position: sticky;
+  top: 0;
+  margin: 0;
+  padding: 20px 26px;
+  background: #17181e;
+  border-color: #ffffff0b;
+}
+.workspace-settings-shell {
+  display: grid;
+  grid-template-columns: 150px minmax(0, 1fr);
+}
+.workspace-settings-identity {
+  grid-column: 1 / -1;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: 0 26px;
+  padding: 26px 0;
+  border-bottom: 1px solid #ffffff0b;
+}
+.workspace-identity-image {
+  display: grid;
+  place-items: center;
+  width: 42px;
+  height: 42px;
+  flex: 0 0 42px;
+  border-radius: 11px;
+  background: #292734;
+  color: #d9d5f2;
+  font-size: 20px;
+}
+.workspace-identity-image img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  border-radius: inherit;
+}
+.workspace-settings-identity strong {
+  font-size: 15px;
+  display: block;
+}
+.workspace-settings-identity div > span {
+  display: block;
+  margin-top: 4px;
+  color: var(--muted);
+  font-size: 11px;
+}
+.workspace-settings-panel .workspace-settings-nav {
+  display: flex;
+  flex-direction: column;
+  align-self: start;
+  gap: 4px;
+  border: 0;
+  border-radius: 0;
+  padding: 24px 12px 24px 16px;
+  margin: 0;
+  background: transparent;
+}
+.workspace-settings-nav button {
+  justify-content: flex-start;
+  padding: 10px;
+  border-radius: 6px;
+  font-size: 12px;
+}
+.workspace-settings-nav button.active {
+  background: #ffffff06;
+  color: #d6d2ec;
+  box-shadow: inset 2px 0 #9991cf;
+}
+.workspace-settings-content {
+  min-width: 0;
+  padding: 28px 26px 32px 22px;
+  min-height: calc(100dvh - 168px);
+  border-left: 1px solid #ffffff08;
+}
+.workspace-settings-heading h3 {
+  font-size: 17px;
+  font-weight: 550;
+  letter-spacing: -0.35px;
+}
+.workspace-settings-heading p {
+  font-size: 12px;
+}
+.workspace-settings-panel .user-profile-photo {
+  padding: 16px;
+  background: #ffffff02;
+  border: 1px solid #ffffff08;
+  border-radius: 8px;
+  gap: 16px;
+}
+.workspace-settings-panel .user-profile-photo > .avatar {
+  width: 48px;
+  height: 48px;
+  border-radius: 10px;
+}
+.workspace-settings-panel .user-profile-photo > div {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 12px;
+}
+.workspace-settings-panel .user-profile-photo small {
+  flex-basis: 100%;
+  font-size: 10px;
+}
+.workspace-settings-panel .user-profile-photo .button {
+  font-size: 11px;
+  padding: 7px 10px;
+  min-height: 0;
+}
+.workspace-settings-panel .user-profile-photo .text-button {
+  font-size: 11px;
+}
+.workspace-settings-panel .user-profile-form > label {
+  font-size: 11px;
+  color: #b3b4c0;
+}
+.workspace-settings-panel .user-profile-form > label input {
+  margin-top: 8px;
+  background: #111218;
+  border-color: #ffffff0c;
+  font-size: 13px;
+}
+.workspace-settings-panel .modal-actions {
+  margin-top: 26px;
+  padding-top: 18px;
+  border-color: #ffffff08;
+}
+.workspace-settings-panel .modal-actions .button {
+  font-size: 12px;
+  padding: 8px 13px;
+}
+.workspace-settings-panel .collaboration-settings > .modal-copy {
+  margin: 0 0 22px;
+  font-size: 12px;
+  line-height: 1.7;
+  color: #999baa;
+}
+.workspace-team-connect {
+  padding: 22px 0;
+  border-top: 1px solid #ffffff0b;
+}
+.workspace-section-label {
+  font-size: 9px;
+  letter-spacing: 1.2px;
+  color: #797b8b;
+}
+.workspace-team-connect h4 {
+  margin: 14px 0 10px;
+  font-size: 15px;
+  font-weight: 500;
+}
+.workspace-team-connect p {
+  color: #999baa;
+  font-size: 12px;
+  line-height: 1.8;
+  margin: 0 0 22px;
+}
+.workspace-team-connect .button {
+  font-size: 12px;
+  justify-content: space-between;
+  gap: 22px;
+  padding: 9px 12px;
+}
+.workspace-team-connect small {
+  display: block;
+  margin-top: 18px;
+}
+.profile-account-link {
+  width: 100%;
+  margin-top: 24px;
+  padding: 20px 0 0;
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  border-top: 1px solid var(--line);
+  font-size: 13px;
+}
+.profile-account-link span {
+  font-size: 11px;
+  color: var(--muted);
+}
+.beam-account-dialog {
+  width: 440px;
+}
+.beam-account-dialog .beam-account-card {
+  width: 100%;
+  padding: 0;
+}
+.beam-account-dialog .beam-account header {
+  margin-top: 12px;
+}
+@media (max-width: 600px) {
+  .side-panel.workspace-settings-panel {
+    width: 100%;
+  }
+  .workspace-settings-shell {
+    grid-template-columns: 1fr;
+  }
+  .workspace-settings-panel .workspace-settings-nav {
+    flex-direction: row;
+    padding: 14px 20px 0;
+  }
+  .workspace-settings-nav button {
+    flex: 1;
+    flex-direction: column;
+    justify-content: center;
+  }
+  .workspace-settings-content {
+    border: 0;
+    padding: 26px;
+  }
+}
+.workspace-settings-panel .collaboration-settings > .modal-copy:first-of-type {
+  display: none;
+}
+.beam-account-dialog .beam-account-kicker {
+  display: none;
+}
+.beam-account-dialog .beam-account header h1 {
+  font-size: 24px;
+}
