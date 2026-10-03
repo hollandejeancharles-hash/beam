@@ -5618,3 +5618,7 @@ html.native-capture,
   margin: 0 0 24px;
   padding: 0;
 }
+.beam-account .beam-account-card {
+  margin: 0;
+  min-width: 0;
+}
