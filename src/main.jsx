@@ -1,11 +1,8 @@
+import WorkspaceSettings from "./components/WorkspaceSettings";
 import Welcome from "./components/Welcome";
-import Maintenance from "./components/Maintenance";
 import TeamActivity, { TeamPresence } from "./components/Team";
-import LocalAISetup from "./components/LocalAISetup";
-import Collaboration from "./components/Collaboration";
 import MenuBarCapture from "./components/MenuBarCapture";
 import DecisionMemory from "./components/DecisionMemory";
-import Workspace from "./components/Workspace";
 import { includesSearch } from "../shared/search";
 import Publications from "./components/Publications";
 import AIProgress, { AIActivityProvider } from "./components/AIProgress";
@@ -1438,27 +1435,25 @@ function App() {
       {workspaceOpen && !publicMode && (
         <Modal
           title="Réglages du workspace"
+          className="workspace-settings-panel"
           side
           close={() => setWorkspaceOpen(false)}
         >
-          <Workspace
+          <WorkspaceSettings
             product={product}
+            profile={profile}
             api={api}
             onSave={(p) => {
               setProduct(p);
               setToast("Workspace mis à jour");
             }}
             onClose={() => setWorkspaceOpen(false)}
-          />
-          <Collaboration api={api} profile={profile} onChange={refresh} />
-          <LocalAISetup api={api} />
-          <Maintenance
-            api={api}
+            onChange={refresh}
+            onRestore={refreshAssistant}
             onWelcome={() => {
               setWorkspaceOpen(false);
               setWelcomeOpen(true);
             }}
-            onRestore={refreshAssistant}
           />
         </Modal>
       )}
@@ -2048,7 +2043,7 @@ function Modal({ title, close, children, side = false, className = "" }) {
     const root = document.querySelector(".modal");
     const focusables = () =>
       [...root.querySelectorAll("button,input,textarea,select,a[href]")].filter(
-        (el) => !el.disabled,
+        (el) => !el.disabled && el.getClientRects().length > 0,
       );
     (root.querySelector("[role=combobox]") || focusables()[0])?.focus();
     const handle = (e) => {

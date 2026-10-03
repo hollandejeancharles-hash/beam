@@ -5486,3 +5486,135 @@ html.native-capture,
     animation: none;
   }
 }
+
+/* Workspace settings: one purpose per section, no overlapping action bars. */
+.workspace-settings-panel .workspace-settings-nav {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 4px;
+  padding: 5px;
+  margin: 4px 0 28px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: #15161d;
+}
+.workspace-settings-nav button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  padding: 10px 6px;
+  border-radius: 6px;
+  font-size: 12px;
+  color: var(--muted);
+}
+.workspace-settings-nav button.active {
+  background: #2a2936;
+  color: #efedf9;
+}
+.workspace-settings-nav button:focus-visible {
+  outline: 2px solid #aaa4ef;
+  outline-offset: 2px;
+}
+.workspace-settings-heading {
+  margin: 0 0 24px;
+}
+.workspace-settings-heading h3 {
+  font-size: 18px;
+  margin: 0 0 8px;
+}
+.workspace-settings-heading p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.6;
+}
+.workspace-settings-panel [hidden] {
+  display: none !important;
+}
+.workspace-settings-panel .collaboration-settings {
+  border: 0;
+  padding: 0;
+  margin: 0;
+}
+.workspace-settings-panel .collaboration-settings > h3 {
+  display: none;
+}
+.workspace-settings-panel .user-profile-form > .assistant-help {
+  margin: 0 0 24px;
+  font-size: 12px;
+}
+.workspace-settings-panel .user-profile-photo {
+  margin-bottom: 26px;
+  align-items: center;
+}
+.workspace-settings-panel .user-profile-photo .avatar {
+  width: 64px;
+  height: 64px;
+  flex-shrink: 0;
+}
+.workspace-settings-panel .user-profile-form > label {
+  margin-top: 20px;
+}
+.workspace-settings-panel .modal-actions {
+  position: static;
+  margin-top: 28px;
+  padding: 20px 0 0;
+  border-top: 1px solid var(--line);
+  background: transparent;
+}
+.workspace-settings-panel .beam-account-card {
+  width: 100%;
+  padding: 0;
+}
+.workspace-settings-panel .beam-account-kicker,
+.workspace-settings-panel .beam-account header {
+  display: none;
+}
+.workspace-settings-panel .beam-account footer {
+  text-align: left;
+  margin-top: 24px;
+}
+.workspace-settings-panel .beam-account form {
+  gap: 18px;
+}
+.workspace-settings-panel .settings-row {
+  flex-wrap: wrap;
+  gap: 14px;
+}
+.workspace-settings-panel .collaboration-settings form {
+  padding: 18px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  margin: 20px 0;
+}
+.workspace-settings-panel .beam-account form {
+  padding: 0;
+  border: 0;
+  margin: 0;
+}
+.workspace-settings-panel .collaboration-settings form small {
+  display: block;
+  margin: 12px 0;
+}
+.workspace-settings-panel .shared-checkbox {
+  align-items: flex-start;
+}
+.workspace-settings-panel .shared-checkbox input {
+  flex: 0 0 16px;
+  margin: 2px 0 0;
+}
+@media (max-width: 480px) {
+  .workspace-settings-nav button {
+    flex-direction: column;
+    font-size: 11px;
+    gap: 6px;
+  }
+}
+.workspace-settings-panel .user-profile-form > .assistant-help {
+  display: none;
+}
+.workspace-settings-panel .user-profile-photo {
+  margin: 0 0 24px;
+  padding: 0;
+}
