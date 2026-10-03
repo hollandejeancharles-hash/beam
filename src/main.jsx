@@ -693,6 +693,7 @@ function App() {
               <button
                 className="profile-trigger"
                 aria-label="Ouvrir mon profil"
+                title={sidebarCollapsed ? (profile.name || "Mon profil") : undefined}
                 onClick={() => setProfileOpen(true)}
               >
                 <span className="avatar">

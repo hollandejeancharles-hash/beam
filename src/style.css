@@ -2601,7 +2601,6 @@ footer b {
 .sidebar-collapsed .brand-word,
 .sidebar-collapsed .workspace,
 .sidebar-collapsed .nav-caption,
-.sidebar-collapsed .sidebar-bottom,
 .sidebar-collapsed .sidebar-projects {
   display: none;
 }
@@ -6511,3 +6510,10 @@ main.menubar-capture {margin-left:0;width:100%;}
 
 .workspace-settings-shell {grid-template-columns:185px minmax(0,1fr);}
 @media(max-width:600px) {.workspace-settings-shell {grid-template-columns:1fr;}}
+
+.sidebar-collapsed .sidebar-bottom {padding-top:20px;}
+.sidebar-collapsed .profile {justify-content:center;padding:14px 0;}
+.sidebar-collapsed .profile-trigger {flex:0 0 40px;height:40px;justify-content:center;margin:0;border-radius:10px;}
+.sidebar-collapsed .profile-trigger:hover {background:#ffffff07;}
+.sidebar-collapsed .profile>.icon-button {display:none;}
+.sidebar-collapsed .profile-trigger:focus-visible {outline:2px solid #b9b0ec;outline-offset:2px;}
