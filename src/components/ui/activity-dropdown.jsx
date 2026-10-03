@@ -47,7 +47,7 @@ export function ActivityDropdown({ api, workspaceId, onNavigate }) {
         .then((data) => {
           if (alive) {
             setRows(data.notifications);
-            setError("");
+            setError(data.warning || "");
           }
         })
         .catch(() => {
