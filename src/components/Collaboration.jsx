@@ -1,6 +1,12 @@
 import React, { useEffect, useState } from "react";
 import AccountAccess from "./ui/neural-access-login";
-export default function Collaboration({ api, profile, onChange, onAccount }) {
+export default function Collaboration({
+  api,
+  profile,
+  onChange,
+  onAccount,
+  product,
+}) {
   const [state, setState] = useState(null),
     [error, setError] = useState(""),
     [message, setMessage] = useState(""),
@@ -9,9 +15,7 @@ export default function Collaboration({ api, profile, onChange, onAccount }) {
     [invite, setInvite] = useState("");
   const [url, setUrl] = useState("https://auerxzzdzhgawkcvqeiq.supabase.co"),
     [key, setKey] = useState(""),
-    [name, setName] = useState("PULS"),
-    [code, setCode] = useState(""),
-    [share, setShare] = useState(false);
+    [code, setCode] = useState("");
   useEffect(() => {
     api("admin/collaboration")
       .then(setState)
@@ -29,6 +33,12 @@ export default function Collaboration({ api, profile, onChange, onAccount }) {
       if (action === "list") setSpaces(r);
       else if (action === "invite") setInvite(r.code);
       else {
+        if (r.localWorkspaceId) {
+          const params = new URLSearchParams(location.search);
+          params.set("workspace", r.localWorkspaceId);
+          location.assign(location.pathname + "?" + params + location.hash);
+          return;
+        }
         setState(r);
         onChange?.();
         if (action === "team-profile")
@@ -46,7 +56,7 @@ export default function Collaboration({ api, profile, onChange, onAccount }) {
   }
   return (
     <section className="collaboration-settings">
-      <h3>Espace partagé</h3>
+      <h3>Collaboration</h3>
       <p className="modal-copy">
         Collaborez sur la même roadmap. Vos notes, documents et analyses restent
         sur ce Mac.
@@ -91,13 +101,11 @@ export default function Collaboration({ api, profile, onChange, onAccount }) {
       ) : !state.signedIn ? (
         onAccount ? (
           <div className="workspace-team-connect">
-            <span className="workspace-section-label">
-              AUCUN ESPACE PARTAGÉ
-            </span>
+            <span className="workspace-section-label">WORKSPACE PERSONNEL</span>
             <h4>Votre équipe, sur la même roadmap.</h4>
             <p>
-              Connectez votre compte Beam pour créer un espace ou rejoindre
-              celui de vos collègues.
+              Connectez votre compte Beam pour partager ce workspace ou
+              rejoindre une équipe dans un autre workspace.
             </p>
             <button
               type="button"
@@ -124,7 +132,7 @@ export default function Collaboration({ api, profile, onChange, onAccount }) {
       ) : state.workspace ? (
         <>
           <div className="shared-workspace-summary">
-            <strong>{state.workspace.name}</strong>
+            <strong>{product.name}</strong>
             <span>
               {state.workspace.role === "owner"
                 ? "Administrateur"
@@ -140,28 +148,9 @@ export default function Collaboration({ api, profile, onChange, onAccount }) {
             les modifications sont bloquées pour éviter les conflits.
           </p>
           <p className="modal-copy">
-            Partagez votre nom et votre photo pour que l’équipe reconnaisse vos
-            commentaires et vos modifications. Votre e-mail de profil reste
-            local.
+            Votre nom et votre photo suivent votre profil Beam dans vos équipes.
+            Modifiez-les depuis « Mon profil ».
           </p>
-          <button
-            className="button"
-            disabled={busy || !profile?.name?.trim()}
-            onClick={() =>
-              action("team-profile", {
-                name: profile.name,
-                photo: profile.photo,
-              })
-            }
-          >
-            Partager mon profil avec l’équipe
-          </button>
-          {!profile?.name?.trim() && (
-            <small>
-              Renseignez votre nom dans « Mon profil » pour vous présenter à
-              l’équipe.
-            </small>
-          )}
           {state.workspace.role === "owner" && (
             <>
               <button
@@ -213,7 +202,7 @@ export default function Collaboration({ api, profile, onChange, onAccount }) {
             disabled={busy}
             onClick={() => action("disconnect")}
           >
-            Revenir à ma roadmap locale
+            Désactiver le partage de ce workspace
           </button>
         </>
       ) : (
@@ -222,32 +211,20 @@ export default function Collaboration({ api, profile, onChange, onAccount }) {
           <form
             onSubmit={(e) => {
               e.preventDefault();
-              action("create", { name, shareExisting: share });
+              action("create", { name: product.name, shareExisting: true });
             }}
           >
-            <label>
-              Nouvel espace
-              <input
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                maxLength={120}
-                required
-              />
-            </label>
-            <label className="shared-checkbox">
-              <input
-                type="checkbox"
-                checked={share}
-                onChange={(e) => setShare(e.target.checked)}
-              />
-              Partager les éléments de ma roadmap actuelle
-            </label>
+            <strong>Partager {product.name}</strong>
+            <p className="modal-copy">
+              Ce workspace garde son nom et ses éléments. Sa roadmap devient
+              commune à votre équipe.
+            </p>
             <small>
               Seuls les titres, descriptions et propriétés de la roadmap seront
               envoyés. Vos notes et documents restent privés.
             </small>
             <button className="button primary" disabled={busy}>
-              Créer l’espace partagé
+              Activer la collaboration
             </button>
           </form>
           <form
@@ -257,7 +234,7 @@ export default function Collaboration({ api, profile, onChange, onAccount }) {
             }}
           >
             <label>
-              Rejoindre avec une invitation
+              Rejoindre une équipe · nouveau workspace
               <input
                 value={code}
                 onChange={(e) => setCode(e.target.value.trim())}
@@ -274,7 +251,7 @@ export default function Collaboration({ api, profile, onChange, onAccount }) {
             disabled={busy}
             onClick={() => action("list")}
           >
-            Mes espaces
+            Retrouver mes workspaces partagés
           </button>
           {spaces.map((w) => (
             <button
@@ -286,13 +263,6 @@ export default function Collaboration({ api, profile, onChange, onAccount }) {
               {w.name}
             </button>
           ))}
-          <button
-            className="text-button"
-            disabled={busy}
-            onClick={() => action("logout")}
-          >
-            Se déconnecter
-          </button>
         </>
       )}
     </section>

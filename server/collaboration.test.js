@@ -19,7 +19,8 @@ function fixture(role = "owner") {
   const store = createStore(":memory:");
   const id = store.save(item);
   const remote = { items: cleanItems(store.list()), revision: 0 };
-  const authCalls = [];
+  const authCalls = [],
+    profileCalls = [];
   let session = { user: { id: "user", email: "team@example.test" } };
   const fake = {
     auth: {
@@ -33,6 +34,10 @@ function fixture(role = "owner") {
       signUp: async (values) => {
         authCalls.push(values);
         return { data: { session: null } };
+      },
+      signOut: async () => {
+        session = null;
+        return { data: {} };
       },
       stopAutoRefresh() {},
     },
@@ -59,6 +64,10 @@ function fixture(role = "owner") {
       };
     },
     rpc: async (name, b) => {
+      if (name === "beam_team_profile") {
+        profileCalls.push(b);
+        if (remote.failProfile) return { error: { message: "offline" } };
+      }
       if (name === "beam_save_roadmap") {
         if (b.p_revision !== remote.revision)
           return { error: { message: "BEAM_CONFLICT" } };
@@ -80,7 +89,7 @@ function fixture(role = "owner") {
     removeChannel: async () => {},
   };
   const c = createCollaboration(store, () => fake);
-  return { store, id, remote, c, authCalls };
+  return { store, id, remote, c, authCalls, profileCalls };
 }
 async function connect(f) {
   await f.c.settings("login", {
@@ -142,7 +151,7 @@ test("Reader cannot save, reorder or delete roadmap items", async () => {
     f.store.db.close();
   }
 });
-test("Saving updates both shared revision and local AI cache; leaving restores local roadmap", async () => {
+test("Saving updates both shared revision and local AI cache; disabling collaboration retains current roadmap", async () => {
   const f = fixture();
   try {
     await connect(f);
@@ -154,7 +163,7 @@ test("Saving updates both shared revision and local AI cache; leaving restores l
     assert.equal(f.remote.items[0].title, "Shared edit");
     assert.equal(f.c.state().workspace.revision, 1);
     await f.c.settings("disconnect");
-    assert.equal(f.store.list()[0].title, "Feature");
+    assert.equal(f.store.list()[0].title, "Shared edit");
     assert.equal(f.remote.items[0].title, "Shared edit");
   } finally {
     await f.c.close();
@@ -211,6 +220,48 @@ test("Account creation requests confirmation and normalizes email without retain
       await assert.rejects(f.c.settings("signup", values), /requis/);
     }
     assert.equal(f.authCalls.length, 1);
+  } finally {
+    await f.c.close();
+    f.store.db.close();
+  }
+});
+
+test("Personal identity syncs automatically, excludes contact email and retries after reconnection", async () => {
+  const f = fixture();
+  try {
+    await connect(f);
+    f.store.db
+      .prepare("INSERT OR REPLACE INTO metadata VALUES('user_profile',?)")
+      .run(
+        JSON.stringify({
+          name: "Jean",
+          photo: null,
+          email: "private@example.test",
+        }),
+      );
+    f.remote.failProfile = true;
+    await f.c.items("GET", "/api/admin/items");
+    assert.equal(f.profileCalls.length, 1);
+    assert.equal(Object.hasOwn(f.profileCalls[0], "email"), false);
+    f.remote.failProfile = false;
+    await f.c.items("GET", "/api/admin/items");
+    await f.c.items("GET", "/api/admin/items");
+    assert.equal(f.profileCalls.length, 2);
+    assert.equal(f.profileCalls[1].p_name, "Jean");
+  } finally {
+    await f.c.close();
+    f.store.db.close();
+  }
+});
+test("Logging out retains shared workspace and roadmap while marking it offline", async () => {
+  const f = fixture();
+  try {
+    await connect(f);
+    const state = await f.c.settings("logout");
+    assert.equal(state.signedIn, false);
+    assert.equal(state.connected, false);
+    assert.equal(state.workspace.id, "w");
+    assert.equal(f.store.list().length, 1);
   } finally {
     await f.c.close();
     f.store.db.close();

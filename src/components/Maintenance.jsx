@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { ArrowUpRight, FileText, RefreshCw } from "../icons";
-export default function Maintenance({ api, onRestore, onWelcome }) {
+export default function Maintenance({ product, api, onRestore, onWelcome }) {
   const [update, setUpdate] = useState(null),
     [error, setError] = useState(""),
     [busy, setBusy] = useState(false),
@@ -23,14 +23,14 @@ export default function Maintenance({ api, onRestore, onWelcome }) {
       .then(setUpdate)
       .catch(() => {});
   }, []);
-  async function download() {
-    const snapshot = await api("admin/backup");
+  async function download(all = false) {
+    const snapshot = await api(all ? "admin/backup/all" : "admin/backup");
     const url = URL.createObjectURL(
       new Blob([JSON.stringify(snapshot)], { type: "application/json" }),
     );
     const a = document.createElement("a");
     a.href = url;
-    a.download = `Beam-sauvegarde-${new Date().toISOString().slice(0, 10)}.json`;
+    a.download = `Beam-${all ? "tous-les-workspaces" : product.name.replace(/[^a-zA-Z0-9-]/g, "-")}-${new Date().toISOString().slice(0, 10)}.json`;
     a.click();
     setTimeout(() => URL.revokeObjectURL(url), 1000);
     setMessage(
@@ -76,18 +76,25 @@ export default function Maintenance({ api, onRestore, onWelcome }) {
       )}
       <h3>Vos sauvegardes</h3>
       <p className="modal-copy">
-        Roadmap, notes, pièces jointes et contexte produit. Les mots de passe,
-        sessions et clés de connexion sont exclus. La sauvegarde contient des
-        informations privées.
+        Le workspace « {product.name} » : roadmap, notes, pièces jointes et
+        contexte produit. Les mots de passe, sessions et clés de connexion sont
+        exclus. La sauvegarde contient des informations privées.
       </p>
       <div className="modal-actions">
         <button
           className="button"
           disabled={busy}
-          onClick={() => run(download)}
+          onClick={() => run(() => download())}
         >
           <FileText size={14} />
-          Exporter une sauvegarde
+          Exporter {product.name}
+        </button>
+        <button
+          className="button"
+          disabled={busy}
+          onClick={() => run(() => download(true))}
+        >
+          Exporter tous les workspaces
         </button>
         <label className="button attachment-picker">
           Importer une sauvegarde
@@ -124,9 +131,9 @@ export default function Maintenance({ api, onRestore, onWelcome }) {
             notes · {preview.counts.note_attachments || 0} pièces jointes
           </p>
           <p className="modal-copy">
-            Cette opération remplace les données locales. Une copie des données
-            actuelles sera conservée automatiquement sur ce Mac. Quittez votre
-            espace partagé avant de restaurer.
+            {preview.workspaceCount
+              ? `${preview.workspaceCount} workspaces seront ajoutés comme nouveaux espaces. Vos espaces actuels restent conservés. Votre profil actuel reste inchangé.`
+              : `Cette opération remplace seulement les données du workspace ${product.name}. Une copie précédente est conservée sur ce Mac. Désactivez la collaboration avant de restaurer.`}
           </p>
           {preview.sharedRoadmap && (
             <p className="modal-copy">
@@ -154,7 +161,10 @@ export default function Maintenance({ api, onRestore, onWelcome }) {
                     method: "POST",
                     body: JSON.stringify(file),
                   });
-                  setMessage(r.message + " Copie précédente : " + r.recovery);
+                  setMessage(
+                    r.message +
+                      (r.recovery ? " Copie précédente : " + r.recovery : ""),
+                  );
                   setPreview(null);
                   setFile(null);
                   await onRestore();

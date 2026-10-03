@@ -63,3 +63,17 @@ test("Concurrent analysis progress belongs only to its workspace, even with iden
     ),
   );
 });
+
+test("Preparing a joined workspace does not switch other windows; failed empty workspace can be rolled back", () => {
+  const dir = mkdtempSync(join(tmpdir(), "beam-pending-space-"));
+  const root = createStore(join(dir, "beam.sqlite"));
+  const spaces = createWorkspaces(root, join(dir, "beam.sqlite"));
+  const prepared = spaces.create({ name: "Joining team" }, { activate: false });
+  assert.equal(spaces.active(), "default");
+  assert.equal(prepared.workspaces.length, 2);
+  spaces.discardEmpty(prepared.createdWorkspaceId);
+  assert.equal(spaces.list().workspaces.length, 1);
+  assert.throws(() => spaces.discardEmpty("default"));
+  root.db.close();
+  rmSync(dir, { recursive: true, force: true });
+});

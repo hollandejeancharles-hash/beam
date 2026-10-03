@@ -1,3 +1,4 @@
+import { usePersistentDraft } from "./usePersistentDraft";
 import WorkspaceSwitcher from "./components/WorkspaceSwitcher";
 import AccountAccess from "./components/ui/neural-access-login";
 import WorkspaceSettings from "./components/WorkspaceSettings";
@@ -121,7 +122,10 @@ function App() {
     [priority, setPriority] = useState("all"),
     [filter, setFilter] = useState(false),
     [selected, setSelected] = useState(null),
-    [edit, setEdit] = useState(null),
+    [edit, setEdit] = usePersistentDraft(
+      publicMode ? "public-element" : "element",
+      null,
+    ),
     [share, setShare] = useState(false),
     [suggest, setSuggest] = useState(false),
     [suggestions, setSuggestions] = useState([]),
@@ -161,6 +165,9 @@ function App() {
     : basePublicPath +
       "?workspace=" +
       encodeURIComponent(workspaceIdRef.current || "default");
+  const localPreview = ["localhost", "127.0.0.1", "[::1]"].includes(
+    location.hostname,
+  );
   const [availableUpdate, setAvailableUpdate] = useState(null);
   const [welcomeOpen, setWelcomeOpen] = useState(false);
   const [sharedRevision, setSharedRevision] = useState(null);
@@ -176,6 +183,7 @@ function App() {
     ) {
       const body = options.body ? JSON.parse(options.body) : {};
       const revision =
+        body._revision ??
         (path.match(/^admin\/items\/[a-f0-9-]+$/)
           ? selected?._revision
           : null) ??
@@ -215,10 +223,18 @@ function App() {
   async function refresh() {
     try {
       setError("");
-      if (!publicMode && !workspaceIdRef.current) {
+      if (!publicMode) {
         const state = await api("admin/workspaces");
-        workspaceIdRef.current = state.active;
-        setWorkspaceList(state);
+        workspaceIdRef.current = workspaceIdRef.current || state.active;
+        state.active = workspaceIdRef.current;
+        const params = new URLSearchParams(location.search);
+        params.set("workspace", workspaceIdRef.current);
+        history.replaceState(
+          null,
+          "",
+          location.pathname + "?" + params + location.hash,
+        );
+        setWorkspaceList({ ...state, active: workspaceIdRef.current });
       }
       if (pagesMode) {
         const response = await fetch(import.meta.env.BASE_URL + "roadmap.json");
@@ -266,11 +282,8 @@ function App() {
   useEffect(() => {
     if (publicMode) return;
     const apply = (state) => {
-      if (workspaceIdRef.current && workspaceIdRef.current !== state.active) {
-        window.location.reload();
-        return;
-      }
-      workspaceIdRef.current = state.active;
+      if (!workspaceIdRef.current) workspaceIdRef.current = state.active;
+      state = { ...state, active: workspaceIdRef.current };
       setWorkspaceList(state);
     };
     if (!key) {
@@ -303,8 +316,15 @@ function App() {
     };
   }, []);
   useEffect(() => {
-    if (publicMode || pagesMode || key) return;
-    const events = new EventSource("/api/admin/collaboration/events");
+    if (publicMode || pagesMode || key || !workspaceList) return;
+    const events = new EventSource(
+      "/api/admin/collaboration/events?workspace=" +
+        encodeURIComponent(
+          workspaceIdRef.current ||
+            new URLSearchParams(location.search).get("workspace") ||
+            "default",
+        ),
+    );
     events.onmessage = (event) => {
       const state = JSON.parse(event.data);
       setSharedRevision(state.workspace?.revision ?? null);
@@ -312,7 +332,7 @@ function App() {
       if (state.workspace) void refresh();
     };
     return () => events.close();
-  }, [key]);
+  }, [key, workspaceList?.active]);
 
   useEffect(() => {
     if (publicMode) return;
@@ -495,7 +515,10 @@ function App() {
         <aside className="sidebar" aria-label="Menu latéral">
           <a
             className="brand"
-            href="/"
+            href={
+              "/?workspace=" +
+              encodeURIComponent(workspaceIdRef.current || "default")
+            }
             aria-label="Beam — accueil"
             onPointerEnter={(event) => {
               if (event.pointerType !== "touch")
@@ -692,7 +715,7 @@ function App() {
             </a>
           ) : (
             <div className="breadcrumbs">
-              Espace produit <ChevronRight size={13} />{" "}
+              {product.name} <ChevronRight size={13} />{" "}
               <span>
                 {page === "notes"
                   ? "Notes"
@@ -742,11 +765,11 @@ function App() {
                 : publicMode
                   ? "En direct de l’équipe"
                   : sharedConnection?.workspace
-                    ? sharedConnection.workspace.name +
+                    ? product.name +
                       (sharedConnection.connected
                         ? " · Partagé"
                         : " · Hors connexion")
-                    : "Espace produit"}
+                    : "Personnel · Sur ce Mac"}
             </span>
             {publicMode ? (
               <span className="powered">
@@ -755,7 +778,7 @@ function App() {
             ) : (
               <button className="button" onClick={() => setShare(true)}>
                 <Globe size={15} />
-                Partager la roadmap
+                Diffuser la roadmap
                 <ArrowUpRight size={14} />
               </button>
             )}
@@ -808,7 +831,8 @@ function App() {
             {!pagesMode &&
               page !== "integrations" &&
               page !== "notes" &&
-              page !== "publications" && (
+              page !== "publications" &&
+              (publicMode || page !== "gantt") && (
                 <button
                   className="button primary"
                   disabled={!publicMode && roadmapReadOnly}
@@ -877,16 +901,18 @@ function App() {
                 </div>
                 <div className="toolbar">
                   <div className="toolbar-left">
-                    <button
-                      className="search search-trigger"
-                      id="search"
-                      onClick={() => setCommandOpen(true)}
-                      aria-label="Rechercher un élément ou une commande"
-                    >
-                      <Search size={16} />
-                      <span>Rechercher un élément…</span>
-                      <kbd>⌘ K</kbd>
-                    </button>
+                    {publicMode && (
+                      <button
+                        className="search search-trigger"
+                        id="search"
+                        onClick={() => setCommandOpen(true)}
+                        aria-label="Rechercher un élément ou une commande"
+                      >
+                        <Search size={16} />
+                        <span>Rechercher un élément…</span>
+                        <kbd>⌘ K</kbd>
+                      </button>
+                    )}
                     <button
                       className={
                         "button filter-button " + (filter ? "selected" : "")
@@ -1535,7 +1561,11 @@ function App() {
             }}
             onSave={(p) => {
               setProfile(p);
-              setToast("Profil mis à jour");
+              setToast(
+                p.teamSyncPending
+                  ? "Profil enregistré · synchronisation avec l’équipe en attente"
+                  : "Profil mis à jour",
+              );
             }}
             onClose={() => setProfileOpen(false)}
           />
@@ -1967,17 +1997,20 @@ function App() {
         </Modal>
       )}
       {share && (
-        <Modal title="Partager la roadmap" close={() => setShare(false)}>
+        <Modal title="Diffuser la roadmap" close={() => setShare(false)}>
           <div className="share-illustration">
             <Globe size={38} />
             <span>Roadmap {product.name}</span>
           </div>
           <p className="modal-copy">
-            Un lien, toute votre roadmap. Vos utilisateurs découvrent les
-            évolutions publiques, votent et proposent leurs idées.
+            {localPreview
+              ? "Cette prévisualisation s’ouvre uniquement sur ce Mac. Elle ne constitue pas un lien à envoyer à vos utilisateurs."
+              : "Vos utilisateurs découvrent les évolutions publiques depuis cette adresse. Les éléments internes restent privés."}
           </p>
           <label>
-            Lien du portail public
+            {localPreview
+              ? "Adresse de prévisualisation locale"
+              : "Lien du portail public"}
             <div className="copy-field">
               <input readOnly value={location.origin + publicPath} />
               <button
@@ -1994,10 +2027,53 @@ function App() {
                 }}
               >
                 <Copy size={16} />
-                Copier
+                {localPreview ? "Copier l’adresse locale" : "Copier le lien"}
               </button>
             </div>
           </label>
+          {localPreview && (
+            <div className="share-publication-help">
+              <strong>Pour diffuser votre roadmap</strong>
+              <button
+                className="button"
+                onClick={async () => {
+                  try {
+                    const data = await api("admin/public-export");
+                    const url = URL.createObjectURL(
+                      new Blob([JSON.stringify(data, null, 2)], {
+                        type: "application/json",
+                      }),
+                    );
+                    const link = document.createElement("a");
+                    link.href = url;
+                    link.download = "beam-publication.json";
+                    link.click();
+                    setTimeout(() => URL.revokeObjectURL(url), 1000);
+                    setToast("Export public téléchargé");
+                  } catch (e) {
+                    setToast(e.message);
+                  }
+                }}
+              >
+                Exporter pour GitHub Pages <ArrowUpRight size={14} />
+              </button>
+              <p>
+                Exportez puis déposez le fichier beam-publication.json dans le
+                dossier public du dépôt Beam. GitHub Pages publiera cette
+                version. Seuls les éléments publics du workspace choisi sont
+                exportés. Les changements suivants nécessitent une nouvelle
+                publication.
+              </p>
+              <a
+                href="https://github.com/hollandejeancharles-hash/beam/actions"
+                target="_blank"
+                rel="noreferrer"
+                className="button"
+              >
+                Ouvrir les publications GitHub <ExternalLink size={14} />
+              </a>
+            </div>
+          )}
           <p className="fine-print">
             <Lock size={12} />
             Les évolutions internes restent privées.
@@ -2008,7 +2084,7 @@ function App() {
             target="_blank"
             rel="noreferrer"
           >
-            Ouvrir le portail
+            {localPreview ? "Prévisualiser sur ce Mac" : "Ouvrir le portail"}
             <ExternalLink size={15} />
           </a>
         </Modal>

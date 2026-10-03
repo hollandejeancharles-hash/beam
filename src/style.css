@@ -5537,7 +5537,7 @@ html.native-capture,
   padding: 0;
   margin: 0;
 }
-.workspace-settings-panel .collaboration-settings > h3 {
+.workspace-settings-panel .collaboration-settings > h3:first-child {
   display: none;
 }
 .workspace-settings-panel .user-profile-form > .assistant-help {
@@ -5844,7 +5844,7 @@ html.native-capture,
   }
 }
 .workspace-settings-panel .collaboration-settings > .modal-copy:first-of-type {
-  display: none;
+  display: block;
 }
 .beam-account-dialog .beam-account-kicker {
   display: none;
@@ -6247,3 +6247,7 @@ html.native-capture,
   outline: 2px solid #aaa4ef;
   outline-offset: 2px;
 }
+
+.share-publication-help { margin: 22px 0; padding: 18px; border: 1px solid var(--border, #30313c); border-radius: 12px; background: rgba(255,255,255,.025); }
+.share-publication-help strong { display: block; margin-bottom: 14px; }
+.share-publication-help p { margin: 14px 0; color: var(--muted, #a0a1b0); font-size: 13px; line-height: 1.65; }

@@ -133,9 +133,31 @@ export function createCollaboration(
     )
       check(await client.auth.setSession(session));
   }
+  async function syncIdentity() {
+    if (!workspace) return;
+    const identity = JSON.parse(
+      accountStore.db
+        .prepare("SELECT value FROM metadata WHERE key='user_profile'")
+        .get()?.value || "null",
+    );
+    const fingerprint =
+      identity &&
+      JSON.stringify({ name: identity.name, photo: identity.photo || null });
+    if (identity?.name && get("beam_team_identity") !== fingerprint) {
+      check(
+        await client.rpc("beam_team_profile", {
+          p_workspace: workspace.id,
+          p_name: identity.name,
+          p_photo: identity.photo || null,
+        }),
+      );
+      put("beam_team_identity", fingerprint);
+    }
+  }
   async function pull() {
     try {
       await authenticate();
+      await syncIdentity().catch(() => {});
       const row = check(
         await client
           .from("beam_roadmaps")
@@ -233,7 +255,7 @@ export function createCollaboration(
       signedIn: !!session,
       email: session?.user?.email || "",
       workspace: workspace ? { ...workspace, revision } : null,
-      connected,
+      connected: connected && !!session,
       error: lastError,
     };
   }
@@ -304,6 +326,10 @@ export function createCollaboration(
             p_name: b.name,
             p_photo: b.photo || null,
           }),
+        );
+        put(
+          "beam_team_identity",
+          JSON.stringify({ name: b.name, photo: b.photo || null }),
         );
         emit();
         return state();
@@ -386,7 +412,7 @@ export function createCollaboration(
       if (action === "disconnect") {
         if (channel) await client.removeChannel(channel);
         const backup = get("beam_local_items_backup");
-        if (backup) replaceItems(store, backup);
+        // Keep the current roadmap when collaboration is disabled.
         workspace = null;
         presence = [];
         put("beam_shared_workspace", null);
@@ -397,10 +423,9 @@ export function createCollaboration(
         return state();
       }
       if (action === "logout") {
-        if (workspace)
-          throw Error(
-            "Quittez d’abord l’espace partagé pour retrouver votre roadmap locale.",
-          );
+        if (channel) await client.removeChannel(channel);
+        presence = [];
+        connected = false;
         check(await client.auth.signOut());
         session = null;
         put("beam_shared_session", null);
@@ -512,6 +537,7 @@ export function createCollaboration(
     async team(itemId) {
       if (!workspace) return { profiles: [], comments: [], activity: [] };
       await authenticate();
+      await syncIdentity();
       const profiles = check(
         await client
           .from("beam_profiles")

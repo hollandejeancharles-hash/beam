@@ -1,3 +1,4 @@
+import { publicRoadmap } from "../scripts/public-roadmap.js";
 import { createWorkspaces } from "./workspaces.js";
 import { inWorkspace } from "./ai-progress.js";
 import { createBackups } from "./backups.js";
@@ -35,6 +36,34 @@ const rootStore = createStore(databasePath);
 const personalProfile = createProfile(rootStore);
 const workspaces = createWorkspaces(rootStore, databasePath);
 const contexts = new Map();
+function inspectWorkspaceBackup(file) {
+  if (
+    file.version !== 1 ||
+    !Array.isArray(file.workspaces) ||
+    !file.workspaces.length ||
+    file.workspaces.length + workspaces.list().workspaces.length > 40
+  )
+    throw Error(
+      "Sauvegarde de workspaces invalide ou limite de 40 espaces dépassée.",
+    );
+  const counts = { items: 0, notes: 0, note_attachments: 0 };
+  for (const entry of file.workspaces) {
+    if (
+      typeof entry.name !== "string" ||
+      !entry.name.trim() ||
+      entry.name.length > 80
+    )
+      throw Error("Nom de workspace invalide dans la sauvegarde.");
+    const summary = createBackups(rootStore).inspect(entry.backup);
+    for (const key of Object.keys(counts))
+      counts[key] += summary.counts[key] || 0;
+  }
+  return {
+    created: file.created,
+    workspaceCount: file.workspaces.length,
+    counts,
+  };
+}
 const checkUpdates = createUpdates();
 await startLocalAI();
 function context(id) {
@@ -61,6 +90,7 @@ function context(id) {
         const aiSetup = createAISetup(fetch, () => ai.configure(true));
         const backups = createBackups(store, {
           directory: resolve(dirname(workspaces.path(id)), "backups", id),
+          restoreProfile: false,
           active: () => collaboration.active(),
           busy: () =>
             ai.busy() ||
@@ -212,7 +242,7 @@ const server = http.createServer(async (req, res) => {
     }
     const workspaceId =
       req.headers["x-beam-workspace"] ||
-      (!admin && url.searchParams.get("workspace")) ||
+      url.searchParams.get("workspace") ||
       workspaces.active();
     const {
       store,
@@ -231,11 +261,6 @@ const server = http.createServer(async (req, res) => {
       topics,
       searchIndex,
     } = context(workspaceId);
-    if (admin && req.method !== "GET" && workspaceId !== workspaces.active())
-      return send(409, {
-        error:
-          "Le workspace actif a changé. Rechargez Beam avant de continuer.",
-      });
     return await inWorkspace(workspaceId, async () => {
       if (url.pathname === "/api/admin/workspaces" && req.method === "GET")
         return send(200, workspaces.list());
@@ -258,6 +283,25 @@ const server = http.createServer(async (req, res) => {
         });
         return;
       }
+      if (url.pathname === "/api/admin/public-export" && req.method === "GET")
+        return send(200, {
+          format: "beam-publication",
+          version: 1,
+          product: integrations.product(),
+          roadmap: publicRoadmap(store.list()),
+          publications: publicPublications(publications.list()),
+        });
+      if (url.pathname === "/api/admin/backup/all" && req.method === "GET")
+        return send(200, {
+          format: "beam-workspaces-backup",
+          version: 1,
+          created: new Date().toISOString(),
+          profile: personalProfile.get(),
+          workspaces: workspaces.list().workspaces.map((w) => ({
+            name: w.name,
+            backup: createBackups(workspaces.store(w.id)).snapshot(),
+          })),
+        });
       if (url.pathname === "/api/admin/backup" && req.method === "GET")
         return send(200, backups.snapshot());
       if (url.pathname === "/api/admin/updates" && req.method === "GET")
@@ -422,9 +466,9 @@ const server = http.createServer(async (req, res) => {
       const body = raw ? JSON.parse(raw) : {};
       if (
         admin &&
-        (workspaceId !== workspaces.active() ||
-          (!req.headers["x-beam-workspace"] &&
-            workspaces.list().workspaces.length > 1))
+        !req.headers["x-beam-workspace"] &&
+        !url.searchParams.get("workspace") &&
+        workspaces.list().workspaces.length > 1
       )
         return send(409, {
           error:
@@ -443,9 +487,33 @@ const server = http.createServer(async (req, res) => {
         return send(200, workspaces.select(body.id));
       }
       if (url.pathname === "/api/admin/backup/preview" && req.method === "POST")
-        return send(200, backups.inspect(body));
-      if (url.pathname === "/api/admin/backup/restore" && req.method === "POST")
-        return send(200, backups.restore(body));
+        return send(
+          200,
+          body.format === "beam-workspaces-backup"
+            ? inspectWorkspaceBackup(body)
+            : backups.inspect(body),
+        );
+      if (
+        url.pathname === "/api/admin/backup/restore" &&
+        req.method === "POST"
+      ) {
+        if (body.format !== "beam-workspaces-backup")
+          return send(200, backups.restore(body));
+        const summary = inspectWorkspaceBackup(body);
+        for (const entry of body.workspaces) {
+          const id = workspaces.create(
+            { name: entry.name },
+            { activate: false },
+          ).createdWorkspaceId;
+          context(id).backups.restore(entry.backup);
+        }
+        workspaces.select(workspaceId);
+        return send(200, {
+          ...summary,
+          message:
+            "Workspaces importés comme nouveaux espaces. Les espaces existants sont conservés.",
+        });
+      }
       if (url.pathname === "/api/admin/onboarding" && req.method === "POST") {
         store.db
           .prepare(
@@ -460,7 +528,68 @@ const server = http.createServer(async (req, res) => {
         url.pathname === "/api/admin/collaboration" &&
         req.method === "POST"
       ) {
-        const result = await collaboration.settings(body.action, body);
+        let target = collaboration;
+        let targetId = workspaceId;
+        if (["join", "select"].includes(body.action)) {
+          const existing =
+            body.action === "select" &&
+            workspaces.list().workspaces.find((w) => {
+              const row = workspaces
+                .store(w.id)
+                .db.prepare(
+                  "SELECT value FROM metadata WHERE key='beam_shared_workspace'",
+                )
+                .get();
+              return row && JSON.parse(row.value)?.id === body.id;
+            });
+          targetId =
+            existing?.id ||
+            workspaces.create(
+              { name: "Workspace de l’équipe" },
+              { activate: false },
+            ).createdWorkspaceId;
+          target = context(targetId).collaboration;
+          if (existing) {
+            workspaces.select(targetId);
+            return send(200, { ...target.state(), localWorkspaceId: targetId });
+          }
+        }
+        const values =
+          body.action === "create"
+            ? {
+                ...body,
+                name: integrations.product().name,
+                shareExisting: true,
+              }
+            : body;
+        let result;
+        try {
+          result = await target.settings(body.action, values);
+        } catch (error) {
+          if (targetId !== workspaceId && !target.active()) {
+            await target.close();
+            contexts.delete(targetId);
+            workspaces.discardEmpty(targetId);
+          }
+          throw error;
+        }
+        if (
+          ["create", "join", "select"].includes(body.action) &&
+          result.workspace
+        ) {
+          const product = context(targetId).integrations.product();
+          await context(targetId).integrations.saveProduct({
+            ...product,
+            name: result.workspace.name.slice(0, 80),
+          });
+          const identity = personalProfile.get();
+          if (identity.name)
+            await target.settings("team-profile", identity).catch(() => {});
+        }
+        if (targetId !== workspaceId) {
+          workspaces.select(targetId);
+          result.localWorkspaceId = targetId;
+        }
         workspaces.notify();
         return send(200, result);
       }
@@ -500,8 +629,21 @@ const server = http.createServer(async (req, res) => {
           return send(200, { ok: true });
         }
       }
-      if (url.pathname === "/api/admin/profile" && req.method === "PATCH")
-        return send(200, await profile.save(body));
+      if (url.pathname === "/api/admin/profile" && req.method === "PATCH") {
+        const saved = await profile.save(body);
+        const results = await Promise.allSettled(
+          workspaces
+            .list()
+            .workspaces.filter((w) => w.shared)
+            .map((w) =>
+              context(w.id).collaboration.settings("team-profile", saved),
+            ),
+        );
+        return send(200, {
+          ...saved,
+          teamSyncPending: results.some((r) => r.status === "rejected"),
+        });
+      }
       if (
         url.pathname === "/api/admin/associations/refresh" &&
         req.method === "POST"

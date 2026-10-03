@@ -145,9 +145,31 @@ export default function AccountAccess({
         )}
         {!state && !error && <p role="status">Préparation de votre espace…</p>}
         {state?.signedIn ? (
-          <button className="beam-account-submit" onClick={onContinue}>
-            Continuer vers mon espace <span aria-hidden="true">→</span>
-          </button>
+          <div>
+            <button className="beam-account-submit" onClick={onContinue}>
+              Revenir à Beam <span aria-hidden="true">→</span>
+            </button>
+            <button
+              className="text-button"
+              onClick={async () => {
+                try {
+                  const next = await api("admin/collaboration", {
+                    method: "POST",
+                    body: JSON.stringify({ action: "logout" }),
+                  });
+                  setState(next);
+                } catch (e) {
+                  setError((e as Error).message);
+                }
+              }}
+            >
+              Se déconnecter de Beam sur ce Mac
+            </button>
+            <p className="modal-copy">
+              Vos workspaces sont conservés. La modification des roadmaps
+              partagées nécessite une connexion.
+            </p>
+          </div>
         ) : state?.configured ? (
           <form onSubmit={submit}>
             {mode === "signup" && (

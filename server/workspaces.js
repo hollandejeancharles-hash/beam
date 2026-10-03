@@ -1,6 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { dirname, join, resolve } from "node:path";
-import { mkdirSync } from "node:fs";
+import { mkdirSync, rmSync } from "node:fs";
 import { createStore } from "./store.js";
 
 export function createWorkspaces(root, databasePath) {
@@ -69,7 +69,7 @@ export function createWorkspaces(root, databasePath) {
       emit();
       return list();
     },
-    create(input) {
+    create(input, { activate = true } = {}) {
       if (
         typeof input.name !== "string" ||
         !input.name.trim() ||
@@ -111,7 +111,30 @@ export function createWorkspaces(root, databasePath) {
       stores.set(id, next);
       ids = [...ids, id];
       put("beam_local_workspaces", ids);
-      return this.select(id);
+      if (activate) return this.select(id);
+      emit();
+      return { ...list(), createdWorkspaceId: id };
+    },
+    discardEmpty(id) {
+      if (id === "default" || id === active || store(id).list().length)
+        throw Error("Ce workspace ne peut pas être retiré.");
+      const db = store(id).db;
+      if (
+        db
+          .prepare(
+            "SELECT name FROM sqlite_master WHERE type='table' AND name='notes'",
+          )
+          .get() &&
+        db.prepare("SELECT count(*) AS count FROM notes").get()?.count
+      )
+        throw Error("Le workspace contient des notes.");
+      db.close();
+      stores.delete(id);
+      ids = ids.filter((value) => value !== id);
+      put("beam_local_workspaces", ids);
+      for (const suffix of [".sqlite", ".sqlite-wal", ".sqlite-shm"])
+        rmSync(join(folder, id + suffix), { force: true });
+      emit();
     },
     notify: emit,
     onChange(fn) {

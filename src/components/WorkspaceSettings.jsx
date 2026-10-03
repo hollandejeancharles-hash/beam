@@ -17,7 +17,7 @@ const sections = [
     id: "team",
     label: "Équipe",
     icon: Integration,
-    title: "Espace partagé",
+    title: "Collaboration du workspace",
     description: "Une roadmap commune pour avancer en équipe.",
   },
   {
@@ -98,6 +98,7 @@ export default function WorkspaceSettings({
           <Collaboration
             api={api}
             profile={profile}
+            product={product}
             onChange={onChange}
             onAccount={onAccount}
           />
@@ -106,7 +107,12 @@ export default function WorkspaceSettings({
           <LocalAISetup api={api} showReady />
         </div>
         <div hidden={active !== "installation"}>
-          <Maintenance api={api} onRestore={onRestore} onWelcome={onWelcome} />
+          <Maintenance
+            product={product}
+            api={api}
+            onRestore={onRestore}
+            onWelcome={onWelcome}
+          />
         </div>
       </div>
     </div>

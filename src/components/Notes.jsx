@@ -1,3 +1,4 @@
+import { usePersistentDraft } from "../usePersistentDraft";
 import DecisionMemory from "./DecisionMemory";
 import ReviewInbox from "./ReviewInbox";
 import { includesSearch } from "../../shared/search";
@@ -26,14 +27,27 @@ const dateLabel = (d) =>
   });
 export function useDraft() {
   const [text, setText] = useState(
-    () => localStorage.getItem("beam_note_draft") || "",
+    () =>
+      localStorage.getItem(
+        "beam_note_draft:" +
+          (new URLSearchParams(location.search).get("workspace") || "default"),
+      ) || "",
   );
   useEffect(() => {
-    localStorage.setItem("beam_note_draft", text);
+    localStorage.setItem(
+      "beam_note_draft:" +
+        (new URLSearchParams(location.search).get("workspace") || "default"),
+      text,
+    );
   }, [text]);
   useEffect(() => {
     const sync = (e) => {
-      if (e.key === "beam_note_draft") setText(e.newValue || "");
+      if (
+        e.key ===
+        "beam_note_draft:" +
+          (new URLSearchParams(location.search).get("workspace") || "default")
+      )
+        setText(e.newValue || "");
     };
     window.addEventListener("storage", sync);
     return () => window.removeEventListener("storage", sync);
@@ -220,7 +234,7 @@ export default function Notes({
   onInboxCount,
 }) {
   const [notes, setNotes] = useState([]),
-    [text, setText] = useState(""),
+    [text, setText] = usePersistentDraft("note-composer", ""),
     [files, setFiles] = useState([]),
     [busy, setBusy] = useState(false),
     [view, setView] = useState("all"),
@@ -234,6 +248,15 @@ export default function Notes({
     [classification, setClassification] = useState(null),
     [editing, setEditing] = useState(false),
     [draft, setDraft] = useState("");
+  useEffect(() => {
+    if (!files.length) return;
+    const protect = (event) => {
+      event.preventDefault();
+      event.returnValue = "";
+    };
+    window.addEventListener("beforeunload", protect);
+    return () => window.removeEventListener("beforeunload", protect);
+  }, [files.length]);
   const [inbox, setInbox] = useState([]);
   const [loaded, setLoaded] = useState(false);
   const trigger = useRef(null);
@@ -378,6 +401,8 @@ export default function Notes({
       const response = await fetch(`/api/admin/attachments/${a.id}`, {
         headers: {
           Authorization: "Bearer " + (sessionStorage.getItem("beam_key") || ""),
+          "X-Beam-Workspace":
+            new URLSearchParams(location.search).get("workspace") || "default",
         },
       });
       if (!response.ok) throw Error("Impossible d’ouvrir le fichier");

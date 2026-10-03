@@ -1,17 +1,27 @@
 # Plusieurs workspaces
 
-Cliquez sur le nom du produit en haut du menu latéral. Le sélecteur permet de changer d’espace, d’ouvrir ses réglages ou de créer un nouveau workspace.
+Le sélecteur en haut du menu permet de créer un workspace, de changer d’espace et d’ouvrir ses réglages. Chaque workspace possède sa roadmap, ses notes, ses pièces jointes, ses sources et ses publications.
 
-Chaque espace démarre avec une roadmap vide. Il possède ses propres éléments Gantt et Kanban, notes et pièces jointes, sources, suggestions, sujets, décisions, analyses et publications. Le modèle IA installé sur le Mac est commun ; les préférences d’activation de l’assistant sont reprises à la création puis réglables par espace.
+## Personnel ou partagé
 
-Le profil et la connexion au compte Beam sont communs. Dans chaque espace, la rubrique Équipe permet de créer ou rejoindre une roadmap partagée. Les notes et documents demeurent locaux. Le nom et l’image du produit restent des réglages locaux, comme auparavant.
+Un workspace personnel peut devenir partagé : Réglages → Équipe → Activer la collaboration. Sa roadmap et son nom sont conservés. Les notes et documents restent sur votre Mac. Désactiver la collaboration conserve la dernière roadmap sur ce Mac ; cela ne supprime pas l’espace de l’équipe.
 
-Le workspace actif est mémorisé sur ce Mac. Changer d’espace actualise les autres fenêtres Beam ouvertes sur le même serveur. La fenêtre de prise de note Mac affiche l’espace actif et protège l’enregistrement si celui-ci change pendant la sauvegarde. Enregistrez vos saisies avant de changer d’espace.
+Rejoindre une équipe avec une invitation ouvre un autre workspace dans le sélecteur. Vos espaces personnels ne sont pas remplacés. Retrouver un espace partagé déjà ouvert réutilise son workspace local.
 
-Les liens publics de l’application incluent l’identifiant du workspace. L’export GitHub Pages demeure une publication statique d’un seul espace : celui qui est actif lors de l’export, ou celui indiqué par BEAM_WORKSPACE. Il ne publie jamais les notes et les documents privés.
+Le compte et le profil sont communs aux workspaces. Le nom et la photo suivent vos modifications dans les équipes ; une synchronisation échouée est reprise lors de la reconnexion. L’e-mail de contact reste local et ne change pas l’adresse de connexion. Le nom et l’image du produit peuvent être personnalisés localement.
 
-Les sauvegardes depuis Installation concernent le workspace sélectionné. Elles ne constituent pas un export de tous les workspaces du Mac.
+## Fenêtres et brouillons
 
-## Conservation des données
+Chaque fenêtre conserve son workspace dans son adresse. Changer d’espace dans une fenêtre ne recharge pas les autres. Le dernier espace choisi devient celui de la capture de notes dans la barre de menu Mac.
 
-L’ancien fichier beam.sqlite reste le workspace initial. Les nouveaux espaces sont stockés dans des fichiers distincts sous workspaces, à côté de cette base. Le registre et l’espace actif sont enregistrés dans les métadonnées de la base initiale. Aucun élément existant n’est déplacé ni effacé.
+Les brouillons des éléments, du profil, des réglages et du texte des nouvelles notes sont conservés par fenêtre et par workspace. Les fichiers sélectionnés avant l’enregistrement ne sont pas des pièces jointes sauvegardées : enregistrez la note pour les conserver. Les anciens brouillons ne doivent pas servir à écraser les changements d’une équipe : les contrôles de révision restent actifs.
+
+## Diffusion publique
+
+La prévisualisation locale reste uniquement accessible sur votre Mac. « Diffuser la roadmap » permet d’exporter un fichier public beam-publication.json. Déposez-le dans public/ du dépôt Beam : la publication GitHub Pages l’utilise lors du prochain déploiement. Seuls les éléments publics non archivés et les publications déjà publiées sont inclus. Chaque déploiement diffuse une version statique d’un seul workspace, sans synchronisation automatique des modifications suivantes.
+
+## Sauvegardes
+
+Installation propose une sauvegarde du workspace courant ou de tous les workspaces. Les clés et sessions de connexion ne sont jamais exportées. Une sauvegarde de plusieurs espaces s’importe comme de nouveaux workspaces et conserve les espaces et le profil actuels. Une sauvegarde individuelle remplace uniquement l’espace sélectionné ; une copie précédente est conservée automatiquement.
+
+L’ancien fichier beam.sqlite reste le workspace initial. Les autres bases sont conservées dans workspaces/ à côté de cette base. Aucun élément existant n’est déplacé ou effacé lors de cette mise à jour.

@@ -1,3 +1,4 @@
+import { usePersistentDraft } from "../usePersistentDraft";
 import React, { useEffect, useState } from "react";
 export const initials = (name) =>
   name
@@ -16,8 +17,12 @@ export default function Profile({
   cancelLabel = "Annuler",
   onAccount,
 }) {
-  const [draft, setDraft] = useState({ ...profile }),
-    [busy, setBusy] = useState(false),
+  const [draft, setDraft, clearDraft] = usePersistentDraft(
+    "profile",
+    { ...profile },
+    true,
+  );
+  const [busy, setBusy] = useState(false),
     [error, setError] = useState("");
   const [account, setAccount] = useState(null);
   useEffect(() => {
@@ -72,6 +77,7 @@ export default function Profile({
         method: "PATCH",
         body: JSON.stringify(draft),
       });
+      clearDraft();
       onSave(value);
       onClose();
     } catch (e) {
@@ -168,8 +174,8 @@ export default function Profile({
         <p>
           Conservé sur ce Mac
           <span>
-            Votre nom et votre photo ne sont partagés que lorsque vous
-            choisissez de les partager avec une équipe.
+            Votre nom et votre photo sont synchronisés avec vos workspaces
+            partagés. Votre e-mail de contact reste sur ce Mac.
           </span>
         </p>
       </div>

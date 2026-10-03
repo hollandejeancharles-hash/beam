@@ -1,3 +1,4 @@
+import { usePersistentDraft } from "../usePersistentDraft";
 import React, { useState } from "react";
 export const initials = (name) =>
   name
@@ -8,12 +9,12 @@ export const initials = (name) =>
     .join("")
     .toUpperCase() || "U";
 export default function Workspace({ product, api, onSave, onClose }) {
-  const [draft, setDraft] = useState({
-      name: product.name,
-      description: product.description ?? "Product workspace",
-      photo: product.image || null,
-    }),
-    [busy, setBusy] = useState(false),
+  const [draft, setDraft, clearDraft] = usePersistentDraft("workspace", {
+    name: product.name,
+    description: product.description ?? "Product workspace",
+    photo: product.image || null,
+  });
+  const [busy, setBusy] = useState(false),
     [error, setError] = useState("");
   async function photo(file) {
     if (!file) return;
@@ -62,6 +63,7 @@ export default function Workspace({ product, api, onSave, onClose }) {
           image: draft.photo,
         }),
       });
+      clearDraft();
       onSave(value);
       onClose();
     } catch (e) {

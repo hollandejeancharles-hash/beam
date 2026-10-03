@@ -20,7 +20,12 @@ const TABLES = [
 const META = ["product", "user_profile", "beam_onboarding_complete"];
 export function createBackups(
   store,
-  { directory = "data/backups", active = () => false, busy = () => false } = {},
+  {
+    directory = "data/backups",
+    active = () => false,
+    busy = () => false,
+    restoreProfile = true,
+  } = {},
 ) {
   const db = store.db;
   const tables = () =>
@@ -193,6 +198,7 @@ export function createBackups(
           );
         }
       for (const k of META) {
+        if (k === "user_profile" && !restoreProfile) continue;
         db.prepare("DELETE FROM metadata WHERE key=?").run(k);
         if (file.metadata[k] !== undefined)
           db.prepare("INSERT INTO metadata VALUES(?,?)").run(

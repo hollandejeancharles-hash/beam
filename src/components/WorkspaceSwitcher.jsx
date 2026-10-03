@@ -12,8 +12,13 @@ export default function WorkspaceSwitcher({ state, product, api, onSettings }) {
     setBusy(true);
     setError("");
     try {
-      await api(path, { method: "POST", body: JSON.stringify(body) });
-      window.location.reload();
+      const next = await api(path, {
+        method: "POST",
+        body: JSON.stringify(body),
+      });
+      const params = new URLSearchParams(location.search);
+      params.set("workspace", next.active);
+      location.assign(location.pathname + "?" + params + location.hash);
     } catch (e) {
       setError(e.message);
       setBusy(false);

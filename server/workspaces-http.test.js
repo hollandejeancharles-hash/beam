@@ -5,7 +5,7 @@ import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
-test("Workspace API isolates roadmap, notes, sources and public links; stale writes are rejected", async () => {
+test("Workspace API isolates roadmap, notes, sources and public links; pinned windows can write independently", async () => {
   const dir = mkdtempSync(join(tmpdir(), "beam-spaces-api-"));
   const server = spawn(process.execPath, ["server/index.js"], {
     env: {
@@ -68,9 +68,15 @@ test("Workspace API isolates roadmap, notes, sources and public links; stale wri
     assert.deepEqual((await call("admin/sources")).data, []);
     assert.equal((await call("admin/profile")).data.name, "One person");
     assert.equal(
-      (await call("admin/items", "POST", { title: "Stale tab" }, "default"))
-        .status,
-      409,
+      (
+        await call(
+          "admin/notes",
+          "POST",
+          { text: "Pinned default window" },
+          "default",
+        )
+      ).status,
+      201,
     );
     assert.equal(
       (await call("public/items?workspace=default")).data[0].id,
@@ -90,7 +96,33 @@ test("Workspace API isolates roadmap, notes, sources and public links; stale wri
     );
     await call("admin/workspaces/select", "POST", { id: "default" }, second);
     assert.equal((await call("admin/items")).data[0].title, "PULS original");
-    assert.equal((await call("admin/notes")).data[0].text, "Private PULS note");
+    assert.equal((await call("admin/notes")).data.length, 2);
+    const bundle = (await call("admin/backup/all", "GET", undefined, "default"))
+      .data;
+    assert.equal(bundle.workspaces.length, 2);
+    assert.equal(JSON.stringify(bundle).includes("beam_shared_session"), false);
+    assert.equal(
+      (await call("admin/backup/preview", "POST", bundle, "default")).data
+        .workspaceCount,
+      2,
+    );
+    const restored = await call(
+      "admin/backup/restore",
+      "POST",
+      bundle,
+      "default",
+    );
+    assert.equal(restored.status, 200, JSON.stringify(restored.data));
+    assert.equal((await call("admin/workspaces")).data.workspaces.length, 4);
+    assert.equal(
+      (await call("admin/items", "GET", undefined, "default")).data[0].id,
+      original.id,
+    );
+    const exported = (
+      await call("admin/public-export", "GET", undefined, "default")
+    ).data;
+    assert.equal(exported.roadmap.length, 1);
+    assert.equal(Object.hasOwn(exported, "notes"), false);
   } finally {
     server.kill("SIGTERM");
     await new Promise((resolve) => server.once("exit", resolve));
