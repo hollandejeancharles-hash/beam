@@ -27,11 +27,13 @@ if CommandLine.arguments.count == 3 && CommandLine.arguments[1] == "--render-ico
     exit(0)
 }
 
-final class BeamDelegate: NSObject, NSApplicationDelegate, WKNavigationDelegate, WKUIDelegate {
+final class BeamDelegate: NSObject, NSApplicationDelegate, WKNavigationDelegate, WKUIDelegate, WKScriptMessageHandler {
     var window: NSWindow?
     var webView: WKWebView?
     var statusItem: NSStatusItem!
     var statusMenu: NSMenu?
+    var capturePopover: NSPopover?
+    var captureView: WKWebView?
     var server: Process?
     var capturePending = false
     var starting = false
@@ -93,25 +95,41 @@ final class BeamDelegate: NSObject, NSApplicationDelegate, WKNavigationDelegate,
         } else { captureNote() }
     }
     @objc func captureNote() {
+        if capturePopover?.isShown == true { capturePopover?.performClose(nil); return }
         capturePending = true
-        if let view = webView, let url = view.url, isLocal(url), !view.isLoading {
-            present(); deliverCapture(remaining: 50)
-        } else { open(destination) }
+        open(destination)
     }
-    func deliverCapture(remaining: Int) {
-        guard capturePending, let view = webView else { return }
-        view.evaluateJavaScript("typeof window.__beamCaptureNote === 'function' && window.__beamCaptureNote()") { result, _ in
-            if result as? Bool == true { self.capturePending = false }
-            else if remaining > 0 {
-                DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) { self.deliverCapture(remaining: remaining - 1) }
-            } else { self.capturePending = false }
+    func showCapture() {
+        capturePending = false
+        if capturePopover == nil {
+            let configuration = WKWebViewConfiguration()
+            configuration.websiteDataStore = .default()
+            configuration.userContentController.add(self, name: "beamCapture")
+            let view = WKWebView(frame: NSRect(x: 0, y: 0, width: 420, height: 320), configuration: configuration)
+            view.navigationDelegate = self; view.uiDelegate = self
+            view.underPageBackgroundColor = NSColor(calibratedRed: 0.08, green: 0.09, blue: 0.12, alpha: 1)
+            let controller = NSViewController(); controller.view = view
+            let popover = NSPopover(); popover.contentSize = NSSize(width: 420, height: 320)
+            popover.behavior = .transient; popover.animates = true
+            popover.appearance = NSAppearance(named: .darkAqua)
+            popover.contentViewController = controller
+            capturePopover = popover; captureView = view
+            view.load(URLRequest(url: URL(string: base + "?capture=1")!))
         }
+        guard let button = statusItem.button else { return }
+        capturePopover?.show(relativeTo: button.bounds, of: button, preferredEdge: .minY)
+        capturePopover?.contentViewController?.view.window?.makeKey()
+        captureView?.evaluateJavaScript("window.__beamFocusCapture?.()", completionHandler: nil)
+    }
+    func userContentController(_ userContentController: WKUserContentController, didReceive message: WKScriptMessage) {
+        guard message.webView === captureView, message.body as? String == "close" else { return }
+        capturePopover?.performClose(nil)
     }
     func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
-        if capturePending { deliverCapture(remaining: 50) }
+        if webView === captureView { webView.evaluateJavaScript("window.__beamFocusCapture?.()", completionHandler: nil) }
     }
-    @objc func openBeam() { open("#gantt") }
-    @objc func openNotes() { open("#notes") }
+    @objc func openBeam() { capturePending = false; capturePopover?.performClose(nil); open("#gantt") }
+    @objc func openNotes() { capturePending = false; capturePopover?.performClose(nil); open("#notes") }
     @objc func quit() { NSApplication.shared.terminate(nil) }
     func open(_ path: String) {
         destination = path
@@ -167,6 +185,7 @@ final class BeamDelegate: NSObject, NSApplicationDelegate, WKNavigationDelegate,
     }
     func show() {
         starting = false
+        if capturePending { showCapture(); return }
         if webView == nil {
             let config = WKWebViewConfiguration()
             config.websiteDataStore = .default()
@@ -187,7 +206,6 @@ final class BeamDelegate: NSObject, NSApplicationDelegate, WKNavigationDelegate,
         let target = URL(string: base + destination)!
         if webView?.url != target { webView?.load(URLRequest(url: target)) }
         present()
-        if capturePending && webView?.isLoading == false { deliverCapture(remaining: 50) }
     }
     func isLocal(_ url: URL) -> Bool {
         url.scheme == "http" && ["127.0.0.1", "localhost"].contains(url.host ?? "") && url.port == 5173

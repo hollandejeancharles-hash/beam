@@ -94,7 +94,7 @@ L’interprétation actuelle repose sur des règles locales transparentes : inte
 
 ### Lanceur Mac : Dock et barre de menus
 
-`python3 scripts/macos/build-launcher.py` construit `../outputs/Beam.app` avec le logo Beam. Un clic ouvre la roadmap locale dans une fenêtre Mac dédiée, sans onglets ni barre d’adresse, et démarre le serveur si nécessaire. La barre de menus propose « Ouvrir Beam », « Ouvrir les notes » et « Quitter Beam ». Pour le garder dans le Dock, glissez `Beam.app` dans la partie Applications du Dock.
+`python3 scripts/macos/build-launcher.py` construit `../outputs/Beam.app` avec le logo Beam. Un clic ouvre la roadmap locale dans une fenêtre Mac dédiée, sans onglets ni barre d’adresse, et démarre le serveur si nécessaire. Un clic gauche sur l’icône de la barre de menus ouvre uniquement une petite fenêtre de capture, sans afficher la roadmap. Le brouillon est conservé et ⌘↵ enregistre la note. Un clic à l’extérieur ou Échap ferme la capture. Un clic droit propose « Ouvrir Beam », « Capturer une note », « Ouvrir les notes » et « Quitter Beam ». Pour le garder dans le Dock, glissez `Beam.app` dans la partie Applications du Dock.
 
 Le lanceur conserve la base `data/beam.sqlite` du dépôt et écoute exclusivement sur `127.0.0.1:5173`. Il nécessite Node.js 24 et les dépendances du dépôt déjà installées. Il ne modifie pas le Dock, les réglages macOS ou les éléments d’ouverture de session. Quitter le lanceur arrête uniquement le serveur qu’il a lui-même démarré ; il laisse un serveur préexistant fonctionner. En cas de problème, consulter `data/launcher.log`.
 

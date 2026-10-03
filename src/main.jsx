@@ -1,3 +1,4 @@
+import MenuBarCapture from "./components/MenuBarCapture";
 import DecisionMemory from "./components/DecisionMemory";
 import Workspace from "./components/Workspace";
 import { includesSearch } from "../shared/search";
@@ -1980,4 +1981,10 @@ function Modal({ title, close, children, side = false, className = "" }) {
     </div>
   );
 }
-createRoot(document.getElementById("root")).render(<App />);
+createRoot(document.getElementById("root")).render(
+  new URLSearchParams(location.search).get("capture") === "1" && !pagesMode ? (
+    <MenuBarCapture />
+  ) : (
+    <App />
+  ),
+);

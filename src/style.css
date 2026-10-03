@@ -4661,3 +4661,13 @@ button.workspace:focus-visible { outline: 2px solid #8c80dc; outline-offset: 3px
 .decision-memory-form fieldset { border: 1px solid #333641; border-radius: 6px; padding: 12px; margin: 12px 0; max-height: 200px; overflow-y: auto; }
 .decision-memory-form fieldset label { display: flex; align-items: center; gap: 8px; font-size: 12px; margin: 8px 0; }
 .decision-memory-form input[type=checkbox] { width: 14px; height: 14px; }
+
+.menubar-capture { padding: 18px; background: #15171f; min-height: 100vh; box-sizing: border-box; }
+.menubar-capture header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px; }
+.menubar-capture header > span { display: flex; gap: 10px; align-items: center; font-size: 13px; font-weight: 600; }
+.menubar-capture textarea { width: 100%; height: 150px; resize: none; box-sizing: border-box; padding: 12px; border: 1px solid #343744; border-radius: 8px; background: #101219; color: #ededf3; font: inherit; font-size: 13px; line-height: 1.6; }
+.menubar-capture textarea:focus { outline: none; border-color: #8074c2; }
+.menubar-capture-footer { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-top: 12px; }
+.menubar-capture small, .menubar-capture form > p { color: #989bab; font-size: 11px; line-height: 1.5; }
+.menubar-capture form > p { min-height: 16px; margin-bottom: 0; }
+.menubar-capture form > p[role=alert] { color: #e3a2a9; }

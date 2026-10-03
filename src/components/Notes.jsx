@@ -24,13 +24,20 @@ const dateLabel = (d) =>
     day: "numeric",
     month: "short",
   });
-function useDraft() {
+export function useDraft() {
   const [text, setText] = useState(
     () => localStorage.getItem("beam_note_draft") || "",
   );
   useEffect(() => {
     localStorage.setItem("beam_note_draft", text);
   }, [text]);
+  useEffect(() => {
+    const sync = (e) => {
+      if (e.key === "beam_note_draft") setText(e.newValue || "");
+    };
+    window.addEventListener("storage", sync);
+    return () => window.removeEventListener("storage", sync);
+  }, []);
   return [text, setText];
 }
 export function QuickNote({ api, items, onError }) {
