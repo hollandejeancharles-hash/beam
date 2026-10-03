@@ -1,3 +1,4 @@
+import WorkspaceSwitcher from "./components/WorkspaceSwitcher";
 import AccountAccess from "./components/ui/neural-access-login";
 import WorkspaceSettings from "./components/WorkspaceSettings";
 import Welcome from "./components/Welcome";
@@ -7,7 +8,7 @@ import DecisionMemory from "./components/DecisionMemory";
 import { includesSearch } from "../shared/search";
 import Publications from "./components/Publications";
 import AIProgress, { AIActivityProvider } from "./components/AIProgress";
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useRef } from "react";
 import { createRoot } from "react-dom/client";
 import { Check, Clock3, Circle, List, Trash2, LogOut } from "lucide-react";
 import {
@@ -47,7 +48,7 @@ import BeamKanban from "./components/BeamKanban";
 import { TYPES, progressValue, hierarchyRows } from "../shared/planning";
 import "./style.css";
 const pagesMode = __PAGES__;
-const publicPath = pagesMode ? import.meta.env.BASE_URL : "/roadmap";
+const basePublicPath = pagesMode ? import.meta.env.BASE_URL : "/roadmap";
 const ST = {
   planned: {
     label: "À venir",
@@ -151,6 +152,15 @@ function App() {
     [sidebarCollapsed, setSidebarCollapsed] = useState(
       localStorage.getItem("beam_sidebar_collapsed") === "true",
     );
+  const workspaceIdRef = useRef(
+    new URLSearchParams(location.search).get("workspace"),
+  );
+  const [workspaceList, setWorkspaceList] = useState(null);
+  const publicPath = pagesMode
+    ? basePublicPath
+    : basePublicPath +
+      "?workspace=" +
+      encodeURIComponent(workspaceIdRef.current || "default");
   const [availableUpdate, setAvailableUpdate] = useState(null);
   const [welcomeOpen, setWelcomeOpen] = useState(false);
   const [sharedRevision, setSharedRevision] = useState(null);
@@ -180,6 +190,9 @@ function App() {
       ...options,
       headers: {
         "Content-Type": "application/json",
+        ...(workspaceIdRef.current
+          ? { "X-Beam-Workspace": workspaceIdRef.current }
+          : {}),
         Authorization: "Bearer " + key,
         ...options.headers,
       },
@@ -202,6 +215,11 @@ function App() {
   async function refresh() {
     try {
       setError("");
+      if (!publicMode && !workspaceIdRef.current) {
+        const state = await api("admin/workspaces");
+        workspaceIdRef.current = state.active;
+        setWorkspaceList(state);
+      }
       if (pagesMode) {
         const response = await fetch(import.meta.env.BASE_URL + "roadmap.json");
         if (!response.ok)
@@ -245,6 +263,30 @@ function App() {
         })
         .catch(() => {});
   }, []);
+  useEffect(() => {
+    if (publicMode) return;
+    const apply = (state) => {
+      if (workspaceIdRef.current && workspaceIdRef.current !== state.active) {
+        window.location.reload();
+        return;
+      }
+      workspaceIdRef.current = state.active;
+      setWorkspaceList(state);
+    };
+    if (!key) {
+      const events = new EventSource("/api/admin/workspaces/events");
+      events.onmessage = (event) => apply(JSON.parse(event.data));
+      return () => events.close();
+    }
+    const timer = setInterval(
+      () =>
+        api("admin/workspaces")
+          .then(apply)
+          .catch(() => {}),
+      3000,
+    );
+    return () => clearInterval(timer);
+  }, [key]);
   useEffect(() => {
     if (publicMode) return;
     const check = () =>
@@ -469,24 +511,15 @@ function App() {
               <span className="brand-dot">.</span>
             </span>
           </a>
-          <button
-            type="button"
-            className="workspace"
-            aria-label="Modifier le workspace"
-            onClick={() => setWorkspaceOpen(true)}
-          >
-            <span className="puls-logo">
-              {product.image ? (
-                <img src={product.image} alt="" />
-              ) : (
-                product.name[0]?.toUpperCase()
-              )}
-            </span>
-            <div>
-              <strong>{product.name}</strong>
-              <small>{product.description || "Product workspace"}</small>
-            </div>
-          </button>
+          <WorkspaceSwitcher
+            state={workspaceList}
+            product={product}
+            api={api}
+            onSettings={() => {
+              setWorkspaceSection("general");
+              setWorkspaceOpen(true);
+            }}
+          />
           <div className="nav-caption">ESPACE PRODUIT</div>
           <nav aria-label="Navigation de Beam">
             <TreeNav

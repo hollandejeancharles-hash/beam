@@ -45,19 +45,30 @@ export function replaceItems(store, rows) {
     throw e;
   }
 }
-export function createCollaboration(store, clientFactory = createClient) {
+export function createCollaboration(
+  store,
+  clientFactory = createClient,
+  accountStore = store,
+) {
   const get = (k) => {
     try {
       return JSON.parse(
-        store.db.prepare("SELECT value FROM metadata WHERE key=?").get(k)
-          ?.value || "null",
+        (k === "beam_shared_session" || k === "beam_shared_config"
+          ? accountStore
+          : store
+        ).db
+          .prepare("SELECT value FROM metadata WHERE key=?")
+          .get(k)?.value || "null",
       );
     } catch {
       return null;
     }
   };
   const put = (k, v) =>
-    store.db
+    (k === "beam_shared_session" || k === "beam_shared_config"
+      ? accountStore
+      : store
+    ).db
       .prepare("INSERT OR REPLACE INTO metadata VALUES(?,?)")
       .run(k, JSON.stringify(v));
   let defaults;
@@ -111,11 +122,16 @@ export function createCollaboration(store, clientFactory = createClient) {
   }
   init();
   async function authenticate() {
+    session = get("beam_shared_session");
     if (!client || !session)
       throw Error("Connectez-vous à votre espace partagé.");
     if (!client.auth.getSession) return;
     const current = check(await client.auth.getSession());
-    if (!current.session) check(await client.auth.setSession(session));
+    if (
+      !current.session ||
+      current.session.access_token !== session.access_token
+    )
+      check(await client.auth.setSession(session));
   }
   async function pull() {
     try {
@@ -208,6 +224,7 @@ export function createCollaboration(store, clientFactory = createClient) {
       });
   }
   function state() {
+    session = get("beam_shared_session");
     return {
       configured: !!config,
       presence,

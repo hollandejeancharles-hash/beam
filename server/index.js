@@ -1,3 +1,5 @@
+import { createWorkspaces } from "./workspaces.js";
+import { inWorkspace } from "./ai-progress.js";
 import { createBackups } from "./backups.js";
 import { createUpdates } from "./updates.js";
 import { createAISetup } from "./ai-setup.js";
@@ -28,62 +30,97 @@ const assets = process.env.BEAM_ASSETS || "dist";
 if (prod && !desktop && !process.env.BEAM_ADMIN_TOKEN)
   throw Error("BEAM_ADMIN_TOKEN est requis en production");
 mkdirSync("data", { recursive: true });
-const store = createStore(process.env.BEAM_DB || "data/beam.sqlite");
-const collaboration = createCollaboration(store);
-const localSave = store.save.bind(store);
-store.save = (...args) => {
-  if (collaboration.active())
-    throw Error(
-      "Pour partager cette proposition, créez ou modifiez l’élément depuis la Planification. L’application directe des propositions IA partagées arrive ensuite.",
-    );
-  return localSave(...args);
-};
-const profile = createProfile(store);
-const integrations = createIntegrations(store);
-const notes = createNotes(store);
-const decisions = createDecisions(store);
-const attachments = createAttachments(store);
-await startLocalAI();
-const ai = createAI(store, notes, integrations);
-const aiSetup = createAISetup(fetch, () => ai.configure(true));
-const backups = createBackups(store, {
-  directory: resolve(
-    dirname(process.env.BEAM_DB || "data/beam.sqlite"),
-    "backups",
-  ),
-  active: () => collaboration.active(),
-  busy: () =>
-    ai.busy() ||
-    associations.list().running ||
-    topics.list().running ||
-    applyingReviews.size > 0,
-});
+const databasePath = process.env.BEAM_DB || "data/beam.sqlite";
+const rootStore = createStore(databasePath);
+const personalProfile = createProfile(rootStore);
+const workspaces = createWorkspaces(rootStore, databasePath);
+const contexts = new Map();
 const checkUpdates = createUpdates();
-const applyingReviews = new Set();
-const publications = createPublications(store, ai, fetch, {
-  notes,
-  integrations,
-  discover: () => associations.refresh({ force: true }),
-});
-const associations = createAssociations(store, notes, integrations, ai);
-ai.setDiscovery((id) => associations.refresh({ force: true, itemId: id }));
-ai.resume();
-const topics = createTopics(store, notes, integrations, ai);
-const searchIndex = createSearch({
-  decisions,
-  store,
-  notes,
-  topics,
-  integrations,
-  publications,
-});
+await startLocalAI();
+function context(id) {
+  if (!contexts.has(id))
+    contexts.set(
+      id,
+      inWorkspace(id, () => {
+        const store = workspaces.store(id);
+        const collaboration = createCollaboration(store, undefined, rootStore);
+        const localSave = store.save.bind(store);
+        store.save = (...args) => {
+          if (collaboration.active())
+            throw Error(
+              "Pour partager cette proposition, créez ou modifiez l’élément depuis la Planification. Les propositions IA peuvent aussi être validées depuis l’assistant local.",
+            );
+          return localSave(...args);
+        };
+        const profile = personalProfile;
+        const integrations = createIntegrations(store);
+        const notes = createNotes(store);
+        const decisions = createDecisions(store);
+        const attachments = createAttachments(store);
+        const ai = createAI(store, notes, integrations);
+        const aiSetup = createAISetup(fetch, () => ai.configure(true));
+        const backups = createBackups(store, {
+          directory: resolve(dirname(workspaces.path(id)), "backups", id),
+          active: () => collaboration.active(),
+          busy: () =>
+            ai.busy() ||
+            associations.list().running ||
+            topics.list().running ||
+            applyingReviews.size > 0,
+        });
+        const applyingReviews = new Set();
+        const publications = createPublications(store, ai, fetch, {
+          notes,
+          integrations,
+          discover: () => associations.refresh({ force: true }),
+        });
+        const associations = createAssociations(store, notes, integrations, ai);
+        ai.setDiscovery((id) =>
+          associations.refresh({ force: true, itemId: id }),
+        );
+        ai.resume();
+        const topics = createTopics(store, notes, integrations, ai);
+        const searchIndex = createSearch({
+          decisions,
+          store,
+          notes,
+          topics,
+          integrations,
+          publications,
+        });
+        return {
+          store,
+          collaboration,
+          profile,
+          integrations,
+          notes,
+          decisions,
+          attachments,
+          ai,
+          aiSetup,
+          backups,
+          applyingReviews,
+          publications,
+          associations,
+          topics,
+          searchIndex,
+        };
+      }),
+    );
+  return contexts.get(id);
+}
+context(workspaces.active());
 const organizeSources = async () => {
-  await associations.refresh();
-  if (!ai.busy()) await topics.refresh();
+  const id = workspaces.active();
+  await inWorkspace(id, async () => {
+    const { associations, topics, ai } = context(id);
+    await associations.refresh();
+    if (!ai.busy()) await topics.refresh();
+  });
 };
 setTimeout(() => void organizeSources(), 5000).unref();
 setInterval(() => void organizeSources(), 60000).unref();
-if (process.env.BEAM_SEED === "true") seed(store);
+if (process.env.BEAM_SEED === "true") seed(context(workspaces.active()).store);
 const vite = prod
   ? null
   : await (
@@ -173,391 +210,493 @@ const server = http.createServer(async (req, res) => {
         });
       return send(401, { error: "Clé d’accès incorrecte" });
     }
-    if (url.pathname === "/api/admin/backup" && req.method === "GET")
-      return send(200, backups.snapshot());
-    if (url.pathname === "/api/admin/updates" && req.method === "GET")
-      return send(
-        200,
-        await checkUpdates(url.searchParams.get("force") === "true"),
-      );
-    if (url.pathname === "/api/admin/team" && req.method === "GET")
-      return send(200, await collaboration.team(url.searchParams.get("item")));
-    if (url.pathname === "/api/admin/onboarding" && req.method === "GET")
-      return send(200, {
-        complete:
-          store.db
-            .prepare(
-              "SELECT value FROM metadata WHERE key='beam_onboarding_complete'",
-            )
-            .get()?.value === "true",
-        hasData: store.list().length > 0 || notes.list().length > 0,
+    const workspaceId =
+      req.headers["x-beam-workspace"] ||
+      (!admin && url.searchParams.get("workspace")) ||
+      workspaces.active();
+    const {
+      store,
+      collaboration,
+      profile,
+      integrations,
+      notes,
+      decisions,
+      attachments,
+      ai,
+      aiSetup,
+      backups,
+      applyingReviews,
+      publications,
+      associations,
+      topics,
+      searchIndex,
+    } = context(workspaceId);
+    if (admin && req.method !== "GET" && workspaceId !== workspaces.active())
+      return send(409, {
+        error:
+          "Le workspace actif a changé. Rechargez Beam avant de continuer.",
       });
-    if (url.pathname === "/api/admin/ai/setup" && req.method === "GET")
-      return send(200, await aiSetup.status());
-    if (url.pathname === "/api/admin/collaboration" && req.method === "GET")
-      return send(200, collaboration.state());
-    if (
-      url.pathname === "/api/admin/collaboration/events" &&
-      req.method === "GET"
-    ) {
-      res.writeHead(200, {
-        "Content-Type": "text/event-stream",
-        "Cache-Control": "no-cache",
-      });
-      res.write("data: " + JSON.stringify(collaboration.state()) + "\n\n");
-      const unsubscribe = collaboration.onChange(() =>
-        res.write("data: " + JSON.stringify(collaboration.state()) + "\n\n"),
-      );
-      const heartbeat = setInterval(() => res.write(": heartbeat\n\n"), 20000);
-      req.on("close", () => {
-        clearInterval(heartbeat);
-        unsubscribe();
-      });
-      return;
-    }
-    if (
-      url.pathname === "/api/admin/items" &&
-      req.method === "GET" &&
-      collaboration.active()
-    ) {
-      const result = await collaboration.items("GET", url.pathname);
-      return send(result.status, result.data);
-    }
-    const attachmentFile = url.pathname.match(
-      /^\/api\/admin\/attachments\/([a-f0-9-]+)$/,
-    );
-    if (attachmentFile && req.method === "GET") {
-      const file = attachments.get(attachmentFile[1]);
-      if (!file) return send(404, { error: "Fichier introuvable" });
-      res.setHeader("Content-Type", file.mime);
-      res.setHeader(
-        "Content-Disposition",
-        "attachment; filename*=UTF-8''" + encodeURIComponent(file.name),
-      );
-      res.setHeader("Content-Security-Policy", "sandbox");
-      res.writeHead(200);
-      return res.end(Buffer.from(file.bytes));
-    }
-    if (req.method === "GET") {
-      if (url.pathname === "/api/admin/search") return send(200, searchIndex());
-      if (url.pathname === "/api/admin/publications/options")
-        return send(200, publications.options());
-      if (url.pathname === "/api/admin/publications")
-        return send(200, publications.list());
-      if (url.pathname === "/api/public/publications")
-        return send(200, publicPublications(publications.list()));
-      if (url.pathname === "/api/admin/profile")
-        return send(200, profile.get());
-      if (url.pathname === "/api/admin/associations")
-        return send(200, associations.list());
-      if (url.pathname === "/api/admin/topics") return send(200, topics.list());
-      if (url.pathname === "/api/admin/ai/activity")
-        return send(200, activity());
-      if (url.pathname === "/api/admin/ai/status")
-        return send(200, await ai.status());
-      if (url.pathname === "/api/admin/decisions")
-        return send(200, decisions.list());
-      if (url.pathname === "/api/admin/inbox")
-        return send(
-          200,
-          buildInbox({
-            reviews: ai.list(),
-            notes: notes.list(),
-            items: store.list(),
-            topics: topics.list().topics,
-            matches: associations.list().matches,
-            decisions: decisions.list(),
-          }),
-        );
-      if (url.pathname === "/api/admin/ai/reviews") return send(200, ai.list());
-      if (url.pathname === "/api/admin/notes") return send(200, notes.list());
+    return await inWorkspace(workspaceId, async () => {
+      if (url.pathname === "/api/admin/workspaces" && req.method === "GET")
+        return send(200, workspaces.list());
       if (
-        url.pathname === "/api/public/product" ||
-        url.pathname === "/api/admin/product"
-      )
-        return send(200, integrations.product());
-      if (url.pathname === "/api/admin/sources")
-        return send(200, integrations.list());
-      if (url.pathname === "/api/admin/signals")
-        return send(200, integrations.signals());
-      if (url.pathname === "/api/admin/sync-runs")
-        return send(200, integrations.runs());
-      if (url.pathname === "/api/public/items")
-        return send(200, store.list(true, visitor));
-      if (url.pathname === "/api/admin/items")
-        return send(200, store.list(false, visitor));
-      if (url.pathname === "/api/admin/suggestions")
-        return send(
-          200,
-          store.db
-            .prepare("SELECT * FROM suggestions ORDER BY created DESC")
-            .all(),
-        );
-      return send(404, { error: "Introuvable" });
-    }
-    if (
-      req.headers.origin &&
-      req.headers.origin !==
-        `${prod && !desktop ? "https" : "http"}://${req.headers.host}`
-    )
-      return send(403, { error: "Origine refusée" });
-    const chunks = [];
-    let bytes = 0;
-    for await (const chunk of req) {
-      chunks.push(chunk);
-      bytes += chunk.length;
-      if (
-        bytes >
-        (url.pathname.startsWith("/api/admin/backup") && admin
-          ? 150000000
-          : url.pathname.endsWith("/attachments") && admin
-            ? 12000000
-            : [
-                  "/api/admin/profile",
-                  "/api/admin/product",
-                  "/api/admin/collaboration",
-                ].includes(url.pathname)
-              ? 800000
-              : admin && url.pathname.startsWith("/api/admin/publications")
-                ? 60000
-                : 20000)
-      )
-        return send(413, { error: "Contenu trop volumineux" });
-    }
-    const raw = Buffer.concat(chunks).toString("utf8");
-    const body = raw ? JSON.parse(raw) : {};
-    if (url.pathname === "/api/admin/backup/preview" && req.method === "POST")
-      return send(200, backups.inspect(body));
-    if (url.pathname === "/api/admin/backup/restore" && req.method === "POST")
-      return send(200, backups.restore(body));
-    if (url.pathname === "/api/admin/onboarding" && req.method === "POST") {
-      store.db
-        .prepare(
-          "INSERT OR REPLACE INTO metadata VALUES('beam_onboarding_complete','true')",
-        )
-        .run();
-      return send(200, { ok: true });
-    }
-    if (url.pathname === "/api/admin/ai/setup" && req.method === "POST")
-      return send(202, await aiSetup.install());
-    if (url.pathname === "/api/admin/collaboration" && req.method === "POST")
-      return send(200, await collaboration.settings(body.action, body));
-    if (
-      /^\/api\/admin\/items(?:\/(?:kanban|reorder|[a-f0-9-]+(?:\/archive)?))?$/.test(
-        url.pathname,
-      ) &&
-      collaboration.active()
-    ) {
-      const result = await collaboration.items(req.method, url.pathname, body);
-      return send(result.status, result.data);
-    }
-    if (
-      url.pathname === "/api/admin/publications/generate" &&
-      req.method === "POST"
-    )
-      return send(200, await publications.generate(body));
-    if (url.pathname === "/api/admin/publications" && req.method === "POST")
-      return send(201, publications.save(body));
-    const publicationMatch = url.pathname.match(
-      /^\/api\/admin\/publications\/([a-f0-9-]+)(?:\/(state))?$/,
-    );
-    if (publicationMatch) {
-      if (req.method === "PATCH")
-        return send(
-          200,
-          publicationMatch[2]
-            ? publications.transition(publicationMatch[1], body.state)
-            : publications.save(body, publicationMatch[1]),
-        );
-      if (req.method === "DELETE" && !publicationMatch[2]) {
-        publications.remove(publicationMatch[1]);
-        return send(200, { ok: true });
-      }
-    }
-    if (url.pathname === "/api/admin/profile" && req.method === "PATCH")
-      return send(200, await profile.save(body));
-    if (
-      url.pathname === "/api/admin/associations/refresh" &&
-      req.method === "POST"
-    ) {
-      void associations.refresh({ force: true, itemId: body.item_id });
-      return send(202, { ok: true });
-    }
-    if (
-      url.pathname === "/api/admin/associations/decide" &&
-      req.method === "POST"
-    ) {
-      associations.decide(body.source, body.item_id, body.accept);
-      return send(200, associations.list());
-    }
-    if (url.pathname === "/api/admin/topics" && req.method === "POST")
-      return send(201, topics.create(body.title));
-    if (url.pathname === "/api/admin/topics/refresh" && req.method === "POST") {
-      void topics.refresh();
-      return send(202, { ok: true });
-    }
-    if (url.pathname === "/api/admin/topics/move" && req.method === "POST") {
-      topics.move(body.source, body.topic_id);
-      return send(200, topics.list());
-    }
-    const topicMatch = url.pathname.match(
-      /^\/api\/admin\/topics\/([a-f0-9-]+)$/,
-    );
-    if (topicMatch && req.method === "PATCH") {
-      if (body.title !== undefined) topics.rename(topicMatch[1], body.title);
-      if (body.item_id !== undefined) topics.link(topicMatch[1], body.item_id);
-      if (body.merge_into) topics.merge(topicMatch[1], body.merge_into);
-      return send(200, topics.list());
-    }
-    if (url.pathname === "/api/admin/ai/settings" && req.method === "PATCH")
-      return send(200, ai.configure(body.enabled));
-    if (url.pathname === "/api/admin/ai/analyze" && req.method === "POST") {
-      if (
-        !["note", "feature"].includes(body.scope) ||
-        typeof body.id !== "string"
-      )
-        return send(400, { error: "Analyse invalide" });
-      return send(202, ai.enqueue(body.scope, body.id));
-    }
-    const review = url.pathname.match(
-      /^\/api\/admin\/ai\/reviews\/([a-f0-9-]+)\/(apply|dismiss)$/,
-    );
-    if (review && req.method === "POST") {
-      if (applyingReviews.has(review[1]))
-        return send(409, {
-          error: "Cette proposition est déjà en cours d’application.",
+        url.pathname === "/api/admin/workspaces/events" &&
+        req.method === "GET"
+      ) {
+        res.writeHead(200, {
+          "Content-Type": "text/event-stream",
+          "Cache-Control": "no-cache",
         });
-      applyingReviews.add(review[1]);
-      try {
-        const sharedSave = collaboration.active()
-          ? async (input, id) => {
-              const result = await collaboration.items(
-                id ? "PATCH" : "POST",
-                "/api/admin/items" + (id ? "/" + id : ""),
-                { ...input, _revision: body._revision },
-              );
-              if (result.status >= 400) {
-                const error = Error(result.data.error);
-                error.status = result.status;
-                throw error;
-              }
-              return result.data.id;
-            }
-          : null;
+        res.write("data: " + JSON.stringify(workspaces.list()) + "\n\n");
+        const unsubscribe = workspaces.onChange((state) =>
+          res.write("data: " + JSON.stringify(state) + "\n\n"),
+        );
+        const timer = setInterval(() => res.write(": heartbeat\n\n"), 20000);
+        req.on("close", () => {
+          clearInterval(timer);
+          unsubscribe();
+        });
+        return;
+      }
+      if (url.pathname === "/api/admin/backup" && req.method === "GET")
+        return send(200, backups.snapshot());
+      if (url.pathname === "/api/admin/updates" && req.method === "GET")
         return send(
           200,
-          review[2] === "apply"
-            ? await ai.apply(review[1], body.index, sharedSave)
-            : ai.dismiss(review[1], body.index),
+          await checkUpdates(url.searchParams.get("force") === "true"),
         );
-      } finally {
-        applyingReviews.delete(review[1]);
+      if (url.pathname === "/api/admin/team" && req.method === "GET")
+        return send(
+          200,
+          await collaboration.team(url.searchParams.get("item")),
+        );
+      if (url.pathname === "/api/admin/onboarding" && req.method === "GET")
+        return send(200, {
+          complete:
+            store.db
+              .prepare(
+                "SELECT value FROM metadata WHERE key='beam_onboarding_complete'",
+              )
+              .get()?.value === "true",
+          hasData: store.list().length > 0 || notes.list().length > 0,
+        });
+      if (url.pathname === "/api/admin/ai/setup" && req.method === "GET")
+        return send(200, await aiSetup.status());
+      if (url.pathname === "/api/admin/collaboration" && req.method === "GET")
+        return send(200, collaboration.state());
+      if (
+        url.pathname === "/api/admin/collaboration/events" &&
+        req.method === "GET"
+      ) {
+        res.writeHead(200, {
+          "Content-Type": "text/event-stream",
+          "Cache-Control": "no-cache",
+        });
+        res.write("data: " + JSON.stringify(collaboration.state()) + "\n\n");
+        const unsubscribe = collaboration.onChange(() =>
+          res.write("data: " + JSON.stringify(collaboration.state()) + "\n\n"),
+        );
+        const heartbeat = setInterval(
+          () => res.write(": heartbeat\n\n"),
+          20000,
+        );
+        req.on("close", () => {
+          clearInterval(heartbeat);
+          unsubscribe();
+        });
+        return;
       }
-    }
-    if (url.pathname === "/api/admin/notes" && req.method === "POST") {
-      const note = notes.save(body);
-      send(201, note);
-      setImmediate(() => ai.auto(note));
-      return;
-    }
-    const noteFiles = url.pathname.match(
-      /^\/api\/admin\/notes\/([a-f0-9-]+)\/attachments$/,
-    );
-    if (noteFiles && req.method === "POST") {
-      const file = await attachments.add(noteFiles[1], body);
-      send(201, file);
-      setImmediate(() =>
-        ai.auto(notes.list().find((n) => n.id === noteFiles[1])),
+      if (
+        url.pathname === "/api/admin/items" &&
+        req.method === "GET" &&
+        collaboration.active()
+      ) {
+        const result = await collaboration.items("GET", url.pathname);
+        return send(result.status, result.data);
+      }
+      const attachmentFile = url.pathname.match(
+        /^\/api\/admin\/attachments\/([a-f0-9-]+)$/,
       );
-      return;
-    }
-    const noteMatch = url.pathname.match(/^\/api\/admin\/notes\/([a-f0-9-]+)$/);
-    if (noteMatch && req.method === "PATCH") {
-      const note = notes.save(body, noteMatch[1]);
-      send(200, note);
-      if (body.text !== undefined) setImmediate(() => ai.auto(note));
-      return;
-    }
-    if (url.pathname === "/api/admin/decisions" && req.method === "POST")
-      return send(201, decisions.save(body));
-    const decisionMatch = url.pathname.match(
-      /^\/api\/admin\/decisions\/([a-f0-9-]+)$/,
-    );
-    if (decisionMatch && req.method === "PATCH")
-      return send(200, decisions.decide(decisionMatch[1], body.state));
-    if (url.pathname === "/api/admin/product" && req.method === "PATCH")
-      return send(200, await integrations.saveProduct(body));
-    if (url.pathname === "/api/admin/sources" && req.method === "POST")
-      return send(201, integrations.save(body));
-    const sourceSetting = url.pathname.match(
-      /^\/api\/admin\/sources\/([a-f0-9-]+)$/,
-    );
-    if (sourceSetting && req.method === "PATCH")
-      return send(200, integrations.enable(sourceSetting[1], body.enabled));
-    const sync = url.pathname.match(
-      /^\/api\/admin\/sources\/([a-f0-9-]+)\/sync$/,
-    );
-    if (sync && req.method === "POST")
-      return send(200, await integrations.sync(sync[1]));
-    const signal = url.pathname.match(
-      /^\/api\/admin\/signals\/([a-f0-9-]+)\/(link|promote)$/,
-    );
-    if (signal && req.method === "POST")
-      return send(
-        200,
-        signal[2] === "promote"
-          ? integrations.promote(signal[1])
-          : integrations.link(signal[1], body.item_id, body.remove),
-      );
-    if (url.pathname === "/api/admin/items/kanban" && req.method === "POST") {
-      store.reorderKanban(body.columns);
-      return send(200, { ok: true });
-    }
-    if (url.pathname === "/api/admin/items/reorder" && req.method === "POST") {
-      store.reorder(body.id, body.target_id, body.after);
-      return send(200, { ok: true });
-    }
-    if (url.pathname === "/api/admin/items" && req.method === "POST")
-      return send(201, { id: store.save(body) });
-    const archiveItem = url.pathname.match(
-      /^\/api\/admin\/items\/([a-f0-9-]+)\/archive$/,
-    );
-    if (archiveItem && req.method === "PATCH") {
-      store.archive(archiveItem[1], body.archived);
-      return send(200, { ok: true });
-    }
-    const suggestionMatch = url.pathname.match(
-      /^\/api\/admin\/suggestions\/([a-f0-9-]+)$/,
-    );
-    if (suggestionMatch && req.method === "PATCH") {
-      store.suggestionAction(suggestionMatch[1], body.archived);
-      return send(200, { ok: true });
-    }
-    if (suggestionMatch && req.method === "DELETE") {
-      store.removeSuggestion(suggestionMatch[1]);
-      return send(200, { ok: true });
-    }
-    const match = url.pathname.match(/^\/api\/admin\/items\/([a-f0-9-]+)$/);
-    if (match) {
-      if (req.method === "PATCH")
-        return send(200, { id: store.save(body, match[1]) });
-      if (req.method === "DELETE") {
-        store.remove(match[1]);
+      if (attachmentFile && req.method === "GET") {
+        const file = attachments.get(attachmentFile[1]);
+        if (!file) return send(404, { error: "Fichier introuvable" });
+        res.setHeader("Content-Type", file.mime);
+        res.setHeader(
+          "Content-Disposition",
+          "attachment; filename*=UTF-8''" + encodeURIComponent(file.name),
+        );
+        res.setHeader("Content-Security-Policy", "sandbox");
+        res.writeHead(200);
+        return res.end(Buffer.from(file.bytes));
+      }
+      if (req.method === "GET") {
+        if (url.pathname === "/api/admin/search")
+          return send(200, searchIndex());
+        if (url.pathname === "/api/admin/publications/options")
+          return send(200, publications.options());
+        if (url.pathname === "/api/admin/publications")
+          return send(200, publications.list());
+        if (url.pathname === "/api/public/publications")
+          return send(200, publicPublications(publications.list()));
+        if (url.pathname === "/api/admin/profile")
+          return send(200, profile.get());
+        if (url.pathname === "/api/admin/associations")
+          return send(200, associations.list());
+        if (url.pathname === "/api/admin/topics")
+          return send(200, topics.list());
+        if (url.pathname === "/api/admin/ai/activity")
+          return send(200, activity());
+        if (url.pathname === "/api/admin/ai/status")
+          return send(200, await ai.status());
+        if (url.pathname === "/api/admin/decisions")
+          return send(200, decisions.list());
+        if (url.pathname === "/api/admin/inbox")
+          return send(
+            200,
+            buildInbox({
+              reviews: ai.list(),
+              notes: notes.list(),
+              items: store.list(),
+              topics: topics.list().topics,
+              matches: associations.list().matches,
+              decisions: decisions.list(),
+            }),
+          );
+        if (url.pathname === "/api/admin/ai/reviews")
+          return send(200, ai.list());
+        if (url.pathname === "/api/admin/notes") return send(200, notes.list());
+        if (
+          url.pathname === "/api/public/product" ||
+          url.pathname === "/api/admin/product"
+        )
+          return send(200, integrations.product());
+        if (url.pathname === "/api/admin/sources")
+          return send(200, integrations.list());
+        if (url.pathname === "/api/admin/signals")
+          return send(200, integrations.signals());
+        if (url.pathname === "/api/admin/sync-runs")
+          return send(200, integrations.runs());
+        if (url.pathname === "/api/public/items")
+          return send(200, store.list(true, visitor));
+        if (url.pathname === "/api/admin/items")
+          return send(200, store.list(false, visitor));
+        if (url.pathname === "/api/admin/suggestions")
+          return send(
+            200,
+            store.db
+              .prepare("SELECT * FROM suggestions ORDER BY created DESC")
+              .all(),
+          );
+        return send(404, { error: "Introuvable" });
+      }
+      if (
+        req.headers.origin &&
+        req.headers.origin !==
+          `${prod && !desktop ? "https" : "http"}://${req.headers.host}`
+      )
+        return send(403, { error: "Origine refusée" });
+      const chunks = [];
+      let bytes = 0;
+      for await (const chunk of req) {
+        chunks.push(chunk);
+        bytes += chunk.length;
+        if (
+          bytes >
+          (url.pathname.startsWith("/api/admin/backup") && admin
+            ? 150000000
+            : url.pathname.endsWith("/attachments") && admin
+              ? 12000000
+              : [
+                    "/api/admin/profile",
+                    "/api/admin/product",
+                    "/api/admin/collaboration",
+                  ].includes(url.pathname)
+                ? 800000
+                : admin && url.pathname.startsWith("/api/admin/publications")
+                  ? 60000
+                  : 20000)
+        )
+          return send(413, { error: "Contenu trop volumineux" });
+      }
+      const raw = Buffer.concat(chunks).toString("utf8");
+      const body = raw ? JSON.parse(raw) : {};
+      if (
+        admin &&
+        (workspaceId !== workspaces.active() ||
+          (!req.headers["x-beam-workspace"] &&
+            workspaces.list().workspaces.length > 1))
+      )
+        return send(409, {
+          error:
+            "Le workspace a changé ou cette fenêtre doit être actualisée. Rechargez Beam avant de continuer.",
+        });
+      if (url.pathname === "/api/admin/workspaces" && req.method === "POST") {
+        const result = workspaces.create(body);
+        context(result.active);
+        return send(201, result);
+      }
+      if (
+        url.pathname === "/api/admin/workspaces/select" &&
+        req.method === "POST"
+      ) {
+        context(body.id);
+        return send(200, workspaces.select(body.id));
+      }
+      if (url.pathname === "/api/admin/backup/preview" && req.method === "POST")
+        return send(200, backups.inspect(body));
+      if (url.pathname === "/api/admin/backup/restore" && req.method === "POST")
+        return send(200, backups.restore(body));
+      if (url.pathname === "/api/admin/onboarding" && req.method === "POST") {
+        store.db
+          .prepare(
+            "INSERT OR REPLACE INTO metadata VALUES('beam_onboarding_complete','true')",
+          )
+          .run();
         return send(200, { ok: true });
       }
-    }
-    const vote = url.pathname.match(
-      /^\/api\/public\/items\/([a-f0-9-]+)\/vote$/,
-    );
-    if (vote && req.method === "POST") {
-      store.vote(vote[1], visitor);
-      return send(200, { ok: true });
-    }
-    if (url.pathname === "/api/public/suggestions" && req.method === "POST") {
-      store.suggest(body.title, body.description);
-      return send(201, { ok: true });
-    }
-    send(404, { error: "Introuvable" });
+      if (url.pathname === "/api/admin/ai/setup" && req.method === "POST")
+        return send(202, await aiSetup.install());
+      if (
+        url.pathname === "/api/admin/collaboration" &&
+        req.method === "POST"
+      ) {
+        const result = await collaboration.settings(body.action, body);
+        workspaces.notify();
+        return send(200, result);
+      }
+      if (
+        /^\/api\/admin\/items(?:\/(?:kanban|reorder|[a-f0-9-]+(?:\/archive)?))?$/.test(
+          url.pathname,
+        ) &&
+        collaboration.active()
+      ) {
+        const result = await collaboration.items(
+          req.method,
+          url.pathname,
+          body,
+        );
+        return send(result.status, result.data);
+      }
+      if (
+        url.pathname === "/api/admin/publications/generate" &&
+        req.method === "POST"
+      )
+        return send(200, await publications.generate(body));
+      if (url.pathname === "/api/admin/publications" && req.method === "POST")
+        return send(201, publications.save(body));
+      const publicationMatch = url.pathname.match(
+        /^\/api\/admin\/publications\/([a-f0-9-]+)(?:\/(state))?$/,
+      );
+      if (publicationMatch) {
+        if (req.method === "PATCH")
+          return send(
+            200,
+            publicationMatch[2]
+              ? publications.transition(publicationMatch[1], body.state)
+              : publications.save(body, publicationMatch[1]),
+          );
+        if (req.method === "DELETE" && !publicationMatch[2]) {
+          publications.remove(publicationMatch[1]);
+          return send(200, { ok: true });
+        }
+      }
+      if (url.pathname === "/api/admin/profile" && req.method === "PATCH")
+        return send(200, await profile.save(body));
+      if (
+        url.pathname === "/api/admin/associations/refresh" &&
+        req.method === "POST"
+      ) {
+        void associations.refresh({ force: true, itemId: body.item_id });
+        return send(202, { ok: true });
+      }
+      if (
+        url.pathname === "/api/admin/associations/decide" &&
+        req.method === "POST"
+      ) {
+        associations.decide(body.source, body.item_id, body.accept);
+        return send(200, associations.list());
+      }
+      if (url.pathname === "/api/admin/topics" && req.method === "POST")
+        return send(201, topics.create(body.title));
+      if (
+        url.pathname === "/api/admin/topics/refresh" &&
+        req.method === "POST"
+      ) {
+        void topics.refresh();
+        return send(202, { ok: true });
+      }
+      if (url.pathname === "/api/admin/topics/move" && req.method === "POST") {
+        topics.move(body.source, body.topic_id);
+        return send(200, topics.list());
+      }
+      const topicMatch = url.pathname.match(
+        /^\/api\/admin\/topics\/([a-f0-9-]+)$/,
+      );
+      if (topicMatch && req.method === "PATCH") {
+        if (body.title !== undefined) topics.rename(topicMatch[1], body.title);
+        if (body.item_id !== undefined)
+          topics.link(topicMatch[1], body.item_id);
+        if (body.merge_into) topics.merge(topicMatch[1], body.merge_into);
+        return send(200, topics.list());
+      }
+      if (url.pathname === "/api/admin/ai/settings" && req.method === "PATCH")
+        return send(200, ai.configure(body.enabled));
+      if (url.pathname === "/api/admin/ai/analyze" && req.method === "POST") {
+        if (
+          !["note", "feature"].includes(body.scope) ||
+          typeof body.id !== "string"
+        )
+          return send(400, { error: "Analyse invalide" });
+        return send(202, ai.enqueue(body.scope, body.id));
+      }
+      const review = url.pathname.match(
+        /^\/api\/admin\/ai\/reviews\/([a-f0-9-]+)\/(apply|dismiss)$/,
+      );
+      if (review && req.method === "POST") {
+        if (applyingReviews.has(review[1]))
+          return send(409, {
+            error: "Cette proposition est déjà en cours d’application.",
+          });
+        applyingReviews.add(review[1]);
+        try {
+          const sharedSave = collaboration.active()
+            ? async (input, id) => {
+                const result = await collaboration.items(
+                  id ? "PATCH" : "POST",
+                  "/api/admin/items" + (id ? "/" + id : ""),
+                  { ...input, _revision: body._revision },
+                );
+                if (result.status >= 400) {
+                  const error = Error(result.data.error);
+                  error.status = result.status;
+                  throw error;
+                }
+                return result.data.id;
+              }
+            : null;
+          return send(
+            200,
+            review[2] === "apply"
+              ? await ai.apply(review[1], body.index, sharedSave)
+              : ai.dismiss(review[1], body.index),
+          );
+        } finally {
+          applyingReviews.delete(review[1]);
+        }
+      }
+      if (url.pathname === "/api/admin/notes" && req.method === "POST") {
+        const note = notes.save(body);
+        send(201, note);
+        setImmediate(() => ai.auto(note));
+        return;
+      }
+      const noteFiles = url.pathname.match(
+        /^\/api\/admin\/notes\/([a-f0-9-]+)\/attachments$/,
+      );
+      if (noteFiles && req.method === "POST") {
+        const file = await attachments.add(noteFiles[1], body);
+        send(201, file);
+        setImmediate(() =>
+          ai.auto(notes.list().find((n) => n.id === noteFiles[1])),
+        );
+        return;
+      }
+      const noteMatch = url.pathname.match(
+        /^\/api\/admin\/notes\/([a-f0-9-]+)$/,
+      );
+      if (noteMatch && req.method === "PATCH") {
+        const note = notes.save(body, noteMatch[1]);
+        send(200, note);
+        if (body.text !== undefined) setImmediate(() => ai.auto(note));
+        return;
+      }
+      if (url.pathname === "/api/admin/decisions" && req.method === "POST")
+        return send(201, decisions.save(body));
+      const decisionMatch = url.pathname.match(
+        /^\/api\/admin\/decisions\/([a-f0-9-]+)$/,
+      );
+      if (decisionMatch && req.method === "PATCH")
+        return send(200, decisions.decide(decisionMatch[1], body.state));
+      if (url.pathname === "/api/admin/product" && req.method === "PATCH") {
+        const product = await integrations.saveProduct(body);
+        workspaces.notify();
+        return send(200, product);
+      }
+      if (url.pathname === "/api/admin/sources" && req.method === "POST")
+        return send(201, integrations.save(body));
+      const sourceSetting = url.pathname.match(
+        /^\/api\/admin\/sources\/([a-f0-9-]+)$/,
+      );
+      if (sourceSetting && req.method === "PATCH")
+        return send(200, integrations.enable(sourceSetting[1], body.enabled));
+      const sync = url.pathname.match(
+        /^\/api\/admin\/sources\/([a-f0-9-]+)\/sync$/,
+      );
+      if (sync && req.method === "POST")
+        return send(200, await integrations.sync(sync[1]));
+      const signal = url.pathname.match(
+        /^\/api\/admin\/signals\/([a-f0-9-]+)\/(link|promote)$/,
+      );
+      if (signal && req.method === "POST")
+        return send(
+          200,
+          signal[2] === "promote"
+            ? integrations.promote(signal[1])
+            : integrations.link(signal[1], body.item_id, body.remove),
+        );
+      if (url.pathname === "/api/admin/items/kanban" && req.method === "POST") {
+        store.reorderKanban(body.columns);
+        return send(200, { ok: true });
+      }
+      if (
+        url.pathname === "/api/admin/items/reorder" &&
+        req.method === "POST"
+      ) {
+        store.reorder(body.id, body.target_id, body.after);
+        return send(200, { ok: true });
+      }
+      if (url.pathname === "/api/admin/items" && req.method === "POST")
+        return send(201, { id: store.save(body) });
+      const archiveItem = url.pathname.match(
+        /^\/api\/admin\/items\/([a-f0-9-]+)\/archive$/,
+      );
+      if (archiveItem && req.method === "PATCH") {
+        store.archive(archiveItem[1], body.archived);
+        return send(200, { ok: true });
+      }
+      const suggestionMatch = url.pathname.match(
+        /^\/api\/admin\/suggestions\/([a-f0-9-]+)$/,
+      );
+      if (suggestionMatch && req.method === "PATCH") {
+        store.suggestionAction(suggestionMatch[1], body.archived);
+        return send(200, { ok: true });
+      }
+      if (suggestionMatch && req.method === "DELETE") {
+        store.removeSuggestion(suggestionMatch[1]);
+        return send(200, { ok: true });
+      }
+      const match = url.pathname.match(/^\/api\/admin\/items\/([a-f0-9-]+)$/);
+      if (match) {
+        if (req.method === "PATCH")
+          return send(200, { id: store.save(body, match[1]) });
+        if (req.method === "DELETE") {
+          store.remove(match[1]);
+          return send(200, { ok: true });
+        }
+      }
+      const vote = url.pathname.match(
+        /^\/api\/public\/items\/([a-f0-9-]+)\/vote$/,
+      );
+      if (vote && req.method === "POST") {
+        store.vote(vote[1], visitor);
+        return send(200, { ok: true });
+      }
+      if (url.pathname === "/api/public/suggestions" && req.method === "POST") {
+        store.suggest(body.title, body.description);
+        return send(201, { ok: true });
+      }
+      send(404, { error: "Introuvable" });
+    });
   } catch (error) {
     send(error.status || 400, { error: error.message });
   }

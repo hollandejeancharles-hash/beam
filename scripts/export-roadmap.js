@@ -1,11 +1,27 @@
 import { publicPublications } from "../server/publications.js";
 import { existsSync, writeFileSync } from "node:fs";
+import { dirname, join } from "node:path";
 import { DatabaseSync } from "node:sqlite";
 import { publicRoadmap } from "./public-roadmap.js";
 const file = process.env.BEAM_DB || "data/beam.sqlite";
 if (!existsSync(file))
   throw Error("Base introuvable. Démarrer Beam localement avant l’export.");
-const db = new DatabaseSync(file, { readOnly: true });
+const root = new DatabaseSync(file, { readOnly: true });
+const active =
+  process.env.BEAM_WORKSPACE ||
+  JSON.parse(
+    root
+      .prepare("SELECT value FROM metadata WHERE key='beam_active_workspace'")
+      .get()?.value || '"default"',
+  );
+if (active !== "default" && !/^[a-f0-9-]{36}$/.test(active))
+  throw Error("Workspace invalide");
+const db =
+  active === "default"
+    ? root
+    : new DatabaseSync(join(dirname(file), "workspaces", active + ".sqlite"), {
+        readOnly: true,
+      });
 const entries = publicRoadmap(
   db.prepare("SELECT * FROM items ORDER BY created DESC").all(),
 );
@@ -28,6 +44,7 @@ writeFileSync(
   JSON.stringify(publications, null, 2) + "\n",
 );
 db.close();
+if (db !== root) root.close();
 writeFileSync("public/roadmap.json", JSON.stringify(entries, null, 2) + "\n");
 console.log(
   `${entries.length} évolutions publiques exportées. Relire public/roadmap.json avant publication.`,

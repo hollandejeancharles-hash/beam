@@ -1,3 +1,8 @@
+import { AsyncLocalStorage } from "node:async_hooks";
+const workspaceContext = new AsyncLocalStorage();
+export const inWorkspace = (id, fn) => workspaceContext.run(id, fn);
+const scopedId = (id) =>
+  workspaceContext.getStore() ? workspaceContext.getStore() + ":" + id : id;
 const jobs = new Map();
 const labels = {
   publication: "Rédaction de la publication",
@@ -7,10 +12,14 @@ const labels = {
   topics: "Regroupement des sujets",
 };
 export function beginProgress(id, scope, entities = {}) {
+  const displayId = id;
+  id = scopedId(id);
+  const workspaceId = workspaceContext.getStore();
   const started = Date.now();
   jobs.set(id, {
-    id,
+    id: displayId,
     scope,
+    workspaceId,
     label: labels[scope],
     state: "queued",
     phase: "En attente",
@@ -51,16 +60,22 @@ export function beginProgress(id, scope, entities = {}) {
   };
 }
 export function progressFor(id) {
-  return jobs.get(id) || null;
+  return jobs.get(scopedId(id)) || null;
 }
 export function activity() {
   const now = Date.now();
   for (const [id, job] of jobs)
     if (job.finished && now - job.finished > 60000) jobs.delete(id);
-  return [...jobs.values()].map((job) => ({
-    ...job,
-    elapsed: Math.floor(((job.finished || now) - job.started) / 1000),
-  }));
+  return [...jobs.values()]
+    .filter(
+      (job) =>
+        !workspaceContext.getStore() ||
+        job.workspaceId === workspaceContext.getStore(),
+    )
+    .map((job) => ({
+      ...job,
+      elapsed: Math.floor(((job.finished || now) - job.started) / 1000),
+    }));
 }
 
 // Ollama exposes streaming output, but no total generation length or percentage.
