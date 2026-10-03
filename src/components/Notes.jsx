@@ -245,9 +245,9 @@ export default function Notes({
     [subject, setSubject] = useState(null),
     [settings, setSettings] = useState(false),
     [data, setData] = useState({ status: null, reviews: [] }),
-    [classification, setClassification] = useState(null),
-    [editing, setEditing] = useState(false),
-    [draft, setDraft] = useState("");
+    [classification, setClassification] = useState(null);
+  const [composing, setComposing] = useState(false);
+  const composer = useRef(null);
   useEffect(() => {
     if (!files.length) return;
     const protect = (event) => {
@@ -259,7 +259,6 @@ export default function Notes({
   }, [files.length]);
   const [inbox, setInbox] = useState([]);
   const [loaded, setLoaded] = useState(false);
-  const trigger = useRef(null);
   async function load() {
     try {
       const [n, status, reviews, groups, queue] = await Promise.all([
@@ -296,8 +295,12 @@ export default function Notes({
   useEffect(() => {
     if (!initialTarget || (!loaded && initialTarget.kind !== "settings"))
       return;
-    if (initialTarget.kind === "review") setView("review");
-    else if (initialTarget.kind === "settings") setSettings(true);
+    if (initialTarget.kind === "review") {
+      setView("review");
+      setSelected(null);
+      setComposing(false);
+      setSubject(null);
+    } else if (initialTarget.kind === "settings") setSettings(true);
     else if (initialTarget.kind === "topic") {
       const found = subjects.topics.find((t) => t.id === initialTarget.id);
       if (found) setSubject(found);
@@ -305,7 +308,9 @@ export default function Notes({
     } else if (
       ["note", "attachment", "decision"].includes(initialTarget.kind)
     ) {
-      const found = notes.find((n) => n.id === initialTarget.targetId);
+      const found = notes.find(
+        (n) => n.id === (initialTarget.targetId || initialTarget.id),
+      );
       if (found) {
         setSelected(found);
         setView(found.state === "archived" ? "archives" : "all");
@@ -320,10 +325,12 @@ export default function Notes({
     if (r.scope === "note" && !latest.has(r.entity_id))
       latest.set(r.entity_id, r);
   const pending = (n) =>
-    latest
-      .get(n.id)
-      ?.result?.proposals?.some((p) => !p.applied && !p.dismissed);
-  const current = notes.find((n) => n.id === selected?.id) || selected;
+    inbox.some(
+      (row) =>
+        row.note_id === n.id ||
+        (row.scope === "note" && row.entity_id === n.id),
+    );
+  const current = notes.find((n) => n.id === selected?.id) || null;
   const topics = [
     ...new Set(
       notes.filter((n) => n.state !== "archived").flatMap((n) => n.tags),
@@ -344,6 +351,25 @@ export default function Notes({
           ...(n.attachments || []).map((a) => a.name),
         ])),
   );
+  useEffect(() => {
+    if (!loaded || composing || subject || view === "review") return;
+    if (!visible.some((n) => n.id === selected?.id))
+      setSelected(
+        window.matchMedia("(min-width: 701px)").matches
+          ? visible[0] || null
+          : null,
+      );
+  }, [loaded, notes, view, topic, query, composing, subject]);
+  function newNote() {
+    setComposing(true);
+    setSelected(null);
+    setSubject(null);
+    setView("all");
+    setQuery("");
+    setTopic("Tous");
+    setSettings(false);
+    requestAnimationFrame(() => composer.current?.focus());
+  }
   async function attach(id, chosen) {
     for (const file of chosen) {
       if (file.size > 8 * 1024 * 1024) throw Error("8 Mo maximum par fichier");
@@ -379,6 +405,8 @@ export default function Notes({
       setFiles([]);
       await attach(n.id, chosen);
       await load();
+      setSelected(n);
+      setComposing(false);
     } catch (e) {
       onError(e.message);
     } finally {
@@ -392,8 +420,10 @@ export default function Notes({
         body: JSON.stringify(body),
       });
       await load();
+      return true;
     } catch (e) {
       onError(e.message);
+      return false;
     }
   }
   async function download(a) {
@@ -417,250 +447,113 @@ export default function Notes({
     }
   }
   return (
-    <div className="notes-v2">
-      {subject && (
-        <NoteProposalPanel
-          note={{
-            text: (subjects.topics.find((t) => t.id === subject.id) || subject)
-              .title,
-          }}
-          close={() => setSubject(null)}
-        >
-          <TopicDetail
-            topic={subjects.topics.find((t) => t.id === subject.id) || subject}
-            topics={subjects.topics}
-            items={items}
-            api={api}
-            refresh={load}
-            onError={onError}
-            onNote={(id) => {
-              setSubject(null);
-              setSelected(notes.find((n) => n.id === id));
-            }}
-            onPrepare={(draft) => {
-              setSubject(null);
-              onPrepare?.(draft);
-            }}
-            onOpen={(item) => {
-              setSubject(null);
-              onOpen(item);
-            }}
-          />
-        </NoteProposalPanel>
-      )}
-
-      <div className="notes-v2-status">
-        <span className={data.status?.enabled ? "active" : ""}>●</span>{" "}
-        {data.status?.enabled ? "Organisation active" : "Organisation en pause"}
-        <AIProgress scope="associations" />
-        <button
-          className="icon-button"
-          aria-label="Réglages des notes"
-          onClick={() => setSettings(!settings)}
-        >
-          ···
-        </button>
-      </div>
-      {settings && (
-        <div className="notes-v2-settings">
-          <LocalAssistant
-            api={api}
-            items={items}
-            settingsOnly
-            onData={setData}
-          />
-          <button
-            className="text-button"
-            onClick={() => {
-              setView(view === "archives" ? "all" : "archives");
-              setSettings(false);
-            }}
-          >
-            {" "}
-            {view === "archives" ? "Retour aux notes" : "Voir les archives"}
-          </button>
-        </div>
-      )}
-      <form className="notes-v2-capture" onSubmit={save}>
-        <textarea
-          aria-label="Nouvelle note"
-          placeholder="Une idée, un échange, une suite à donner…"
-          value={text}
-          onChange={(e) => setText(e.target.value)}
-          onKeyDown={(e) => {
-            if (
-              e.key === "Enter" &&
-              !e.shiftKey &&
-              !e.nativeEvent.isComposing
-            ) {
-              e.preventDefault();
-              save();
-            }
-          }}
-        />
-        <div className="notes-v2-capture-footer">
-          <label className="button attachment-picker">
-            Joindre un fichier
-            <input
-              type="file"
-              multiple
-              accept="image/png,image/jpeg,image/webp,application/pdf"
-              disabled={busy}
-              onChange={(e) => {
-                setFiles([...files, ...Array.from(e.target.files)].slice(0, 4));
-                e.target.value = "";
-              }}
-            />
-          </label>
-          <small>
-            {busy
-              ? "Enregistrement et lecture des fichiers…"
-              : "Entrée pour enregistrer · ⇧Entrée pour une nouvelle ligne"}
-          </small>
+    <div
+      className={`notes-notebook ${composing || current || subject || settings || view === "review" ? "has-detail" : ""}`}
+    >
+      <aside className="notebook-index" aria-label="Votre carnet">
+        <div className="notebook-index-head">
+          <strong>Votre carnet</strong>
           <button
             className="icon-button"
-            aria-label="Enregistrer la note"
-            disabled={busy || (!text.trim() && !files.length)}
+            aria-label="Nouvelle note"
+            onClick={newNote}
           >
-            <ArrowRight size={18} />
+            <Plus size={17} />
           </button>
         </div>
-        {files.length > 0 && (
-          <div className="notes-v2-files">
-            {files.map((f, i) => (
-              <button
-                type="button"
-                key={i}
-                onClick={() => setFiles(files.filter((_, j) => j !== i))}
-              >
-                {f.name} ×
-              </button>
-            ))}
-          </div>
-        )}
-      </form>
-      <div className="notes-v2-toolbar">
-        <nav aria-label="Vues des notes">
+        <div className="notebook-search">
+          <Search size={14} />
+          <input
+            aria-label="Rechercher dans les notes"
+            placeholder="Rechercher dans le carnet…"
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+          />
+        </div>
+        <nav className="notebook-views" aria-label="Vues des notes">
           {[
             ["all", "Toutes"],
             ["followup", "À suivre"],
-            ["review", "À examiner"],
-            ...(view === "archives" ? [["archives", "Archives"]] : []),
+            ["archives", "Archives"],
           ].map(([id, label]) => (
             <button
               key={id}
               aria-pressed={view === id}
-              className={view === id ? "active" : ""}
-              onClick={() => setView(id)}
+              onClick={() => {
+                setView(id);
+                setComposing(false);
+                setSubject(null);
+              }}
             >
               {label}
-              {id === "review" && inbox.length > 0 && (
-                <span>{inbox.length}</span>
-              )}
             </button>
           ))}
         </nav>
-        <input
-          aria-label="Rechercher dans les notes"
-          placeholder="Rechercher…"
-          value={query}
-          onChange={(e) => setQuery(e.target.value)}
-        />
-      </div>
-      {view !== "review" && (
-        <>
-          <div className="living-topics">
-            <div className="living-topics-head">
-              <span>Sujets vivants</span>
-              <AIProgress scope="topics" showLabel />
+        <button
+          className={`notebook-review ${view === "review" ? "active" : ""}`}
+          onClick={() => {
+            setView("review");
+            setComposing(false);
+            setSelected(null);
+            setSubject(null);
+          }}
+        >
+          <Activity size={14} />
+          <span>À examiner</span>
+          <small>{inbox.length || ""}</small>
+        </button>
+        {(topics.length > 0 || subjects.topics.length > 0) && (
+          <details className="notebook-topics">
+            <summary>
+              Sujets détectés <AIProgress scope="topics" />
+            </summary>
+            <button
+              className={topic === "Tous" ? "active" : ""}
+              onClick={() => {
+                setTopic("Tous");
+                setSubject(null);
+                setComposing(false);
+                setView("all");
+              }}
+            >
+              Tous les sujets
+            </button>
+            {topics.map((t) => (
               <button
-                className="text-button"
-                onClick={async () => {
-                  try {
-                    await api("admin/topics/refresh", { method: "POST" });
-                    await load();
-                  } catch (e) {
-                    onError(e.message);
-                  }
+                key={t}
+                className={topic === t ? "active" : ""}
+                onClick={() => {
+                  setTopic(t);
+                  setView("all");
+                  setSubject(null);
+                  setComposing(false);
                 }}
               >
-                {subjects.running ? "Regroupement…" : "Actualiser"}
+                {t}
               </button>
-            </div>
-            {subjects.error && <small role="status">{subjects.error}</small>}
-            <div className="notes-v2-topics">
-              {subjects.topics.map((t) => (
-                <button
-                  key={t.id}
-                  onClick={() => {
-                    setSubject(t);
-                    setSelected(null);
-                  }}
-                >
-                  {t.title}{" "}
-                  <span>
-                    {t.sources.filter((s) => s.confidence === "clear").length}
-                  </span>
-                  {t.sources.some((s) => s.confidence === "review")
-                    ? " · À examiner"
-                    : ""}
-                </button>
-              ))}
-              {!subjects.topics.length && (
-                <small>
-                  Les liens entre vos notes et tickets apparaîtront ici au fil
-                  des analyses.
-                </small>
-              )}
-            </div>
-          </div>
-        </>
-      )}
-      {view !== "review" && topics.length > 0 && (
-        <div className="notes-v2-topics">
-          <small>Sujets</small>
-          {["Tous", ...topics].map((t) => (
-            <button
-              className={topic === t ? "active" : ""}
-              onClick={() => setTopic(t)}
-              key={t}
-            >
-              {t}
-            </button>
-          ))}
-        </div>
-      )}
-      {view === "review" ? (
-        <ReviewInbox
-          rows={inbox}
-          loading={!loaded}
-          query={query}
-          api={api}
-          onRefresh={load}
-          onError={onError}
-          onExamine={(row, button) => {
-            trigger.current = button;
-            if (row.kind === "decision") {
-              setSelected(notes.find((n) => n.id === row.note_id));
-              return;
-            }
-            if (row.kind === "topic") {
-              setSubject(subjects.topics.find((t) => t.id === row.topic_id));
-              return;
-            }
-            if (row.kind === "proposal" && row.scope === "note") {
-              setSelected(notes.find((n) => n.id === row.entity_id));
-              return;
-            }
-            const item = items.find(
-              (i) => i.id === (row.item_id || row.entity_id),
-            );
-            if (item) onOpen(item);
-            else onError("Cet élément n’est plus disponible.");
-          }}
-        />
-      ) : (
-        <div className="notes-v2-list">
+            ))}
+            {subjects.topics.map((t) => (
+              <button
+                key={t.id}
+                onClick={() => {
+                  setSubject(t);
+                  setComposing(false);
+                  setSelected(null);
+                }}
+              >
+                {t.title}
+                <small>{t.sources.length}</small>
+              </button>
+            ))}
+          </details>
+        )}
+        {(text.trim() || files.length > 0) && !composing && (
+          <button className="notebook-review" onClick={newNote}>
+            <FileText size={14} />
+            <span>Reprendre le brouillon</span>
+          </button>
+        )}
+        <div className="notebook-note-list" aria-label="Liste des notes">
           {visible.map((n, i) => (
             <React.Fragment key={n.id}>
               {(i === 0 ||
@@ -674,109 +567,248 @@ export default function Notes({
                 </h3>
               )}
               <button
-                className="notes-v2-row"
-                onClick={(e) => {
-                  trigger.current = e.currentTarget;
+                className={`notebook-note ${current?.id === n.id && !composing && !subject ? "selected" : ""}`}
+                aria-pressed={current?.id === n.id && !composing && !subject}
+                onClick={() => {
                   setSelected(n);
-                  setEditing(false);
+                  setComposing(false);
+                  setSubject(null);
                   setClassification(null);
                 }}
               >
-                <FileText size={17} />
-                <div>
-                  <strong>{n.text}</strong>
-                  <small>
-                    {[...n.people, ...n.tags].slice(0, 3).join(" · ") || "Note"}
-                    {n.attachments?.length > 0 &&
-                      ` · ${n.attachments.length} pièce(s) jointe(s)`}
-                  </small>
-                </div>
-                <span className="notes-v2-indicator">
-                  {pending(n)
-                    ? "Proposition"
-                    : ["queued", "running"].includes(latest.get(n.id)?.state)
-                      ? ""
-                      : latest.get(n.id)?.state === "error"
-                        ? "À relancer"
-                        : n.due
-                          ? dateLabel(n.due)
-                          : ""}
+                <strong>{n.text.split("\n")[0]}</strong>
+                <span className="notebook-preview">
+                  {n.text.split("\n").slice(1).join(" ") ||
+                    [...n.people, ...n.tags].join(" · ") ||
+                    "Note personnelle"}
                 </span>
-                <time>
-                  {new Date(n.created).toLocaleTimeString("fr-FR", {
-                    hour: "2-digit",
-                    minute: "2-digit",
-                  })}
-                </time>
-                <AIProgress
-                  noteId={n.id}
-                  fallback={
-                    ["queued", "running"].includes(latest.get(n.id)?.state)
-                      ? { ...latest.get(n.id), ...latest.get(n.id)?.progress }
-                      : null
-                  }
-                />
+                <span className="notebook-note-meta">
+                  <time>
+                    {new Date(n.created).toLocaleTimeString("fr-FR", {
+                      hour: "2-digit",
+                      minute: "2-digit",
+                    })}
+                  </time>
+                  {n.attachments?.length > 0 && (
+                    <span>
+                      {n.attachments.length} pièce
+                      {n.attachments.length > 1 ? "s" : ""} jointe
+                      {n.attachments.length > 1 ? "s" : ""}
+                    </span>
+                  )}
+                  {pending(n) && <i title="Proposition à examiner" />}
+                  <AIProgress
+                    noteId={n.id}
+                    fallback={
+                      ["queued", "running"].includes(latest.get(n.id)?.state)
+                        ? { ...latest.get(n.id), ...latest.get(n.id)?.progress }
+                        : null
+                    }
+                  />
+                </span>
               </button>
             </React.Fragment>
           ))}
           {!visible.length && (
-            <div className="empty">
-              <FileText size={24} />
-              <h3>
-                {view === "review"
-                  ? "Tout est au clair"
-                  : "Votre carnet est prêt"}
-              </h3>
-              <p>
-                {view === "review"
-                  ? "Les propositions à examiner apparaîtront ici."
-                  : "Notez un échange ou joignez un document pour commencer."}
-              </p>
-            </div>
+            <p className="notebook-list-empty">
+              {!loaded
+                ? "Chargement…"
+                : query
+                  ? "Aucune note trouvée."
+                  : view === "archives"
+                    ? "Aucune note archivée."
+                    : view === "followup"
+                      ? "Aucune suite à donner."
+                      : "Votre première note vous attend."}
+            </p>
           )}
         </div>
-      )}
-      <small className="notes-v2-privacy">
-        Organisé sur ce Mac · Les changements de roadmap restent à valider
-      </small>
-      {current && (
-        <NoteProposalPanel
-          note={current}
-          close={() => {
-            setSelected(null);
-            requestAnimationFrame(() => trigger.current?.focus());
-          }}
-        >
-          <DecisionMemory
-            api={api}
-            note={current}
-            items={items}
-            onError={onError}
-            onChange={load}
-          />
-          <div className="notes-v2-detail-actions">
+        <div className="notebook-index-footer">
+          <span className={data.status?.enabled ? "active" : ""}>●</span>
+          <span>
+            {data.status?.enabled
+              ? "Organisé sur ce Mac"
+              : "Organisation en pause"}
+          </span>
+          <button
+            className="icon-button"
+            aria-label="Réglages des notes"
+            onClick={() => setSettings(!settings)}
+          >
+            ···
+          </button>
+        </div>
+      </aside>
+      <section className="notebook-detail" aria-label="Note ouverte">
+        <div className="notebook-detail-toolbar">
+          <button
+            className="text-button notebook-back"
+            onClick={() => {
+              setSelected(null);
+              setComposing(false);
+              setSubject(null);
+              setView("all");
+              setSettings(false);
+            }}
+          >
+            ← Le carnet
+          </button>
+          <span>
+            {view === "archives"
+              ? "Archives"
+              : subject
+                ? "Sujet détecté"
+                : composing
+                  ? "Nouvelle note"
+                  : "Note personnelle"}
+          </span>
+          <div>
+            {current && !composing && !subject && (
+              <>
+                <button
+                  className="text-button"
+                  onClick={() =>
+                    update(current, {
+                      state: current.state === "archived" ? "open" : "archived",
+                    })
+                  }
+                >
+                  {current.state === "archived" ? "Restaurer" : "Archiver"}
+                </button>
+                <button
+                  className="text-button"
+                  onClick={() =>
+                    update(current, {
+                      state: current.state === "done" ? "open" : "done",
+                    })
+                  }
+                >
+                  {current.state === "done" ? "Réouvrir" : "Terminer"}
+                </button>
+              </>
+            )}
             <button
-              className="text-button"
-              onClick={() => {
-                setDraft(current.text);
-                setEditing(!editing);
-              }}
+              className="icon-button"
+              aria-label="Créer une nouvelle note"
+              onClick={newNote}
             >
-              Modifier la note
+              <Plus size={16} />
             </button>
-            <label className="button attachment-picker">
-              Joindre
+          </div>
+        </div>
+        {settings ? (
+          <div className="notebook-paper">
+            <button className="text-button" onClick={() => setSettings(false)}>
+              Revenir au carnet
+            </button>
+            <LocalAssistant
+              api={api}
+              items={items}
+              settingsOnly
+              onData={setData}
+            />
+          </div>
+        ) : subject ? (
+          <div className="notebook-paper">
+            <TopicDetail
+              topic={subject}
+              topics={subjects.topics}
+              items={items}
+              api={api}
+              refresh={load}
+              onError={onError}
+              onNote={(id) => {
+                setSubject(null);
+                setView("all");
+                setSelected(notes.find((n) => n.id === id));
+              }}
+              onPrepare={onPrepare}
+              onOpen={onOpen}
+            />
+          </div>
+        ) : composing ? (
+          <form className="notebook-paper notebook-composer" onSubmit={save}>
+            <div className="notebook-date">
+              {new Date().toLocaleDateString("fr-FR", {
+                day: "numeric",
+                month: "long",
+                year: "numeric",
+              })}
+            </div>
+            <textarea
+              ref={composer}
+              aria-label="Nouvelle note"
+              placeholder="Une idée, un échange, une suite à donner…"
+              value={text}
+              onChange={(e) => setText(e.target.value)}
+              onKeyDown={(e) => {
+                if (
+                  e.key === "Enter" &&
+                  (e.metaKey || e.ctrlKey) &&
+                  !e.nativeEvent.isComposing
+                ) {
+                  e.preventDefault();
+                  void save();
+                }
+              }}
+            />
+            <div className="notebook-compose-actions">
+              <label className="button attachment-picker">
+                Joindre un fichier
+                <input
+                  type="file"
+                  multiple
+                  accept="image/png,image/jpeg,image/webp,application/pdf"
+                  disabled={busy}
+                  onChange={(e) => {
+                    setFiles(
+                      [...files, ...Array.from(e.target.files)].slice(0, 4),
+                    );
+                    e.target.value = "";
+                  }}
+                />
+              </label>
+              <button
+                className="button primary"
+                disabled={busy || (!text.trim() && !files.length)}
+              >
+                {busy ? "Enregistrement…" : "Enregistrer"}
+                <ArrowRight size={14} />
+              </button>
+            </div>
+            {files.length > 0 && (
+              <div className="notes-v2-files">
+                {files.map((f, i) => (
+                  <button
+                    type="button"
+                    key={i}
+                    onClick={() => setFiles(files.filter((_, j) => j !== i))}
+                  >
+                    {f.name} ×
+                  </button>
+                ))}
+              </div>
+            )}
+            <small className="notebook-hint">
+              ⌘ Entrée pour enregistrer · Brouillon conservé dans cette fenêtre
+            </small>
+          </form>
+        ) : current ? (
+          <div className="notebook-paper" key={current.id}>
+            <InlineNoteEditor note={current} update={update} />
+            <label className="text-button attachment-picker notebook-attach">
+              Joindre un fichier
               <input
                 type="file"
                 multiple
                 accept="image/png,image/jpeg,image/webp,application/pdf"
                 disabled={busy}
                 onChange={async (e) => {
-                  const f = Array.from(e.target.files);
+                  const chosen = Array.from(e.target.files);
                   e.target.value = "";
                   setBusy(true);
                   try {
-                    await attach(current.id, f);
+                    await attach(current.id, chosen);
                     await load();
                   } catch (e) {
                     onError(e.message);
@@ -786,177 +818,270 @@ export default function Notes({
                 }}
               />
             </label>
-          </div>
-          {editing && (
-            <form
-              onSubmit={async (e) => {
-                e.preventDefault();
-                await update(current, { text: draft });
-                setEditing(false);
-              }}
-            >
-              <textarea
-                aria-label="Modifier le texte de la note"
-                value={draft}
-                onChange={(e) => setDraft(e.target.value)}
-              />
-              <button className="button">Enregistrer</button>
-            </form>
-          )}
-          {current.attachments?.length > 0 && (
-            <section className="notes-v2-attachments">
-              <h3>Pièces jointes</h3>
-              {current.attachments.map((a) => (
-                <button
-                  className="button"
-                  key={a.id}
-                  onClick={() => download(a)}
-                >
-                  <FileText size={14} />
-                  {a.name}
-                  {a.mime === "application/pdf" ? ` · ${a.pages} page(s)` : ""}
-                </button>
-              ))}
-              <small>
-                Les documents et images participent à l’analyse de cette note.
-              </small>
-            </section>
-          )}
-          <section className="notes-v2-recognized">
-            <h3>Informations reconnues</h3>
-            <dl>
-              <dt>Sujets</dt>
-              <dd>{current.tags.join(", ") || "À identifier"}</dd>
-              <dt>Personnes</dt>
-              <dd>{current.people.join(", ") || "Non précisé"}</dd>
-              <dt>Intention</dt>
-              <dd>{NOTE_KINDS[current.kind]}</dd>
-              <dt>Échéance</dt>
-              <dd>{current.due ? dateLabel(current.due) : "Non précisée"}</dd>
-            </dl>
-            <small>Classement automatique, corrigible à tout moment.</small>
-            <button
-              className="text-button"
-              onClick={() =>
-                setClassification({
-                  kind: current.kind,
-                  people: current.people.join(", "),
-                  tags: current.tags.join(", "),
-                  due: current.due || "",
-                })
-              }
-            >
-              Corriger les informations
-            </button>
-            {classification && (
-              <form
-                className="note-editor-grid"
-                onSubmit={async (e) => {
-                  e.preventDefault();
-                  await update(current, {
-                    classification: {
-                      ...classification,
-                      people: classification.people
-                        .split(",")
-                        .map((t) => t.trim())
-                        .filter(Boolean),
-                      tags: classification.tags
-                        .split(",")
-                        .map((t) => t.trim())
-                        .filter(Boolean),
-                      due: classification.due || null,
-                    },
-                  });
-                  setClassification(null);
-                }}
+            {current.attachments?.length > 0 && (
+              <section
+                className="notebook-attachments"
+                aria-label="Pièces jointes"
               >
-                <label>
-                  Intention
-                  <select
-                    value={classification.kind}
-                    onChange={(e) =>
+                {current.attachments.map((a) => (
+                  <button
+                    className="notebook-attachment"
+                    key={a.id}
+                    onClick={() => download(a)}
+                  >
+                    <FileText size={20} />
+                    <span>
+                      <strong>{a.name}</strong>
+                      <small>
+                        {a.mime === "application/pdf"
+                          ? `${a.pages || ""} page(s) · PDF`
+                          : "Image"}{" "}
+                        · Ouvrir
+                      </small>
+                    </span>
+                  </button>
+                ))}
+              </section>
+            )}
+            <details
+              className="notebook-insights"
+              open={view === "review" ? true : undefined}
+            >
+              <summary>
+                <Activity size={16} />
+                <span>Ce que Beam en retient</span>
+                {pending(current) && <small>À examiner</small>}
+                <AIProgress noteId={current.id} />
+              </summary>
+              <div className="notebook-insights-body">
+                <section className="notes-v2-recognized">
+                  <h3>Informations reconnues</h3>
+                  <dl>
+                    <dt>Sujets</dt>
+                    <dd>{current.tags.join(", ") || "À identifier"}</dd>
+                    <dt>Personnes</dt>
+                    <dd>{current.people.join(", ") || "Non précisé"}</dd>
+                    <dt>Intention</dt>
+                    <dd>{NOTE_KINDS[current.kind]}</dd>
+                    <dt>Échéance</dt>
+                    <dd>
+                      {current.due ? dateLabel(current.due) : "Non précisée"}
+                    </dd>
+                  </dl>
+                  <small>
+                    Classement automatique, corrigible à tout moment.
+                  </small>
+                  <button
+                    className="text-button"
+                    onClick={() =>
                       setClassification({
-                        ...classification,
-                        kind: e.target.value,
+                        kind: current.kind,
+                        people: current.people.join(", "),
+                        tags: current.tags.join(", "),
+                        due: current.due || "",
                       })
                     }
                   >
-                    {Object.entries(NOTE_KINDS).map(([k, v]) => (
-                      <option key={k} value={k}>
-                        {v}
-                      </option>
-                    ))}
-                  </select>
-                </label>
-                {[
-                  ["people", "Personnes"],
-                  ["tags", "Sujets"],
-                  ["due", "Échéance"],
-                ].map(([key, label]) => (
-                  <label key={key}>
-                    {label}
-                    <input
-                      type={key === "due" ? "date" : "text"}
-                      value={classification[key]}
-                      onChange={(e) =>
-                        setClassification({
-                          ...classification,
-                          [key]: e.target.value,
-                        })
-                      }
-                    />
-                  </label>
-                ))}
-                <button className="button">Enregistrer</button>
-                <button
-                  type="button"
-                  className="text-button"
-                  onClick={() => setClassification(null)}
-                >
-                  Annuler
-                </button>
-              </form>
-            )}
-          </section>
-          <LocalAssistant
-            key={current.id}
-            api={api}
-            items={items}
-            scope="note"
-            entity={current}
-            onData={setData}
-            onRefresh={async () => {
-              await load();
-              await onRefresh?.();
-            }}
-          />
-          <div className="notes-v2-detail-actions">
-            <button
-              className="button"
-              onClick={() =>
-                update(current, {
-                  state: current.state === "archived" ? "open" : "archived",
-                })
-              }
-            >
-              {current.state === "archived" ? "Restaurer" : "Archiver"}
-            </button>
-            <button
-              className="text-button"
-              onClick={() =>
-                update(current, {
-                  state: current.state === "done" ? "open" : "done",
-                })
-              }
-            >
-              {current.state === "done" ? "Réouvrir" : "Terminer"}
+                    Corriger les informations
+                  </button>
+                  {classification && (
+                    <form
+                      className="note-editor-grid"
+                      onSubmit={async (e) => {
+                        e.preventDefault();
+                        await update(current, {
+                          classification: {
+                            ...classification,
+                            people: classification.people
+                              .split(",")
+                              .map((t) => t.trim())
+                              .filter(Boolean),
+                            tags: classification.tags
+                              .split(",")
+                              .map((t) => t.trim())
+                              .filter(Boolean),
+                            due: classification.due || null,
+                          },
+                        });
+                        setClassification(null);
+                      }}
+                    >
+                      <label>
+                        Intention
+                        <select
+                          value={classification.kind}
+                          onChange={(e) =>
+                            setClassification({
+                              ...classification,
+                              kind: e.target.value,
+                            })
+                          }
+                        >
+                          {Object.entries(NOTE_KINDS).map(([k, v]) => (
+                            <option key={k} value={k}>
+                              {v}
+                            </option>
+                          ))}
+                        </select>
+                      </label>
+                      {[
+                        ["people", "Personnes"],
+                        ["tags", "Sujets"],
+                        ["due", "Échéance"],
+                      ].map(([key, label]) => (
+                        <label key={key}>
+                          {label}
+                          <input
+                            type={key === "due" ? "date" : "text"}
+                            value={classification[key]}
+                            onChange={(e) =>
+                              setClassification({
+                                ...classification,
+                                [key]: e.target.value,
+                              })
+                            }
+                          />
+                        </label>
+                      ))}
+                      <button className="button">Enregistrer</button>
+                      <button
+                        type="button"
+                        className="text-button"
+                        onClick={() => setClassification(null)}
+                      >
+                        Annuler
+                      </button>
+                    </form>
+                  )}
+                </section>
+
+                <DecisionMemory
+                  key={current.id}
+                  api={api}
+                  note={current}
+                  items={items}
+                  onError={onError}
+                  onChange={load}
+                />
+                <LocalAssistant
+                  key={current.id}
+                  api={api}
+                  items={items}
+                  scope="note"
+                  entity={current}
+                  onData={setData}
+                  onRefresh={async () => {
+                    await load();
+                    await onRefresh?.();
+                  }}
+                />
+              </div>
+            </details>
+          </div>
+        ) : view === "review" ? (
+          <div className="notebook-paper notebook-inbox">
+            <ReviewInbox
+              rows={inbox}
+              loading={!loaded}
+              query={query}
+              api={api}
+              onRefresh={load}
+              onError={onError}
+              onExamine={(row) => {
+                if (row.kind === "topic") {
+                  setSubject(
+                    subjects.topics.find((t) => t.id === row.topic_id),
+                  );
+                  return;
+                }
+                const n = notes.find(
+                  (n) => n.id === (row.note_id || row.entity_id),
+                );
+                if (n) {
+                  setSelected(n);
+                  return;
+                }
+                const item = items.find(
+                  (i) => i.id === (row.item_id || row.entity_id),
+                );
+                if (item) onOpen(item);
+                else onError("Cet élément n’est plus disponible.");
+              }}
+            />
+          </div>
+        ) : (
+          <div className="notebook-blank">
+            <FileText size={30} />
+            <h2>Une note, simplement.</h2>
+            <p>Capturez une pensée. Beam vous aide à en retrouver le fil.</p>
+            <button className="button" onClick={newNote}>
+              <Plus size={15} />
+              Nouvelle note
             </button>
           </div>
-        </NoteProposalPanel>
-      )}
+        )}
+      </section>
     </div>
   );
 }
+function InlineNoteEditor({ note, update }) {
+  const [draft, setDraft] = usePersistentDraft("note-edit:" + note.id, null);
+  const [saving, setSaving] = useState(false);
+  const value = draft ?? note.text;
+  const dirty = value !== note.text;
+  async function save() {
+    if (!dirty || !value.trim() || saving) return;
+    setSaving(true);
+    try {
+      if (await update(note, { text: value })) setDraft(null);
+    } finally {
+      setSaving(false);
+    }
+  }
+  return (
+    <>
+      <div className="notebook-date">
+        {new Date(note.created).toLocaleString("fr-FR", {
+          day: "numeric",
+          month: "long",
+          year: "numeric",
+          hour: "2-digit",
+          minute: "2-digit",
+        })}
+      </div>
+      <textarea
+        className="notebook-note-editor"
+        aria-label="Texte de la note"
+        value={value}
+        readOnly={note.state === "archived"}
+        onChange={(e) => setDraft(e.target.value)}
+        onKeyDown={(e) => {
+          if (
+            e.key === "Enter" &&
+            (e.metaKey || e.ctrlKey) &&
+            !e.nativeEvent.isComposing
+          ) {
+            e.preventDefault();
+            void save();
+          }
+        }}
+      />
+      {dirty && (
+        <div className="notebook-edit-status">
+          <small>Brouillon conservé · ⌘ Entrée pour enregistrer</small>
+          <button
+            className="button"
+            disabled={saving || !value.trim()}
+            onClick={save}
+          >
+            {saving ? "Enregistrement…" : "Enregistrer les modifications"}
+          </button>
+        </div>
+      )}
+    </>
+  );
+}
+
 function TopicDetail({
   topic,
   topics,
@@ -1142,76 +1267,5 @@ function TopicDetail({
         </label>
       </details>
     </section>
-  );
-}
-function NoteProposalPanel({ note, close, children }) {
-  const panel = useRef(null),
-    closeRef = useRef(close);
-  closeRef.current = close;
-  useEffect(() => {
-    const previous = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
-    panel.current?.querySelector("button")?.focus();
-    const key = (e) => {
-      if (e.key === "Escape") {
-        e.preventDefault();
-        e.stopPropagation();
-        closeRef.current();
-      }
-      if (e.key === "Tab") {
-        const elements = [
-          ...panel.current.querySelectorAll(
-            "button:not(:disabled),a[href],select,input,textarea,summary",
-          ),
-        ];
-        const first = elements[0],
-          last = elements.at(-1);
-        if (e.shiftKey && document.activeElement === first) {
-          e.preventDefault();
-          last?.focus();
-        } else if (!e.shiftKey && document.activeElement === last) {
-          e.preventDefault();
-          first?.focus();
-        }
-      }
-    };
-    document.addEventListener("keydown", key, true);
-    return () => {
-      document.body.style.overflow = previous;
-      document.removeEventListener("keydown", key, true);
-    };
-  }, []);
-  return (
-    <div className="modal-backdrop panel-backdrop" onClick={close}>
-      <div
-        className="modal side-panel note-proposal-panel"
-        ref={panel}
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="note-proposal-title"
-        onClick={(e) => e.stopPropagation()}
-      >
-        <div className="modal-head">
-          <h2 id="note-proposal-title">Note</h2>
-          <button
-            type="button"
-            className="icon-button"
-            aria-label="Fermer les propositions"
-            onClick={close}
-          >
-            <Close size={17} />
-          </button>
-        </div>
-        <div className="note-proposal-original">
-          <small>VOTRE NOTE · TEXTE ORIGINAL</small>
-          <p>{note.text}</p>
-        </div>
-        <p className="assistant-help">
-          Les informations sont organisées automatiquement. Examinez les suites
-          proposées à votre rythme.
-        </p>
-        {children}
-      </div>
-    </div>
   );
 }
