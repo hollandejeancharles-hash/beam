@@ -6443,3 +6443,51 @@ main.menubar-capture {margin-left:0;width:100%;}
 .capture-notebook .notebook-compose-actions {flex-wrap:wrap;}
 .capture-notebook .notebook-compose-actions .button {flex-shrink:0;}
 .capture-notebook .notebook-composer>textarea {min-width:0;max-width:100%;}
+
+/* The floating notebook shares AppKit's optical material with quick capture. */
+.native-capture .capture-notebook .notes-notebook {
+  background:transparent;
+  border-color:rgba(255,255,255,.13);
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.06);
+}
+.native-capture .capture-notebook .notebook-index {
+  background:rgba(18,20,29,.24);
+  border-right-color:rgba(255,255,255,.12);
+}
+.native-capture .capture-notebook .notebook-detail {
+  background:rgba(18,20,29,.48);
+}
+.native-capture .capture-notebook .notebook-detail-toolbar {
+  background:rgba(24,26,36,.42);
+  backdrop-filter:blur(18px);
+  -webkit-backdrop-filter:blur(18px);
+  border-bottom-color:rgba(255,255,255,.09);
+}
+.native-capture .capture-notebook .notebook-search {
+  background:rgba(14,16,24,.18);
+  border-color:rgba(255,255,255,.12);
+}
+.native-capture .capture-notebook .notebook-note:hover {background:rgba(255,255,255,.06);}
+.native-capture .capture-notebook .notebook-note.selected {
+  background:rgba(177,157,242,.17);
+  border-color:rgba(204,188,255,.19);
+}
+.native-capture .capture-notebook .notebook-views button[aria-pressed=true] {background:rgba(255,255,255,.09);}
+.native-capture .capture-notebook .notebook-index-head strong,
+.native-capture .capture-notebook .notebook-note strong {color:#eeecf5;}
+.native-capture .capture-notebook .notebook-preview,
+.native-capture .capture-notebook .notebook-note-meta,
+.native-capture .capture-notebook .notebook-note-list h3,
+.native-capture .capture-notebook .notebook-index-footer,
+.native-capture .capture-notebook .notebook-date,
+.native-capture .capture-notebook .notebook-detail-toolbar>span {color:#c0becf;}
+.native-capture .capture-notebook .notebook-composer>textarea,
+.native-capture .capture-notebook .notebook-note-editor {
+  background:transparent;border:0;border-radius:0;box-shadow:none;color:#f1eff7;
+}
+.native-capture .capture-notebook textarea::placeholder {color:#c3c0d0;}
+@media(prefers-reduced-transparency:reduce) {
+  .native-capture .capture-notebook .notebook-index {background:#22232d;}
+  .native-capture .capture-notebook .notebook-detail,
+  .native-capture .capture-notebook .notebook-detail-toolbar {background:#1a1b24;backdrop-filter:none;-webkit-backdrop-filter:none;}
+}
