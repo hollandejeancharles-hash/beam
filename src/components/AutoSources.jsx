@@ -2,7 +2,14 @@ import AIProgress from "./AIProgress";
 import React, { useEffect, useRef, useState } from "react";
 import { Activity, RefreshCw, CheckCheck, Close, FileText } from "../icons";
 
-export default function AutoSources({ item, api, onSignals, onNoteCount }) {
+export default function AutoSources({
+  item,
+  api,
+  onSignals,
+  onNoteCount,
+  onReviewCount,
+  readOnly = false,
+}) {
   const [data, setData] = useState(null),
     [error, setError] = useState(""),
     [busy, setBusy] = useState(false);
@@ -47,6 +54,9 @@ export default function AutoSources({ item, api, onSignals, onNoteCount }) {
     onNoteCount?.(notes.length);
   }, [notes.length, item.id]);
   const review = matches.filter((m) => m.confidence === "review");
+  useEffect(() => {
+    onReviewCount?.(review.length);
+  }, [review.length, item.id]);
   return (
     <div className="auto-sources">
       <div className="auto-source-heading">
@@ -91,7 +101,7 @@ export default function AutoSources({ item, api, onSignals, onNoteCount }) {
             className="icon-button"
             type="button"
             aria-label={"Dissocier la note " + m.title}
-            disabled={busy}
+            disabled={busy || readOnly}
             onClick={() =>
               action(() =>
                 api("admin/associations/decide", {
@@ -123,7 +133,7 @@ export default function AutoSources({ item, api, onSignals, onNoteCount }) {
                 <button
                   type="button"
                   className="button"
-                  disabled={busy}
+                  disabled={busy || readOnly}
                   onClick={() =>
                     action(() =>
                       api("admin/associations/decide", {
@@ -143,7 +153,7 @@ export default function AutoSources({ item, api, onSignals, onNoteCount }) {
                 <button
                   type="button"
                   className="text-button"
-                  disabled={busy}
+                  disabled={busy || readOnly}
                   onClick={() =>
                     action(() =>
                       api("admin/associations/decide", {

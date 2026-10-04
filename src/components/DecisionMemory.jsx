@@ -15,6 +15,8 @@ export default function DecisionMemory({
   onChange,
   onOpenNote,
   hideEmptyMessage = false,
+  onSummary,
+  readOnly = false,
 }) {
   const [rows, setRows] = useState([]),
     [open, setOpen] = useState(false),
@@ -47,6 +49,11 @@ export default function DecisionMemory({
       (d.state === "proposed" && (!note || note.text === d.source_text)) ||
       (history && d.state === "archived"),
   );
+  const active = visible.filter((d) => d.state !== "archived");
+  const pendingCount = active.filter((d) => d.state === "proposed").length;
+  useEffect(() => {
+    onSummary?.({ count: active.length, pending: pendingCount });
+  }, [active.length, pendingCount, itemId]);
   async function save(e) {
     e.preventDefault();
     setBusy(true);
@@ -91,7 +98,7 @@ export default function DecisionMemory({
         {note && (
           <button
             className="text-button"
-            disabled={busy}
+            disabled={busy || readOnly}
             onClick={() => setOpen(!open)}
           >
             {open ? "Fermer" : "Noter une décision"}
@@ -105,7 +112,10 @@ export default function DecisionMemory({
         </p>
       )}
       {visible.map((d) => (
-        <article className="decision-memory-entry" key={d.id}>
+        <article
+          className={"decision-memory-entry decision-" + d.state}
+          key={d.id}
+        >
           <small>
             {kinds[d.kind]} ·{" "}
             {new Date(d.confirmed || d.created).toLocaleDateString("fr-FR")}
@@ -140,14 +150,14 @@ export default function DecisionMemory({
             <div className="modal-actions">
               <button
                 className="text-button"
-                disabled={busy}
+                disabled={busy || readOnly}
                 onClick={() => archive(d, "dismissed")}
               >
                 Ignorer
               </button>
               <button
                 className="button primary"
-                disabled={busy}
+                disabled={busy || readOnly}
                 onClick={() => archive(d, "confirmed")}
               >
                 Confirmer la décision
@@ -157,7 +167,7 @@ export default function DecisionMemory({
           {d.state === "confirmed" && (
             <button
               className="text-button"
-              disabled={busy}
+              disabled={busy || readOnly}
               onClick={() => archive(d)}
             >
               Archiver cette décision
@@ -241,12 +251,12 @@ export default function DecisionMemory({
             <button
               type="button"
               className="button"
-              disabled={busy}
+              disabled={busy || readOnly}
               onClick={() => setOpen(false)}
             >
               Annuler
             </button>
-            <button className="button primary" disabled={busy}>
+            <button className="button primary" disabled={busy || readOnly}>
               {busy ? "Enregistrement…" : "Valider la décision"}
             </button>
           </div>

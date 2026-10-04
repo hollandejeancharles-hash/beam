@@ -13,6 +13,7 @@ export default function ProductOutcome({
   onError,
   onOpenNote,
   readOnly,
+  heading = "Pourquoi cet élément ?",
 }) {
   const [editing, setEditing] = useState(false),
     [draft, setDraft] = useState(item),
@@ -62,7 +63,7 @@ export default function ProductOutcome({
   return (
     <section className="product-outcome">
       <div className="product-section-heading">
-        <h3>Pourquoi cet élément ?</h3>
+        <h3>{heading}</h3>
         {!readOnly && !editing && (
           <button
             className="text-button"

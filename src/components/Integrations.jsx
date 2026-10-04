@@ -68,7 +68,15 @@ const kinds = {
   build: { label: "Pipeline", icon: Activity },
   document: { label: "Document", icon: FileText },
 };
-export function SignalLinks({ signals, item, api, onSignals }) {
+export function SignalLinks({
+  signals,
+  item,
+  api,
+  onSignals,
+  onCount,
+  onReviewCount,
+  readOnly = false,
+}) {
   const [automaticNoteCount, setAutomaticNoteCount] = useState(0);
   const [expanded, setExpanded] = useState(false);
   const [query, setQuery] = useState("");
@@ -92,6 +100,9 @@ export function SignalLinks({ signals, item, api, onSignals }) {
     };
   }, [expanded]);
   const linked = signals.filter((s) => s.links.includes(item.id));
+  useEffect(() => {
+    onCount?.(linked.length + automaticNoteCount);
+  }, [linked.length, automaticNoteCount, item.id]);
   const available = signals.filter(
     (s) =>
       !s.links.includes(item.id) &&
@@ -156,6 +167,7 @@ export function SignalLinks({ signals, item, api, onSignals }) {
         <button
           type="button"
           className="button"
+          disabled={readOnly}
           aria-expanded={expanded}
           onClick={() => setExpanded(!expanded)}
         >
@@ -178,6 +190,8 @@ export function SignalLinks({ signals, item, api, onSignals }) {
         api={api}
         onSignals={onSignals}
         onNoteCount={setAutomaticNoteCount}
+        onReviewCount={onReviewCount}
+        readOnly={readOnly}
       />
       {linked.map((s) => (
         <div className="feature-source-linked" key={s.id}>
@@ -210,7 +224,7 @@ export function SignalLinks({ signals, item, api, onSignals }) {
             type="button"
             className="icon-button"
             aria-label={"Dissocier " + s.title}
-            disabled={busy}
+            disabled={busy || readOnly}
             onClick={() => change(s, true)}
           >
             <X size={14} />
@@ -287,7 +301,7 @@ export function SignalLinks({ signals, item, api, onSignals }) {
                   type="button"
                   className="feature-source-result"
                   key={s.id}
-                  disabled={busy}
+                  disabled={busy || readOnly}
                   onClick={() => change(s)}
                 >
                   <Icon size={17} />

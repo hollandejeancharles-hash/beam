@@ -1,3 +1,4 @@
+import ElementDetails from "./components/ElementDetails";
 import Demands from "./components/Demands";
 import { ActivityDropdown } from "./components/ui/activity-dropdown";
 import JoinWorkspace from "./components/JoinWorkspace";
@@ -9,14 +10,11 @@ import WorkspaceSwitcher from "./components/WorkspaceSwitcher";
 import AccountAccess from "./components/ui/neural-access-login";
 import WorkspaceSettings from "./components/WorkspaceSettings";
 import Welcome from "./components/Welcome";
-import TeamActivity, { TeamPresence } from "./components/Team";
+import { TeamPresence } from "./components/Team";
 import PlanningImpact from "./components/PlanningImpact";
-import ProductOutcome from "./components/ProductOutcome";
 import RoadmapScenario from "./components/RoadmapScenario";
-import ItemGovernance from "./components/ItemGovernance";
 import { DATE_KINDS } from "../shared/roadmap-impact";
 import MenuBarCapture from "./components/MenuBarCapture";
-import DecisionMemory from "./components/DecisionMemory";
 import { includesSearch } from "../shared/search";
 import Publications from "./components/Publications";
 import AIProgress, { AIActivityProvider } from "./components/AIProgress";
@@ -53,12 +51,12 @@ import RoadmapSearch from "./components/RoadmapSearch";
 import "./ui.css";
 import Integrations, { SignalLinks } from "./components/Integrations";
 import Profile, { initials } from "./components/Profile";
-import LocalAssistant from "./components/LocalAssistant";
 import Notes, { QuickNote } from "./components/Notes";
 import Gantt from "./components/Gantt";
 import BeamKanban from "./components/BeamKanban";
-import { TYPES, progressValue, hierarchyRows } from "../shared/planning";
+import { TYPES, hierarchyRows } from "../shared/planning";
 import "./style.css";
+import "./element-details.css";
 const pagesMode = __PAGES__;
 const basePublicPath = pagesMode ? import.meta.env.BASE_URL : "/roadmap";
 const ST = {
@@ -187,6 +185,16 @@ function App() {
     [sidebarCollapsed, setSidebarCollapsed] = useState(
       localStorage.getItem("beam_sidebar_collapsed") === "true",
     );
+  const initialElement = useRef(
+    /^#element-([a-f0-9-]{36})$/.exec(location.hash)?.[1] || null,
+  );
+  useEffect(() => {
+    if (loading || !initialElement.current) return;
+    const element = items.find((i) => i.id === initialElement.current);
+    initialElement.current = null;
+    if (element) setSelected(element);
+    else setToast("Cet élément n’est plus disponible dans ce workspace.");
+  }, [loading, items]);
   const workspaceIdRef = useRef(
     new URLSearchParams(location.search).get("workspace"),
   );
@@ -1693,197 +1701,49 @@ function App() {
       )}
       {selected && (
         <Modal
+          key={selected.id}
           title="Détails de l’élément"
           side
+          headerless
+          className="element-details-panel"
           close={() => setSelected(null)}
         >
-          <div className="detail-meta">
-            <span className="tag">{TYPES[selected.type || "feature"]}</span>
-            <span className="tag">{selected.category}</span>
-            <span className="pill">{ST[selected.status].label}</span>
-          </div>
-          {!roadmapReadOnly && (
-            <div className="note-actions">
-              <button
-                className="button"
-                onClick={() => manageEntry("items", selected)}
-              >
-                {selected.archived ? "Restaurer" : "Archiver"}
-              </button>
-              <button
-                className="button danger"
-                onClick={() => manageEntry("items", selected, true)}
-              >
-                Supprimer
-              </button>
-            </div>
-          )}
-          <h2 className="detail-title">{selected.title}</h2>
-          <p className="detail-description">
-            {selected.description || "Aucune description pour le moment."}
-          </p>
-          <div className="detail-grid">
-            <span>
-              Priorité<strong>{PR[selected.priority]}</strong>
-            </span>
-            <span>
-              Horizon<strong>{selected.quarter}</strong>
-            </span>
-            <span>
-              Visibilité
-              <strong>
-                {selected.visibility === "public" ? "Publique" : "Interne"}
-              </strong>
-            </span>
-          </div>
-          <div className="planning-details">
-            <div>
-              <span>Responsable</span>
-              <strong>{selected.owner || "Non assigné"}</strong>
-            </div>
-            <div>
-              <span>Avancement</span>
-              <strong>{progressValue(selected, items)} %</strong>
-            </div>
-            <div>
-              <span>Début</span>
-              <strong>{selected.start_date || "À définir"}</strong>
-            </div>
-            <div>
-              <span>Fin</span>
-              <strong>{selected.end_date || "À définir"}</strong>
-            </div>
-            <div>
-              <span>Rattaché à</span>
-              <strong>
-                {items.find((i) => i.id === selected.parent_id)?.title ||
-                  "Élément indépendant"}
-              </strong>
-            </div>
-            <div>
-              <span>Dépend de</span>
-              <strong>
-                {items.find((i) => i.id === selected.dependency_id)?.title ||
-                  "Aucune dépendance"}
-              </strong>
-            </div>
-          </div>
-          <div className="date-kind-label">
-            {DATE_KINDS[selected.date_kind || "target"]}
-          </div>
-          {!publicMode && (
-            <ProductOutcome
-              item={selected}
-              api={api}
-              readOnly={roadmapReadOnly}
-              onRefresh={refreshAssistant}
-              onError={setToast}
-              onOpenNote={(id) => {
-                setSelected(null);
-                setPage("notes");
-                setSearchTarget({ kind: "note", id, targetId: id });
-              }}
-            />
-          )}
-          {!publicMode && sharedConnection?.workspace && (
-            <TeamActivity
-              api={api}
-              itemId={selected.id}
-              state={sharedConnection}
-            />
-          )}
-          {!publicMode && (
-            <SignalLinks
-              signals={signals}
-              item={selected}
-              api={api}
-              onSignals={setSignals}
-            />
-          )}
-          {!publicMode && (
-            <DecisionMemory
-              api={api}
-              itemId={selected.id}
-              items={items}
-              onError={setToast}
-              onOpenNote={(id) => {
-                setSelected(null);
-                setPage("notes");
-                setSearchTarget({ kind: "note", id, targetId: id });
-              }}
-            />
-          )}
-          {!publicMode && (
-            <ItemGovernance
-              item={selected}
-              items={items}
-              api={api}
-              readOnly={roadmapReadOnly}
-              onRefresh={refreshAssistant}
-              onError={setToast}
-              onOpenNote={(id) => {
-                setSelected(null);
-                setPage("notes");
-                setSearchTarget({ kind: "note", id, targetId: id });
-              }}
-            />
-          )}
-          {!publicMode && (
-            <LocalAssistant
-              api={api}
-              scope="feature"
-              entity={selected}
-              items={items}
-              onRefresh={refreshAssistant}
-            />
-          )}
-          {!pagesMode && (
-            <div className="modal-actions">
-              {!publicMode ? (
-                <>
-                  {selected.status === "done" &&
-                    selected.visibility === "public" &&
-                    !selected.archived && (
-                      <button
-                        className="button"
-                        onClick={() => {
-                          setPublicationItem(selected);
-                          setSelected(null);
-                          setPage("publications");
-                        }}
-                      >
-                        <Radio size={15} />
-                        Préparer une publication
-                      </button>
-                    )}
-                  <button
-                    className="button primary"
-                    disabled={roadmapReadOnly}
-                    onClick={() => {
-                      setEdit({ ...selected });
-                      setSelected(null);
-                    }}
-                  >
-                    Modifier l’évolution
-                    <ArrowRight size={16} />
-                  </button>
-                </>
-              ) : (
-                <button
-                  className="button primary"
-                  onClick={() => {
-                    vote(selected);
-                    setSelected(null);
-                  }}
-                >
-                  <ArrowUp size={16} />
-                  {selected.voted
-                    ? "Retirer mon vote"
-                    : "Cette idée compte pour moi"}
-                </button>
-              )}
-            </div>
-          )}
+          <ElementDetails
+            key={selected.id}
+            item={selected}
+            items={items}
+            product={product}
+            api={api}
+            signals={signals}
+            onSignals={setSignals}
+            sharedConnection={sharedConnection}
+            publicMode={publicMode}
+            pagesMode={pagesMode}
+            readOnly={roadmapReadOnly}
+            onClose={() => setSelected(null)}
+            onEdit={() => {
+              setEdit({ ...selected });
+              setSelected(null);
+            }}
+            onManage={(remove) => manageEntry("items", selected, remove)}
+            onOpenItem={setSelected}
+            onOpenNote={(id) => {
+              setSelected(null);
+              setPage("notes");
+              setSearchTarget({ kind: "note", id, targetId: id });
+            }}
+            onRefresh={refreshAssistant}
+            onError={setToast}
+            onPublish={() => {
+              setPublicationItem(selected);
+              setSelected(null);
+              setPage("publications");
+            }}
+            onVote={() => {
+              vote(selected);
+              setSelected(null);
+            }}
+          />
         </Modal>
       )}
       {scenarioOpen && (
@@ -2433,7 +2293,14 @@ function App() {
     </AIActivityProvider>
   );
 }
-function Modal({ title, close, children, side = false, className = "" }) {
+function Modal({
+  title,
+  close,
+  children,
+  side = false,
+  className = "",
+  headerless = false,
+}) {
   useEffect(() => {
     const previous = document.activeElement;
     const root = document.querySelector(".modal");
@@ -2441,7 +2308,10 @@ function Modal({ title, close, children, side = false, className = "" }) {
       [...root.querySelectorAll("button,input,textarea,select,a[href]")].filter(
         (el) => !el.disabled && el.getClientRects().length > 0,
       );
-    (root.querySelector("[role=combobox]") || focusables()[0])?.focus();
+    (
+      root.querySelector("[role=combobox], [data-modal-autofocus]") ||
+      focusables()[0]
+    )?.focus();
     const handle = (e) => {
       if (e.key !== "Tab") return;
       const elements = focusables(),
@@ -2477,14 +2347,20 @@ function Modal({ title, close, children, side = false, className = "" }) {
         aria-modal="true"
         aria-label={title}
       >
-        <div className="modal-header">
-          <h2>{title}</h2>
-          {close && (
-            <button className="icon-button" aria-label="Fermer" onClick={close}>
-              <X size={19} />
-            </button>
-          )}
-        </div>
+        {!headerless && (
+          <div className="modal-header">
+            <h2>{title}</h2>
+            {close && (
+              <button
+                className="icon-button"
+                aria-label="Fermer"
+                onClick={close}
+              >
+                <X size={19} />
+              </button>
+            )}
+          </div>
+        )}
         {children}
       </section>
     </div>

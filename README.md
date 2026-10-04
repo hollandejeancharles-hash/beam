@@ -4,7 +4,7 @@ Beam est un espace de pilotage produit : organisez vos initiatives, projets et f
 
 ## Installer Beam sur Mac
 
-**[⬇ Télécharger Beam pour Mac — Apple Silicon](https://github.com/hollandejeancharles-hash/beam/releases/download/v2.0.0-beta.23/Beam-AppleSilicon.dmg)** · [Notes de version](https://github.com/hollandejeancharles-hash/beam/releases/tag/v2.0.0-beta.23)
+**[⬇ Télécharger Beam pour Mac — Apple Silicon](https://github.com/hollandejeancharles-hash/beam/releases/download/v2.0.0-beta.24/Beam-AppleSilicon.dmg)** · [Notes de version](https://github.com/hollandejeancharles-hash/beam/releases/tag/v2.0.0-beta.24)
 
 Mac **M1 ou plus récent**, **macOS 14+**. Pour l’IA locale, **16 Go de mémoire ou plus** sont recommandés. Aucun terminal, Node.js ou outil de développement à installer : le package contient Beam, Node et le moteur Ollama.
 
@@ -23,6 +23,7 @@ Pour garder Beam dans le Dock, ouvrez-la depuis Applications, puis choisissez **
 ## Ce que vous pouvez faire
 
 - **Planification** : Gantt avec initiatives, projets et features imbriqués, dates cibles ou engagements, dépendances, déplacement des éléments, scénarios et aperçu des impacts.
+- **Détails des éléments** : résumé fixe, couleurs de statut et de priorité, onglets Vue d’ensemble, Sources, Décisions et Activité, accès direct aux points proposés par l’assistant.
 - **Kanban** : écran distinct pour suivre les statuts et réorganiser les éléments par glisser-déposer.
 - **Notes** : carnet privé, capture rapide, images et PDF, sujets et regroupements proposés par l’assistant local.
 - **Demandes** : qualifier les retours, assigner un responsable, clarifier, différer, refuser, regrouper les doublons ou préparer une feature avec son contexte.

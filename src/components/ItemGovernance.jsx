@@ -48,6 +48,10 @@ export default function ItemGovernance({
   onError,
   onOpenNote,
   readOnly,
+  mode = "all",
+  onIssues,
+  historyCollapsed = false,
+  historyLabel = "Historique des changements",
 }) {
   const [rows, setRows] = useState([]),
     [issues, setIssues] = useState([]),
@@ -60,7 +64,9 @@ export default function ItemGovernance({
         api("admin/contradictions"),
       ]);
       setRows(h);
-      setIssues(c.filter((c) => c.item_id === item.id));
+      const related = c.filter((c) => c.item_id === item.id);
+      setIssues(related);
+      onIssues?.(related);
     } catch (e) {
       onError(e.message);
     }
@@ -88,7 +94,7 @@ export default function ItemGovernance({
   }
   return (
     <div className="item-governance">
-      {!!issues.length && (
+      {mode !== "history" && !!issues.length && (
         <section aria-label="Écarts à vérifier">
           <h3>
             Écarts à vérifier <small>{issues.length}</small>
@@ -142,56 +148,61 @@ export default function ItemGovernance({
           ))}
         </section>
       )}
-      <details className="item-history">
-        <summary>
-          Historique des changements <small>{rows.length}</small>
-        </summary>
-        <p className="subtle">
-          Changements observés sur ce Mac. Les modifications de l’équipe restent
-          aussi disponibles dans son activité.
-        </p>
-        {!rows.length ? (
+      {mode !== "issues" && (
+        <details
+          className="item-history"
+          open={mode === "history" && !historyCollapsed ? true : undefined}
+        >
+          <summary>
+            {historyLabel} <small>{rows.length}</small>
+          </summary>
           <p className="subtle">
-            Les prochaines modifications seront conservées ici.
+            Changements observés sur ce Mac. Les modifications de l’équipe
+            restent aussi disponibles dans son activité.
           </p>
-        ) : (
-          rows.map((r) => (
-            <article key={r.id}>
-              <small>
-                {r.actor} · {new Date(r.created).toLocaleString("fr-FR")}
-              </small>
-              {r.reason && <p>{r.reason}</p>}
-              <dl>
-                {Object.keys(r.after).map((k) => (
-                  <div key={k}>
-                    <dt>{labels[k] || k}</dt>
-                    <dd>
-                      <span>
-                        {["parent_id", "dependency_id"].includes(k)
-                          ? items.find((i) => i.id === r.before[k])?.title ||
-                            "Aucun"
-                          : String(value(k, r.before[k]))}
-                      </span>{" "}
-                      →{" "}
-                      <strong>
-                        {["parent_id", "dependency_id"].includes(k)
-                          ? items.find((i) => i.id === r.after[k])?.title ||
-                            "Aucun"
-                          : String(value(k, r.after[k]))}
-                      </strong>
-                    </dd>
-                  </div>
-                ))}
-              </dl>
-              {!readOnly && r.can_undo && (
-                <button className="text-button" onClick={() => setUndo(r)}>
-                  Annuler cette modification
-                </button>
-              )}
-            </article>
-          ))
-        )}
-      </details>
+          {!rows.length ? (
+            <p className="subtle">
+              Les prochaines modifications seront conservées ici.
+            </p>
+          ) : (
+            rows.map((r) => (
+              <article key={r.id}>
+                <small>
+                  {r.actor} · {new Date(r.created).toLocaleString("fr-FR")}
+                </small>
+                {r.reason && <p>{r.reason}</p>}
+                <dl>
+                  {Object.keys(r.after).map((k) => (
+                    <div key={k}>
+                      <dt>{labels[k] || k}</dt>
+                      <dd>
+                        <span>
+                          {["parent_id", "dependency_id"].includes(k)
+                            ? items.find((i) => i.id === r.before[k])?.title ||
+                              "Aucun"
+                            : String(value(k, r.before[k]))}
+                        </span>{" "}
+                        →{" "}
+                        <strong>
+                          {["parent_id", "dependency_id"].includes(k)
+                            ? items.find((i) => i.id === r.after[k])?.title ||
+                              "Aucun"
+                            : String(value(k, r.after[k]))}
+                        </strong>
+                      </dd>
+                    </div>
+                  ))}
+                </dl>
+                {!readOnly && r.can_undo && (
+                  <button className="text-button" onClick={() => setUndo(r)}>
+                    Annuler cette modification
+                  </button>
+                )}
+              </article>
+            ))
+          )}
+        </details>
+      )}
       {undo && (
         <div
           className="history-undo-confirm"

@@ -12,10 +12,12 @@ export default function LocalAssistant({
   onRefresh,
   settingsOnly = false,
   onData,
+  initialExpanded = false,
+  readOnly = false,
 }) {
   const [status, setStatus] = useState(null),
     [reviews, setReviews] = useState([]),
-    [expanded, setExpanded] = useState(scope === "note"),
+    [expanded, setExpanded] = useState(initialExpanded || scope === "note"),
     [busy, setBusy] = useState(false),
     [error, setError] = useState(""),
     [noteId, setNoteId] = useState("");
@@ -417,7 +419,9 @@ export default function LocalAssistant({
                           <button
                             type="button"
                             className="button primary"
-                            disabled={busy || p.applied || p.dismissed}
+                            disabled={
+                              busy || p.applied || p.dismissed || readOnly
+                            }
                             onClick={() =>
                               action(async () => {
                                 await api(`admin/ai/reviews/${r.id}/apply`, {

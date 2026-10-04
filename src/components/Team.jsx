@@ -175,7 +175,7 @@ export default function TeamActivity({ api, itemId, state }) {
           className={tab === "history" ? "active" : ""}
           onClick={() => setTab("history")}
         >
-          Historique
+          Historique partagé
         </button>
       </div>
       {error && (
