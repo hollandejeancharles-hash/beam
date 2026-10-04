@@ -1,3 +1,4 @@
+import { modelFetch } from "./model-scheduler.js";
 import { randomUUID, createHash } from "node:crypto";
 import { AI_MODEL } from "./ai.js";
 import { beginProgress, readModelResponse } from "./ai-progress.js";
@@ -13,7 +14,7 @@ const text = (value, max = 4000) => {
 export function createProductFlows(
   store,
   { topics, integrations, notes, publications, ai },
-  { fetcher = fetch } = {},
+  { fetcher = modelFetch } = {},
 ) {
   const db = store.db;
   db.exec(
@@ -113,7 +114,9 @@ export function createProductFlows(
       const response = await fetcher("http://127.0.0.1:11434/api/chat", {
         method: "POST",
         redirect: "error",
-        signal: AbortSignal.timeout(120000),
+        modelTimeoutMs: 120000,
+        onModelQueued: () => progress.waiting(),
+        onModelStart: () => progress.update("Analyse locale", 1, true),
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           model: AI_MODEL,

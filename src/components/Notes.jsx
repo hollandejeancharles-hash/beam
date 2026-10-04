@@ -1,3 +1,4 @@
+import useVisiblePolling, { unchangedData } from "../hooks/useVisiblePolling";
 import { DemandCapture } from "./Demands";
 import { receiveNoteTransfer } from "../../shared/note-transfer";
 import { usePersistentDraft } from "../usePersistentDraft";
@@ -321,30 +322,32 @@ export default function Notes({
         api("admin/topics"),
         api("admin/inbox"),
       ]);
-      setInbox(queue);
+      setInbox((previous) => unchangedData(previous, queue));
       onInboxCount?.(queue.length);
       setLoaded(true);
-      setNotes(n);
-      setSubjects(groups);
+      setNotes((previous) => unchangedData(previous, n));
+      setSubjects((previous) => unchangedData(previous, groups));
       setSubject((previous) =>
         previous
-          ? groups.topics.find((t) => t.id === previous.id) || null
+          ? unchangedData(
+              previous,
+              groups.topics.find((t) => t.id === previous.id) || null,
+            )
           : null,
       );
-      setData({ status, reviews });
+      setData((previous) => unchangedData(previous, { status, reviews }));
     } catch (e) {
       onError(e.message);
     }
   }
-  useEffect(() => {
-    load();
-    const t = setInterval(load, 5000);
-    window.addEventListener("beam:notes", load);
-    return () => {
-      clearInterval(t);
-      window.removeEventListener("beam:notes", load);
-    };
-  }, []);
+  useVisiblePolling(
+    load,
+    data.reviews.some((r) => ["queued", "running"].includes(r.state))
+      ? 4000
+      : 12000,
+    [],
+    "beam:notes",
+  );
   useEffect(() => {
     if (!initialTarget || (!loaded && initialTarget.kind !== "settings"))
       return;

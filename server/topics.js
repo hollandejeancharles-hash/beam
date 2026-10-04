@@ -1,3 +1,7 @@
+import {
+  backgroundModelFetch,
+  createAnalysisPacing,
+} from "./model-scheduler.js";
 import { beginProgress, readModelResponse } from "./ai-progress.js";
 import { createAttachments } from "./attachments.js";
 import { randomUUID, createHash } from "node:crypto";
@@ -7,9 +11,10 @@ export function createTopics(
   notes,
   integrations,
   ai,
-  { fetcher = fetch } = {},
+  { fetcher = backgroundModelFetch, now = Date.now } = {},
 ) {
   const db = store.db;
+  const pacing = createAnalysisPacing(now);
   db.exec(
     `CREATE TABLE IF NOT EXISTS topics(id TEXT PRIMARY KEY,title TEXT NOT NULL,summary TEXT NOT NULL,questions TEXT NOT NULL DEFAULT '[]',item_id TEXT);CREATE TABLE IF NOT EXISTS topic_members(source TEXT PRIMARY KEY,topic_id TEXT,confidence TEXT NOT NULL,locked INTEGER NOT NULL DEFAULT 0);`,
   );
@@ -85,7 +90,7 @@ export function createTopics(
         .map((m) => ({ ...available.get(m.source), topic_id: m.topic_id })),
     };
   };
-  async function refresh() {
+  async function refresh({ force = false } = {}) {
     if (running || ai.busy?.()) return;
     if (!(await ai.status()).enabled) return;
     const all = deduplicated().sort((a, b) =>
@@ -112,8 +117,8 @@ export function createTopics(
         size += length;
         return true;
       })
-      .slice(0, 40);
-    if (!batch.length) return;
+      .slice(0, 12);
+    if (!batch.length || (!pacing.ready(hash) && !force)) return;
     running = true;
     error = null;
     const progress = beginProgress("topics", "topics", {
@@ -175,7 +180,9 @@ export function createTopics(
       const r = await fetcher("http://127.0.0.1:11434/api/chat", {
         method: "POST",
         redirect: "error",
-        signal: AbortSignal.timeout(120000),
+        modelTimeoutMs: 120000,
+        onModelQueued: () => progress.waiting(),
+        onModelStart: () => progress.update("Regroupement local", 1, true),
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           model: AI_MODEL,
@@ -289,8 +296,10 @@ export function createTopics(
         throw e;
       }
       progress.finish();
+      pacing.success();
     } catch (e) {
       progress.finish(e.message);
+      pacing.failure();
       error =
         e.name === "TimeoutError"
           ? "Regroupement interrompu : il sera relancé."

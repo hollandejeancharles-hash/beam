@@ -1,3 +1,4 @@
+import { modelFetch } from "./model-scheduler.js";
 import {
   releaseContext,
   validateReleaseAnswer,
@@ -21,7 +22,7 @@ export function publicPublications(rows) {
 export function createPublications(
   store,
   ai,
-  fetcher = fetch,
+  fetcher = modelFetch,
   { notes, integrations, discover } = {},
 ) {
   const db = store.db;
@@ -271,7 +272,9 @@ export function createPublications(
         method: "POST",
         headers: { "Content-Type": "application/json" },
         redirect: "error",
-        signal: AbortSignal.timeout(180000),
+        modelTimeoutMs: 180000,
+        onModelQueued: () => progress.waiting(),
+        onModelStart: () => progress.update("Rédaction locale", 1, true),
         body: JSON.stringify({
           model: AI_MODEL,
           stream: true,

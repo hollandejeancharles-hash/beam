@@ -1,3 +1,4 @@
+import { modelFetch } from "./model-scheduler.js";
 import {
   createDecisions,
   validateDecisions,
@@ -219,7 +220,7 @@ export function createAI(
   store,
   notes,
   integrations,
-  { fetcher = fetch, now = () => new Date() } = {},
+  { fetcher = modelFetch, now = () => new Date() } = {},
 ) {
   const db = store.db;
   db.exec(
@@ -241,13 +242,20 @@ export function createAI(
       context: JSON.parse(r.context),
       progress: progressFor(r.id),
     };
-  async function request(path, body, timeout = 3000, progress) {
+  async function request(path, body, timeout = 3000, progress, priority = 1) {
     const r = await fetcher(ENDPOINT + path, {
       method: body ? "POST" : "GET",
       headers: { "Content-Type": "application/json" },
       body: body ? JSON.stringify(body) : undefined,
       redirect: "error",
-      signal: AbortSignal.timeout(timeout),
+      ...(path === "/api/chat"
+        ? {
+            modelTimeoutMs: timeout,
+            modelPriority: priority,
+            onModelQueued: () => progress?.waiting(),
+            onModelStart: () => progress?.update("Analyse locale", 1, true),
+          }
+        : { signal: AbortSignal.timeout(timeout) }),
     });
     if (!r.ok)
       throw Error(
@@ -358,7 +366,7 @@ export function createAI(
     if (closed || active || !enabled()) return;
     const row = db
       .prepare(
-        "SELECT * FROM ai_reviews WHERE state='queued' ORDER BY created LIMIT 1",
+        "SELECT * FROM ai_reviews WHERE state='queued' ORDER BY CASE WHEN json_extract(context,'$.automatic')=1 THEN 1 ELSE 0 END, created LIMIT 1",
       )
       .get();
     if (!row) return;
@@ -493,6 +501,7 @@ export function createAI(
         },
         120000,
         progress,
+        c.automatic ? 0 : 1,
       );
       progress.update("Vérification des résultats", 2);
       if (r.done_reason === "length")

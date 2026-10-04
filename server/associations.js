@@ -1,3 +1,7 @@
+import {
+  backgroundModelFetch,
+  createAnalysisPacing,
+} from "./model-scheduler.js";
 import { beginProgress, readModelResponse } from "./ai-progress.js";
 import { createHash } from "node:crypto";
 import { AI_MODEL } from "./ai.js";
@@ -21,9 +25,10 @@ export function createAssociations(
   notes,
   integrations,
   ai,
-  { fetcher = fetch } = {},
+  { fetcher = backgroundModelFetch, now = Date.now } = {},
 ) {
   const db = store.db;
+  const pacing = createAnalysisPacing(now);
   let pending = null,
     error = null;
   // Existing manual signal links remain authoritative when automatic linking is enabled.
@@ -140,11 +145,20 @@ export function createAssociations(
       error = "La roadmap est trop volumineuse pour ce rapprochement local.";
       return;
     }
-    const batch = candidates.slice(0, 12).filter((source) => {
+    const batch = candidates.slice(0, 4).filter((source) => {
       contextSize += JSON.stringify(source).length;
       return contextSize <= 52000;
     });
-    if (!batch.length) return;
+    if (
+      !batch.length ||
+      (!pacing.ready(
+        createHash("sha256")
+          .update(JSON.stringify([roadmap, batch]))
+          .digest("hex"),
+      ) &&
+        !force)
+    )
+      return;
     error = null;
     const progress = beginProgress("associations", "associations", {
       sources: batch.map((s) => s.id),
@@ -189,13 +203,20 @@ export function createAssociations(
       const response = await fetcher("http://127.0.0.1:11434/api/chat", {
         method: "POST",
         redirect: "error",
-        signal: AbortSignal.timeout(120000),
+        modelTimeoutMs: 120000,
+        onModelQueued: () => progress.waiting(),
+        onModelStart: () => progress.update("Rapprochement local", 1, true),
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           model: AI_MODEL,
           stream: true,
           format: resultSchema,
-          options: { temperature: 0, num_ctx: 16384, num_predict: 2400 },
+          options: {
+            temperature: 0,
+            num_ctx:
+              contextSize < 10000 ? 4096 : contextSize < 24000 ? 8192 : 16384,
+            num_predict: 2400,
+          },
           messages: [
             {
               role: "system",
@@ -275,8 +296,10 @@ export function createAssociations(
         throw e;
       }
       progress.finish();
+      pacing.success();
     } catch (e) {
       progress.finish(e.message);
+      pacing.failure();
       error =
         e.name === "TimeoutError"
           ? "Le rapprochement a dépassé deux minutes."

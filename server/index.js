@@ -107,7 +107,7 @@ function context(id) {
             applyingReviews.size > 0,
         });
         const applyingReviews = new Set();
-        const publications = createPublications(store, ai, fetch, {
+        const publications = createPublications(store, ai, undefined, {
           notes,
           integrations,
           discover: () => associations.refresh({ force: true }),
@@ -168,14 +168,27 @@ function context(id) {
   return contexts.get(id);
 }
 context(workspaces.active());
+let organizingSources = false;
 const organizeSources = async () => {
-  const id = workspaces.active();
-  await inWorkspace(id, async () => {
-    const { associations, topics, ai, productFlows } = context(id);
-    if (productFlows.busy()) return;
-    await associations.refresh();
-    if (!ai.busy()) await topics.refresh();
-  });
+  if (organizingSources) return;
+  organizingSources = true;
+  try {
+    const id = workspaces.active();
+    await inWorkspace(id, async () => {
+      const { associations, topics, ai, productFlows } = context(id);
+      if (
+        productFlows.busy() ||
+        ai.busy() ||
+        associations.list().running ||
+        topics.list().running
+      )
+        return;
+      await associations.refresh();
+      if (!ai.busy()) await topics.refresh();
+    });
+  } finally {
+    organizingSources = false;
+  }
 };
 setTimeout(() => void organizeSources(), 5000).unref();
 setInterval(() => void organizeSources(), 60000).unref();
@@ -919,7 +932,7 @@ const server = http.createServer(async (req, res) => {
         url.pathname === "/api/admin/topics/refresh" &&
         req.method === "POST"
       ) {
-        void topics.refresh();
+        void topics.refresh({ force: true });
         return send(202, { ok: true });
       }
       if (url.pathname === "/api/admin/topics/move" && req.method === "POST") {

@@ -43,6 +43,11 @@ export function beginProgress(id, scope, entities = {}) {
           indeterminate,
         });
     },
+    waiting(phase = "En attente du moteur local") {
+      const job = jobs.get(id);
+      if (job)
+        Object.assign(job, { state: "queued", phase, indeterminate: true });
+    },
     received(count) {
       const job = jobs.get(id);
       if (job) job.received = count;

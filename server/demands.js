@@ -1,3 +1,4 @@
+import { modelFetch } from "./model-scheduler.js";
 import { randomUUID, createHash } from "node:crypto";
 import { AI_MODEL } from "./ai.js";
 import { beginProgress, readModelResponse } from "./ai-progress.js";
@@ -75,7 +76,7 @@ export function groundedDrafts(result, excerpt, items = [], demands = []) {
 export function createDemands(
   store,
   { collaboration, notes, ai },
-  { fetcher = fetch } = {},
+  { fetcher = modelFetch } = {},
 ) {
   store.db.exec(
     "CREATE TABLE IF NOT EXISTS demands(id TEXT PRIMARY KEY,data TEXT NOT NULL,revision INTEGER NOT NULL DEFAULT 0,created_at TEXT NOT NULL,updated_at TEXT NOT NULL)",
@@ -479,7 +480,9 @@ export function createDemands(
         const response = await fetcher("http://127.0.0.1:11434/api/chat", {
           method: "POST",
           redirect: "error",
-          signal: AbortSignal.timeout(120000),
+          modelTimeoutMs: 120000,
+          onModelQueued: () => progress.waiting(),
+          onModelStart: () => progress.update("Analyse locale", 1, true),
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             model: AI_MODEL,

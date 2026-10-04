@@ -1,3 +1,4 @@
+import { unchangedData } from "../hooks/useVisiblePolling";
 import React, { useEffect, useRef, useState } from "react";
 import { TYPES, progressValue } from "../../shared/planning";
 import { DATE_KINDS } from "../../shared/roadmap-impact";
@@ -492,7 +493,9 @@ export default function ElementDetails({
                 entity={item}
                 items={items}
                 onRefresh={onRefresh}
-                onData={setAssistant}
+                onData={(next) =>
+                  setAssistant((previous) => unchangedData(previous, next))
+                }
                 readOnly={readOnly}
                 initialExpanded
               />
@@ -546,7 +549,9 @@ export default function ElementDetails({
                 onError={onError}
                 onOpenNote={onOpenNote}
                 mode={tab === "activity" ? "history" : "issues"}
-                onIssues={setIssues}
+                onIssues={(next) =>
+                  setIssues((previous) => unchangedData(previous, next))
+                }
                 historyCollapsed={Boolean(sharedConnection?.workspace)}
                 historyLabel={
                   sharedConnection?.workspace

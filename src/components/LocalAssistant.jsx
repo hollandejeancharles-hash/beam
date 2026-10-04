@@ -1,5 +1,6 @@
+import useVisiblePolling, { unchangedData } from "../hooks/useVisiblePolling";
 import AIProgress from "./AIProgress";
-import React, { useEffect, useState } from "react";
+import React, { useState } from "react";
 import { Activity, RefreshCw, CheckCheck, Close, ArrowRight } from "../icons";
 import { NOTE_KINDS } from "../../shared/notes";
 const priorities = { high: "Haute", medium: "Normale", low: "Basse" };
@@ -29,27 +30,19 @@ export default function LocalAssistant({
         api("admin/ai/status"),
         api("admin/ai/reviews"),
       ]);
-      setStatus(s);
-      setReviews(r);
+      setStatus((previous) => unchangedData(previous, s));
+      setReviews((previous) => unchangedData(previous, r));
       onData?.({ status: s, reviews: r });
     } catch (e) {
       setError(e.message);
     }
   }
-  useEffect(() => {
-    let alive = true;
-    const refresh = () => {
-      if (alive) void load();
-    };
-    refresh();
-    window.addEventListener("beam:notes", refresh);
-    const timer = setInterval(refresh, 4000);
-    return () => {
-      alive = false;
-      clearInterval(timer);
-      window.removeEventListener("beam:notes", refresh);
-    };
-  }, [entity?.id]);
+  useVisiblePolling(
+    load,
+    reviews.some((r) => ["queued", "running"].includes(r.state)) ? 4000 : 12000,
+    [entity?.id],
+    "beam:notes",
+  );
   async function action(task) {
     setBusy(true);
     setError("");

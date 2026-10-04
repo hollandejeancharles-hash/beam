@@ -1,4 +1,5 @@
-import React, { useEffect, useState } from "react";
+import useVisiblePolling, { unchangedData } from "../hooks/useVisiblePolling";
+import React, { useState } from "react";
 import { DATE_KINDS } from "../../shared/roadmap-impact";
 const labels = {
   title: "Titre",
@@ -63,19 +64,15 @@ export default function ItemGovernance({
         api(`admin/items/${item.id}/history`),
         api("admin/contradictions"),
       ]);
-      setRows(h);
+      setRows((previous) => unchangedData(previous, h));
       const related = c.filter((c) => c.item_id === item.id);
-      setIssues(related);
+      setIssues((previous) => unchangedData(previous, related));
       onIssues?.(related);
     } catch (e) {
       onError(e.message);
     }
   }
-  useEffect(() => {
-    load();
-    const timer = setInterval(load, 5000);
-    return () => clearInterval(timer);
-  }, [item.id]);
+  useVisiblePolling(load, 15000, [item.id]);
   async function revert() {
     setBusy(true);
     try {

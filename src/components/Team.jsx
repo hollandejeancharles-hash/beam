@@ -1,3 +1,4 @@
+import useVisiblePolling, { unchangedData } from "../hooks/useVisiblePolling";
 import React, { useEffect, useState } from "react";
 import { activityPhrase } from "../../shared/presence";
 import { initials } from "./Profile";
@@ -149,17 +150,18 @@ export default function TeamActivity({ api, itemId, state }) {
     [busy, setBusy] = useState(false);
   async function load() {
     try {
-      setData(await api("admin/team?item=" + encodeURIComponent(itemId)));
+      const next = await api("admin/team?item=" + encodeURIComponent(itemId));
+      setData((previous) => unchangedData(previous, next));
       setError("");
     } catch (e) {
       setError(e.message);
     }
   }
-  useEffect(() => {
-    void load();
-    const timer = setInterval(load, 10000);
-    return () => clearInterval(timer);
-  }, [itemId, state?.workspace?.revision, state?.changeVersion]);
+  useVisiblePolling(load, 10000, [
+    itemId,
+    state?.workspace?.revision,
+    state?.changeVersion,
+  ]);
   if (!state?.workspace) return null;
   const person = (id) => data.profiles.find((p) => p.user_id === id);
   return (

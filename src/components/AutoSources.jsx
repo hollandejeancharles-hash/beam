@@ -1,3 +1,4 @@
+import useVisiblePolling, { unchangedData } from "../hooks/useVisiblePolling";
 import AIProgress from "./AIProgress";
 import React, { useEffect, useRef, useState } from "react";
 import { Activity, RefreshCw, CheckCheck, Close, FileText } from "../icons";
@@ -16,23 +17,16 @@ export default function AutoSources({
   const signature = useRef("");
   async function load() {
     const next = await api("admin/associations");
-    setData(next);
+    setData((previous) => unchangedData(previous, next));
     const value = JSON.stringify(next.matches);
     if (signature.current !== value) onSignals(await api("admin/signals"));
     signature.current = value;
   }
-  useEffect(() => {
-    let alive = true;
-    const tick = () => {
-      if (alive) load().catch((e) => setError(e.message));
-    };
-    tick();
-    const timer = setInterval(tick, 4000);
-    return () => {
-      alive = false;
-      clearInterval(timer);
-    };
-  }, [item.id]);
+  useVisiblePolling(
+    () => load().catch((e) => setError(e.message)),
+    data?.running ? 4000 : 12000,
+    [item.id],
+  );
   async function action(task) {
     setBusy(true);
     setError("");

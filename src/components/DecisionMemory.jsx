@@ -1,3 +1,4 @@
+import useVisiblePolling, { unchangedData } from "../hooks/useVisiblePolling";
 import React, { useEffect, useState } from "react";
 const kinds = {
   defer: "Report",
@@ -30,16 +31,13 @@ export default function DecisionMemory({
     });
   async function load() {
     try {
-      setRows(await api("admin/decisions"));
+      const next = await api("admin/decisions");
+      setRows((previous) => unchangedData(previous, next));
     } catch (e) {
       onError?.(e.message);
     }
   }
-  useEffect(() => {
-    load();
-    const timer = setInterval(load, 5000);
-    return () => clearInterval(timer);
-  }, [note?.id, itemId]);
+  useVisiblePolling(load, 15000, [note?.id, itemId], "beam:notes");
   const related = rows.filter((d) =>
     note ? d.note_id === note.id : d.item_ids.includes(itemId),
   );

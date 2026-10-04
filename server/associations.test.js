@@ -147,7 +147,7 @@ test("invented IDs or evidence and stale content cannot create associations", as
           },
         ],
       });
-      await t.associations.refresh();
+      await t.associations.refresh({ force: true });
       assert.equal(t.associations.list().matches.length, 0);
       assert.ok(t.associations.list().error);
     }
@@ -163,7 +163,7 @@ test("invented IDs or evidence and stale content cannot create associations", as
       ],
     });
     t.setMutation(() => t.notes.save({ text: "Source modifiée" }, t.n.id));
-    await t.associations.refresh();
+    await t.associations.refresh({ force: true });
     assert.equal(t.associations.list().matches.length, 0);
     assert.match(t.associations.list().error, /changé/);
   } finally {
@@ -214,6 +214,33 @@ test("feature analysis discovers its sources before building a grounded review",
     assert.fail("Analysis timed out");
   } finally {
     ai?.close();
+    t.store.db.close();
+  }
+});
+test("unchanged failed discovery waits before retrying, while explicit retries and changed sources remain available", async () => {
+  const t = setup();
+  try {
+    t.setAnswer({
+      matches: [
+        {
+          source: "note:" + t.n.id,
+          item_id: "invented",
+          confidence: "clear",
+          reason: "invalid",
+          evidence: "Le zoom",
+        },
+      ],
+    });
+    await t.associations.refresh();
+    assert.equal(t.calls(), 1);
+    await t.associations.refresh();
+    assert.equal(t.calls(), 1);
+    await t.associations.refresh({ force: true });
+    assert.equal(t.calls(), 2);
+    t.notes.save({ text: t.n.text + " Nouvelle précision." }, t.n.id);
+    await t.associations.refresh();
+    assert.equal(t.calls(), 3);
+  } finally {
     t.store.db.close();
   }
 });

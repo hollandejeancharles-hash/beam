@@ -1,38 +1,26 @@
-import React, {
-  createContext,
-  useContext,
-  useEffect,
-  useRef,
-  useState,
-} from "react";
+import useVisiblePolling, { unchangedData } from "../hooks/useVisiblePolling";
+import React, { createContext, useContext, useRef, useState } from "react";
 const ActivityContext = createContext([]);
 export function AIActivityProvider({ api, enabled, children, className }) {
   const [jobs, setJobs] = useState([]),
     apiRef = useRef(api);
   apiRef.current = api;
-  useEffect(() => {
-    if (!enabled) {
-      setJobs([]);
-      return;
-    }
-    let alive = true,
-      timer;
-    async function refresh() {
+  useVisiblePolling(
+    async () => {
+      if (!enabled) {
+        setJobs((previous) => (previous.length ? [] : previous));
+        return;
+      }
       try {
         const next = await apiRef.current("admin/ai/activity");
-        if (alive) setJobs(next);
+        setJobs((previous) => unchangedData(previous, next));
       } catch {
-        if (alive) setJobs([]);
-      } finally {
-        if (alive) timer = setTimeout(refresh, 1000);
+        setJobs((previous) => (previous.length ? [] : previous));
       }
-    }
-    refresh();
-    return () => {
-      alive = false;
-      clearTimeout(timer);
-    };
-  }, [enabled]);
+    },
+    jobs.some((j) => ["queued", "running"].includes(j.state)) ? 1500 : 6000,
+    [enabled],
+  );
   return (
     <ActivityContext.Provider value={jobs}>
       <div className={className}>{children}</div>
