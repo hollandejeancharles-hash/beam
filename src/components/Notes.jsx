@@ -261,6 +261,7 @@ export default function Notes({
       sessionStorage.getItem("beam-capture-composer:" + workspaceId) ||
       "note-composer",
   );
+  const [toolbarTarget, setToolbarTarget] = useState(null);
   const [richDraft, setRichDraft] = usePersistentDraft(
     composerKey + ":document",
     null,
@@ -544,7 +545,6 @@ export default function Notes({
           <button
             className="icon-button"
             aria-label="Nouvelle note"
-            autoFocus
             onClick={newNote}
           >
             <Plus size={17} />
@@ -772,15 +772,22 @@ export default function Notes({
           >
             ← Le carnet
           </button>
-          <span>
-            {view === "archives"
-              ? "Archives"
-              : subject
-                ? "Sujet détecté"
-                : composing
-                  ? "Nouvelle note"
-                  : "Note personnelle"}
-          </span>
+          <div className="notebook-editor-tools-slot" ref={setToolbarTarget}>
+            {(settings ||
+              subject ||
+              (!current && !composing) ||
+              current?.state === "archived") && (
+              <span>
+                {view === "archives"
+                  ? "Archives"
+                  : subject
+                    ? "Sujet détecté"
+                    : composing
+                      ? "Nouvelle note"
+                      : "Note personnelle"}
+              </span>
+            )}
+          </div>
           <div>
             {current && !composing && !subject && (
               <>
@@ -859,6 +866,7 @@ export default function Notes({
               text={text}
               document={richDraft}
               label="Nouvelle note"
+              toolbarTarget={toolbarTarget}
               autoFocus
               onChange={({ text, document }) => {
                 setText(text);
@@ -915,6 +923,7 @@ export default function Notes({
               note={current}
               update={update}
               pending={pending(current)}
+              toolbarTarget={toolbarTarget}
               onFiles={async (chosen) => {
                 setBusy(true);
                 try {
@@ -1226,7 +1235,7 @@ function NoteTopicLabels({ tags = [], limit = 3 }) {
     </span>
   ) : null;
 }
-function InlineNoteEditor({ note, update, pending, onFiles }) {
+function InlineNoteEditor({ note, update, pending, onFiles, toolbarTarget }) {
   const [draft, setDraft] = usePersistentDraft("note-edit:" + note.id, null);
   const [saving, setSaving] = useState(false);
   const value = typeof draft === "string" ? draft : (draft?.text ?? note.text);
@@ -1264,6 +1273,7 @@ function InlineNoteEditor({ note, update, pending, onFiles }) {
       </div>
       <RichNoteEditor
         text={value}
+        toolbarTarget={toolbarTarget}
         document={document}
         readOnly={note.state === "archived"}
         onChange={setDraft}

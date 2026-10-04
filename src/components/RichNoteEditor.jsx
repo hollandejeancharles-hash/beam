@@ -1,3 +1,4 @@
+import { createPortal } from "react-dom";
 import React, { useEffect, useRef } from "react";
 import { useEditor, EditorContent } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
@@ -22,12 +23,14 @@ export default function RichNoteEditor({
   onChange,
   onSave,
   onFiles,
+  toolbarTarget,
   readOnly = false,
   autoFocus = false,
   label = "Texte de la note",
 }) {
   const callbacks = useRef({ onChange, onSave, onFiles });
   const container = useRef(null);
+  const toolbar = useRef(null);
   callbacks.current = { onChange, onSave, onFiles };
   const editor = useEditor({
     extensions: [
@@ -102,168 +105,172 @@ export default function RichNoteEditor({
   const action = (run) => {
     if (editor.isDestroyed) return;
     run(editor.chain().focus());
-    container.current
+    toolbar.current
       ?.querySelectorAll("details[open]")
       .forEach((menu) => menu.removeAttribute("open"));
   };
+  const placeToolbar = (content) =>
+    toolbarTarget ? createPortal(content, toolbarTarget) : content;
   return (
     <div className="rich-note-editor" ref={container}>
-      {!readOnly && (
-        <div
-          className="note-editor-toolbar"
-          role="toolbar"
-          aria-label="Mise en forme de la note"
-        >
-          <details className="note-format-menu">
-            <summary aria-label="Style du texte">
-              <span>Aa</span>
-              <ChevronDown size={12} />
-            </summary>
-            <div>
-              <button
-                type="button"
-                onClick={() => action((c) => c.setParagraph().run())}
-              >
-                Texte
-              </button>
-              <button
-                type="button"
-                onClick={() =>
-                  action((c) => c.toggleHeading({ level: 1 }).run())
-                }
-              >
-                Titre
-              </button>
-              <button
-                type="button"
-                onClick={() =>
-                  action((c) => c.toggleHeading({ level: 2 }).run())
-                }
-              >
-                Sous-titre
-              </button>
-              {[
-                ["Gras", "bold", "toggleBold"],
-                ["Italique", "italic", "toggleItalic"],
-                ["Souligné", "underline", "toggleUnderline"],
-                ["Barré", "strike", "toggleStrike"],
-              ].map(([name, mark, command]) => (
+      {!readOnly &&
+        placeToolbar(
+          <div
+            ref={toolbar}
+            className="note-editor-toolbar"
+            role="toolbar"
+            aria-label="Mise en forme de la note"
+          >
+            <details className="note-format-menu">
+              <summary aria-label="Style du texte">
+                <span>Aa</span>
+                <ChevronDown size={12} />
+              </summary>
+              <div>
                 <button
-                  key={mark}
                   type="button"
-                  aria-pressed={editor.isActive(mark)}
-                  onClick={() => action((c) => c[command]().run())}
+                  onClick={() => action((c) => c.setParagraph().run())}
                 >
-                  {name}
+                  Texte
                 </button>
-              ))}
-              <button
-                type="button"
-                onClick={() => action((c) => c.toggleBulletList().run())}
-              >
-                Liste à puces
-              </button>
-              <button
-                type="button"
-                aria-pressed={editor.isActive("highlight")}
-                onClick={() => action((c) => c.toggleHighlight().run())}
-              >
-                Surligner
-              </button>
-              <button
-                type="button"
-                onClick={() => action((c) => c.toggleOrderedList().run())}
-              >
-                Liste numérotée
-              </button>
-            </div>
-          </details>
-          <button
-            type="button"
-            title="Liste à cocher"
-            aria-label="Liste à cocher"
-            aria-pressed={editor.isActive("taskList")}
-            onClick={() => action((c) => c.toggleTaskList().run())}
-          >
-            <CheckCheck size={18} />
-          </button>
-          <details className="note-format-menu">
-            <summary aria-label="Tableau">
-              <LayoutGrid size={18} />
-            </summary>
-            <div>
-              <button
-                type="button"
-                onClick={() =>
-                  action((c) =>
-                    c
-                      .insertTable({ rows: 3, cols: 3, withHeaderRow: true })
-                      .run(),
-                  )
-                }
-              >
-                Insérer un tableau
-              </button>
-              {editor.isActive("table") && (
-                <>
-                  {[
-                    ["Ajouter une ligne", "addRowAfter"],
-                    ["Ajouter une colonne", "addColumnAfter"],
-                    ["Supprimer la ligne", "deleteRow"],
-                    ["Supprimer la colonne", "deleteColumn"],
-                    ["Supprimer le tableau", "deleteTable"],
-                  ].map(([name, command]) => (
-                    <button
-                      key={command}
-                      type="button"
-                      onClick={() => action((c) => c[command]().run())}
-                    >
-                      {name}
-                    </button>
-                  ))}
-                </>
-              )}
-            </div>
-          </details>
-          {onFiles && (
-            <label
-              className="note-toolbar-attach"
-              title="Ajouter une image ou un PDF"
+                <button
+                  type="button"
+                  onClick={() =>
+                    action((c) => c.toggleHeading({ level: 1 }).run())
+                  }
+                >
+                  Titre
+                </button>
+                <button
+                  type="button"
+                  onClick={() =>
+                    action((c) => c.toggleHeading({ level: 2 }).run())
+                  }
+                >
+                  Sous-titre
+                </button>
+                {[
+                  ["Gras", "bold", "toggleBold"],
+                  ["Italique", "italic", "toggleItalic"],
+                  ["Souligné", "underline", "toggleUnderline"],
+                  ["Barré", "strike", "toggleStrike"],
+                ].map(([name, mark, command]) => (
+                  <button
+                    key={mark}
+                    type="button"
+                    aria-pressed={editor.isActive(mark)}
+                    onClick={() => action((c) => c[command]().run())}
+                  >
+                    {name}
+                  </button>
+                ))}
+                <button
+                  type="button"
+                  onClick={() => action((c) => c.toggleBulletList().run())}
+                >
+                  Liste à puces
+                </button>
+                <button
+                  type="button"
+                  aria-pressed={editor.isActive("highlight")}
+                  onClick={() => action((c) => c.toggleHighlight().run())}
+                >
+                  Surligner
+                </button>
+                <button
+                  type="button"
+                  onClick={() => action((c) => c.toggleOrderedList().run())}
+                >
+                  Liste numérotée
+                </button>
+              </div>
+            </details>
+            <button
+              type="button"
+              title="Liste à cocher"
+              aria-label="Liste à cocher"
+              aria-pressed={editor.isActive("taskList")}
+              onClick={() => action((c) => c.toggleTaskList().run())}
             >
-              <Link2 size={18} />
-              <input
-                aria-label="Ajouter une image ou un PDF"
-                type="file"
-                multiple
-                accept="image/png,image/jpeg,image/webp,application/pdf"
-                onChange={(e) => {
-                  callbacks.current.onFiles?.(Array.from(e.target.files));
-                  e.target.value = "";
-                }}
-              />
-            </label>
-          )}
-          <span className="note-toolbar-separator" />
-          <button
-            type="button"
-            aria-label="Annuler"
-            title="Annuler · ⌘Z"
-            disabled={editor.isDestroyed || !editor.can().undo()}
-            onClick={() => editor.chain().focus().undo().run()}
-          >
-            <ArrowRight size={16} />
-          </button>
-          <button
-            type="button"
-            aria-label="Rétablir"
-            title="Rétablir · ⌘⇧Z"
-            disabled={editor.isDestroyed || !editor.can().redo()}
-            onClick={() => editor.chain().focus().redo().run()}
-          >
-            <ArrowRight size={16} />
-          </button>
-        </div>
-      )}
+              <CheckCheck size={18} />
+            </button>
+            <details className="note-format-menu">
+              <summary aria-label="Tableau">
+                <LayoutGrid size={18} />
+              </summary>
+              <div>
+                <button
+                  type="button"
+                  onClick={() =>
+                    action((c) =>
+                      c
+                        .insertTable({ rows: 3, cols: 3, withHeaderRow: true })
+                        .run(),
+                    )
+                  }
+                >
+                  Insérer un tableau
+                </button>
+                {editor.isActive("table") && (
+                  <>
+                    {[
+                      ["Ajouter une ligne", "addRowAfter"],
+                      ["Ajouter une colonne", "addColumnAfter"],
+                      ["Supprimer la ligne", "deleteRow"],
+                      ["Supprimer la colonne", "deleteColumn"],
+                      ["Supprimer le tableau", "deleteTable"],
+                    ].map(([name, command]) => (
+                      <button
+                        key={command}
+                        type="button"
+                        onClick={() => action((c) => c[command]().run())}
+                      >
+                        {name}
+                      </button>
+                    ))}
+                  </>
+                )}
+              </div>
+            </details>
+            {onFiles && (
+              <label
+                className="note-toolbar-attach"
+                title="Ajouter une image ou un PDF"
+              >
+                <Link2 size={18} />
+                <input
+                  aria-label="Ajouter une image ou un PDF"
+                  type="file"
+                  multiple
+                  accept="image/png,image/jpeg,image/webp,application/pdf"
+                  onChange={(e) => {
+                    callbacks.current.onFiles?.(Array.from(e.target.files));
+                    e.target.value = "";
+                  }}
+                />
+              </label>
+            )}
+            <span className="note-toolbar-separator" />
+            <button
+              type="button"
+              aria-label="Annuler"
+              title="Annuler · ⌘Z"
+              disabled={editor.isDestroyed || !editor.can().undo()}
+              onClick={() => editor.chain().focus().undo().run()}
+            >
+              <ArrowRight size={16} />
+            </button>
+            <button
+              type="button"
+              aria-label="Rétablir"
+              title="Rétablir · ⌘⇧Z"
+              disabled={editor.isDestroyed || !editor.can().redo()}
+              onClick={() => editor.chain().focus().redo().run()}
+            >
+              <ArrowRight size={16} />
+            </button>
+          </div>,
+        )}
       <EditorContent editor={editor} />
     </div>
   );
