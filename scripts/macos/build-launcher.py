@@ -8,6 +8,10 @@ import sys
 import tempfile
 import argparse
 import json
+import os
+import socket
+import time
+import urllib.request
 
 repo = Path(__file__).resolve().parents[2]
 node = shutil.which('node')
@@ -47,13 +51,15 @@ with tempfile.TemporaryDirectory(prefix='beam-mac-') as scratch:
     subprocess.run(['iconutil', '-c', 'icns', str(iconset), '-o', str(contents / 'Resources' / 'Beam.icns')], check=True)
     shutil.copy2(repo / 'scripts/macos/install-update.mjs', contents / 'Resources' / 'install-update.mjs')
     version = json.loads((repo / 'shared/version.json').read_text())['version']
-    info = {'CFBundleName': 'Beam', 'CFBundleDisplayName': 'Beam', 'CFBundleIdentifier': 'local.beam.desktop', 'CFBundleExecutable': 'Beam', 'CFBundlePackageType': 'APPL', 'CFBundleShortVersionString': version.split('-')[0], 'CFBundleVersion': '36', 'BeamVersion': version, 'CFBundleIconFile': 'Beam.icns', 'NSHighResolutionCapable': True, 'LSMinimumSystemVersion': '12.0', 'BeamRepository': str(repo), 'BeamNode': node}
+    info = {'CFBundleName': 'Beam', 'CFBundleDisplayName': 'Beam', 'CFBundleIdentifier': 'local.beam.desktop', 'CFBundleExecutable': 'Beam', 'CFBundlePackageType': 'APPL', 'CFBundleShortVersionString': version.split('-')[0], 'CFBundleVersion': '37', 'BeamVersion': version, 'CFBundleIconFile': 'Beam.icns', 'NSHighResolutionCapable': True, 'LSMinimumSystemVersion': '12.0', 'BeamRepository': str(repo), 'BeamNode': node}
     info['CFBundleURLTypes'] = [{'CFBundleURLName': 'local.beam.invitation', 'CFBundleURLSchemes': ['beam']}]
     if args.portable:
         runtime = contents / 'Resources' / 'runtime'
         runtime.mkdir()
         for name in ['server', 'shared', 'dist', 'node_modules']:
             shutil.copytree(repo / name, runtime / name, symlinks=True)
+        (runtime / 'scripts').mkdir()
+        shutil.copy2(repo / 'scripts/public-roadmap.js', runtime / 'scripts/public-roadmap.js')
         shutil.copy2(repo / 'package.json', runtime / 'package.json')
         shutil.copy2(node, contents / 'Resources' / 'node')
         ai = contents / 'Resources' / 'ai'
@@ -69,6 +75,43 @@ with tempfile.TemporaryDirectory(prefix='beam-mac-') as scratch:
         plistlib.dump(info, f)
     subprocess.run(['codesign', '--force', '--sign', '-', str(app)], check=True, stdout=subprocess.DEVNULL)
     subprocess.run(['codesign', '--verify', '--deep', '--strict', str(app)], check=True)
+    if args.portable:
+        # Test the shipped runtime in a clean directory, never against user data.
+        with tempfile.TemporaryDirectory(prefix='beam-package-test-') as testdir:
+            with socket.socket() as probe:
+                probe.bind(('127.0.0.1', 0))
+                port = probe.getsockname()[1]
+            token = 'package-test-' + os.urandom(24).hex()
+            env = {**os.environ, 'NODE_ENV': 'production', 'HOST': '127.0.0.1', 'PORT': str(port), 'BEAM_DESKTOP': '1', 'BEAM_ADMIN_TOKEN': token, 'BEAM_ASSETS': str(runtime / 'dist'), 'BEAM_DB': str(Path(testdir) / 'data/beam.sqlite')}
+            log = Path(testdir) / 'server.log'
+            with log.open('wb') as stream:
+                process = subprocess.Popen([str(contents / 'Resources/node'), str(runtime / 'server/index.js')], cwd=testdir, env=env, stdout=stream, stderr=stream)
+                try:
+                    ready = False
+                    for attempt in range(80):
+                        if process.poll() is not None:
+                            break
+                        try:
+                            request = urllib.request.Request(f'http://127.0.0.1:{port}/api/admin/product', headers={'Authorization': 'Bearer ' + token})
+                            with urllib.request.urlopen(request, timeout=1) as response:
+                                payload = json.load(response)
+                                ready = response.status == 200 and isinstance(payload.get('name'), str)
+                            if ready:
+                                break
+                        except (OSError, ValueError):
+                            time.sleep(0.1)
+                    if not ready:
+                        raise SystemExit('Le serveur du paquet Mac ne démarre pas :\n' + log.read_text())
+                    with urllib.request.urlopen(f'http://127.0.0.1:{port}/', timeout=2) as response:
+                        if response.status != 200 or b'<html' not in response.read():
+                            raise SystemExit('Interface absente du paquet Mac.')
+                    print('Paquet Mac : serveur et interface vérifiés avec des données temporaires.')
+                finally:
+                    process.terminate()
+                    try:
+                        process.wait(timeout=5)
+                    except subprocess.TimeoutExpired:
+                        process.kill(); process.wait()
     output.parent.mkdir(parents=True, exist_ok=True)
     if args.portable and output.suffix == '.dmg':
         disk = scratch / 'disk'
