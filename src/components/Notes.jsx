@@ -258,6 +258,8 @@ export default function Notes({
     [busy, setBusy] = useState(false),
     [view, setView] = useState("all"),
     [topic, setTopic] = useState("Tous"),
+    [folder, setFolder] = useState(null),
+    [showHiddenFolders, setShowHiddenFolders] = useState(false),
     [query, setQuery] = useState(""),
     [selected, setSelected] = useState(null),
     [subjects, setSubjects] = useState({ topics: [], unassigned: [] }),
@@ -393,6 +395,15 @@ export default function Notes({
       notes.filter((n) => n.state !== "archived").flatMap((n) => n.tags),
     ),
   ];
+  const folders = subjects.topics
+    .map((t) => ({
+      ...t,
+      noteIds: t.sources
+        .filter((s) => s.id.startsWith("note:") && s.confidence === "clear")
+        .map((s) => s.id.slice(5)),
+    }))
+    .filter((t) => t.folderEligible || t.noteIds.length >= 2);
+  const activeFolder = folders.find((t) => t.id === folder);
   const visible = notes.filter(
     (n) =>
       (view === "archives" ? n.state === "archived" : n.state !== "archived") &&
@@ -400,6 +411,7 @@ export default function Notes({
         (n.state === "open" && ["action", "followup"].includes(n.kind))) &&
       (view !== "review" || pending(n)) &&
       (topic === "Tous" || n.tags.includes(topic)) &&
+      (!activeFolder || activeFolder.noteIds.includes(n.id)) &&
       (!query ||
         includesSearch(query, [
           n.text,
@@ -416,8 +428,10 @@ export default function Notes({
           ? visible[0] || null
           : null,
       );
-  }, [loaded, notes, view, topic, query, composing, subject]);
+  }, [loaded, notes, view, topic, query, composing, subject, folder, subjects]);
   function newNote() {
+    setFolder(null);
+    setTopic("Tous");
     setComposing(true);
     setSelected(null);
     setSubject(null);
@@ -545,6 +559,8 @@ export default function Notes({
               aria-pressed={view === id}
               onClick={() => {
                 setView(id);
+                setFolder(null);
+                setTopic("Tous");
                 setComposing(false);
                 setSubject(null);
                 if (id === "review") setSelected(null);
@@ -557,50 +573,81 @@ export default function Notes({
             </button>
           ))}
         </nav>
-        {(topics.length > 0 || subjects.topics.length > 0) && (
-          <details className="notebook-topics">
-            <summary>
-              Sujets détectés <AIProgress scope="topics" />
-            </summary>
+        <section
+          className="notebook-folders"
+          aria-label="Dossiers intelligents"
+        >
+          <div className="notebook-folders-heading">
+            <span>Dossiers intelligents</span>
+            <AIProgress scope="topics" />
+          </div>
+          {folders
+            .filter((t) => !t.hidden || showHiddenFolders)
+            .map((t) => (
+              <div className="notebook-folder-row" key={t.id}>
+                <button
+                  className={folder === t.id ? "active" : ""}
+                  aria-pressed={folder === t.id}
+                  title={t.summary}
+                  onClick={() => {
+                    setFolder(t.id);
+                    setTopic("Tous");
+                    setView("all");
+                    setSubject(null);
+                    setComposing(false);
+                  }}
+                >
+                  <FileText size={14} />
+                  <span>{t.title}</span>
+                  <small>{t.noteIds.length}</small>
+                </button>
+                <button
+                  className="notebook-folder-options"
+                  aria-label={"Gérer le dossier " + t.title}
+                  onClick={() => {
+                    setSubject(t);
+                    setSelected(null);
+                    setComposing(false);
+                  }}
+                >
+                  ···
+                </button>
+              </div>
+            ))}
+          {!folders.some((t) => !t.hidden) && (
+            <p>
+              Les notes qui parlent d’un même sujet seront réunies ici. Leurs
+              liens sont analysés sur ce Mac.
+            </p>
+          )}
+          {folders.some((t) => t.hidden) && (
             <button
-              className={topic === "Tous" ? "active" : ""}
+              className="text-button"
+              onClick={() => setShowHiddenFolders((v) => !v)}
+            >
+              {showHiddenFolders
+                ? "Masquer les dossiers cachés"
+                : "Dossiers masqués"}
+            </button>
+          )}
+          {subjects.error && <p>{subjects.error}</p>}
+        </section>
+        {activeFolder && (
+          <div className="notebook-folder-context">
+            <span>{activeFolder.title}</span>
+            <small>
+              Classement automatique · vos notes restent dans Toutes
+            </small>
+            <button
+              className="text-button"
               onClick={() => {
-                setTopic("Tous");
-                setSubject(null);
-                setComposing(false);
-                setView("all");
+                setSubject(activeFolder);
+                setSelected(null);
               }}
             >
-              Tous les sujets
+              Comprendre ce dossier
             </button>
-            {topics.map((t) => (
-              <button
-                key={t}
-                className={topic === t ? "active" : ""}
-                onClick={() => {
-                  setTopic(t);
-                  setView("all");
-                  setSubject(null);
-                  setComposing(false);
-                }}
-              >
-                {t}
-              </button>
-            ))}
-            {subjects.topics.map((t) => (
-              <button
-                key={t.id}
-                onClick={() => {
-                  setSubject(t);
-                  setComposing(false);
-                  setSelected(null);
-                }}
-              >
-                {t.title}
-                <small>{t.sources.length}</small>
-              </button>
-            ))}
-          </details>
+          </div>
         )}
         {(text.trim() || files.length > 0) && !composing && (
           <button className="notebook-review" onClick={newNote}>
@@ -767,6 +814,7 @@ export default function Notes({
         ) : subject ? (
           <div className="notebook-paper">
             <TopicDetail
+              key={subject.id}
               topic={subject}
               topics={subjects.topics}
               items={items}
@@ -1255,6 +1303,12 @@ function TopicDetail({
         Synthèse des signaux · La fréquence ne détermine pas la priorité.
       </p>
       <p>{topic.summary}</p>
+      <button
+        className="text-button"
+        onClick={() => patch({ hidden: !topic.hidden })}
+      >
+        {topic.hidden ? "Afficher dans les dossiers" : "Masquer ce dossier"}
+      </button>
       {topic.questions.length > 0 && (
         <>
           <h3>À clarifier</h3>

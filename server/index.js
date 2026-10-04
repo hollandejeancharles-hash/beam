@@ -971,6 +971,7 @@ const server = http.createServer(async (req, res) => {
         /^\/api\/admin\/topics\/([a-f0-9-]+)$/,
       );
       if (topicMatch && req.method === "PATCH") {
+        if (body.hidden !== undefined) topics.hide(topicMatch[1], body.hidden);
         if (body.title !== undefined) topics.rename(topicMatch[1], body.title);
         if (body.item_id !== undefined)
           topics.link(topicMatch[1], body.item_id);

@@ -70,3 +70,79 @@ test("topics group grounded sources, mark ambiguity and preserve manual moves wi
   assert.equal(service.list().topics.length, 1);
   store.db.close();
 });
+
+test("smart folders allow overlapping notes, preserve explicit corrections and hide without losing notes", async () => {
+  const store = createStore(":memory:");
+  const notes = createNotes(store);
+  store.db.exec(
+    "CREATE TABLE ai_reviews(entity_id TEXT,state TEXT,created TEXT,result TEXT)",
+  );
+  const a = notes.save({ text: "Le board est lent pendant l'édition" });
+  const b = notes.save({ text: "Améliorer l'édition du board" });
+  const c = notes.save({
+    text: "Les performances du board doivent progresser",
+  });
+  const service = createTopics(
+    store,
+    notes,
+    { signals: () => [] },
+    { status: async () => ({ enabled: true }), busy: () => false },
+    {
+      fetcher: async () => ({
+        ok: true,
+        json: async () => ({
+          message: {
+            content: JSON.stringify({
+              topics: [
+                {
+                  title: "Édition",
+                  summary: "Échanges sur l'édition",
+                  questions: [],
+                  members: [a, b].map((n) => ({
+                    id: "note:" + n.id,
+                    confidence: "clear",
+                  })),
+                },
+                {
+                  title: "Performance",
+                  summary: "Échanges sur les performances",
+                  questions: [],
+                  members: [a, c].map((n) => ({
+                    id: "note:" + n.id,
+                    confidence: "clear",
+                  })),
+                },
+              ],
+            }),
+          },
+        }),
+      }),
+    },
+  );
+  await service.refresh();
+  const folders = service.list().topics;
+  assert.equal(folders.length, 2);
+  assert.ok(
+    folders.every((t) => t.sources.some((s) => s.id === "note:" + a.id)),
+  );
+  service.hide(folders[0].id, true);
+  assert.equal(
+    service.list().topics.find((t) => t.id === folders[0].id).hidden,
+    true,
+  );
+  assert.equal(notes.list().length, 3);
+  service.move("note:" + a.id, folders[0].id);
+  assert.equal(
+    service
+      .list()
+      .topics.find((t) => t.id === folders[1].id)
+      .sources.some((s) => s.id === "note:" + a.id),
+    false,
+  );
+  service.merge(folders[1].id, folders[0].id);
+  assert.equal(
+    new Set(service.list().topics[0].sources.map((s) => s.id)).size,
+    3,
+  );
+  store.db.close();
+});

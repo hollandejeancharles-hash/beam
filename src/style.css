@@ -6765,3 +6765,16 @@ main.menubar-capture {margin-left:0;width:100%;}
 .outcome-form {margin:22px 0;border-top:1px solid #ffffff09;padding-top:18px;}
 
 .gantt-tools .gantt-scenario {margin-left:8px;border-color:#70688b55;color:#c5bbde;}
+
+.notebook-folders{margin:14px 13px 10px;border-top:1px solid #ffffff0b;padding-top:12px}
+.notebook-folders-heading{display:flex;align-items:center;justify-content:space-between;padding:0 9px 8px;font-size:11px;color:#aaa7ba}
+.notebook-folders p{font-size:11px;line-height:1.6;color:#858291;padding:0 9px}
+.notebook-folder-row{display:flex;align-items:center;gap:2px}
+.notebook-folder-row>button{border:0;background:transparent;color:#aaa7ba;cursor:pointer;padding:8px;border-radius:7px}
+.notebook-folder-row>button:first-child{display:flex;align-items:center;gap:8px;flex:1;min-width:0;text-align:left;font-size:12px}
+.notebook-folder-row span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1}
+.notebook-folder-row small{font-size:10px;color:#817c96}
+.notebook-folder-row>button:hover,.notebook-folder-row>button.active{background:#a998ec12;color:#e4dff5}
+.notebook-folder-options{font-size:17px}
+.notebook-folder-context{margin:8px 20px 12px;display:flex;flex-direction:column;gap:5px;font-size:12px;color:#ddd6f2}
+.notebook-folder-context small{font-size:10px;line-height:1.5;color:#918b9f}
