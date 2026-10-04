@@ -54,6 +54,7 @@ export function createStore(path) {
   const history = createItemHistory(db);
   let changeContext = {};
   return {
+    path,
     db,
     history,
     setChangeContext(value) {

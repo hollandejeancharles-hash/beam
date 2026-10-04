@@ -37,6 +37,7 @@ final class CaptureDragHandle: NSView {
 }
 
 final class BeamDelegate: NSObject, NSApplicationDelegate, WKNavigationDelegate, WKUIDelegate, WKScriptMessageHandler {
+    let localToken = UUID().uuidString.replacingOccurrences(of: "-", with: "").lowercased() + UUID().uuidString.replacingOccurrences(of: "-", with: "").lowercased()
     var window: NSWindow?
     var webView: WKWebView?
     var statusItem: NSStatusItem!
@@ -191,7 +192,7 @@ final class BeamDelegate: NSObject, NSApplicationDelegate, WKNavigationDelegate,
                 panel.setFrameOrigin(NSPoint(x: x, y: y))
             }
             capturePanel = panel; captureView = view
-            view.load(URLRequest(url: URL(string: base + "?capture=1")!))
+            loadLocal(view, URL(string: base + "?capture=1")!)
         }
         capturePanel?.makeKeyAndOrderFront(nil)
         captureView?.evaluateJavaScript("window.__beamFocusCapture?.()", completionHandler: nil)
@@ -226,10 +227,12 @@ final class BeamDelegate: NSObject, NSApplicationDelegate, WKNavigationDelegate,
     }
     func probe(_ completion: @escaping (Bool, Bool) -> Void) {
         var request = URLRequest(url: URL(string: base + "api/admin/product")!)
+        request.setValue("Bearer " + localToken, forHTTPHeaderField: "Authorization")
         request.timeoutInterval = 1
         URLSession.shared.dataTask(with: request) { data, response, error in
             let json = data.flatMap { try? JSONSerialization.jsonObject(with: $0) as? [String: Any] }
-            let healthy = (response as? HTTPURLResponse)?.statusCode == 200 && json?["name"] is String
+            let http = response as? HTTPURLResponse
+            let healthy = http?.statusCode == 200 && http?.value(forHTTPHeaderField: "X-Beam-Local-Auth") == "required" && json?["name"] is String
             DispatchQueue.main.async { completion(healthy, response != nil) }
         }.resume()
     }
@@ -253,7 +256,10 @@ final class BeamDelegate: NSObject, NSApplicationDelegate, WKNavigationDelegate,
             env["BEAM_MODELS"] = FileManager.default.fileExists(atPath: bundledModels) ? bundledModels : workDirectory + "/data/ai/models"
         }
         // The launcher serves this Mac only; inherited deployment settings must not change that scope.
-        env.removeValue(forKey: "BEAM_ADMIN_TOKEN"); env.removeValue(forKey: "BEAM_SEED")
+        env["BEAM_ADMIN_TOKEN"] = localToken
+        env["BEAM_DESKTOP"] = "1"
+        env["BEAM_KEYCHAIN_HELPER"] = Bundle.main.bundleURL.appendingPathComponent("Contents/MacOS/BeamSecureStore").path
+        env.removeValue(forKey: "BEAM_SEED")
         process.environment = env
         let logPath = workDirectory + "/data/launcher.log"
         try? FileManager.default.createDirectory(atPath: workDirectory + "/data", withIntermediateDirectories: true)
@@ -295,9 +301,13 @@ final class BeamDelegate: NSObject, NSApplicationDelegate, WKNavigationDelegate,
             window = shell; webView = view
         }
         let target = URL(string: base + destination)!
-        if webView?.url != target { webView?.load(URLRequest(url: target)) }
+        if webView?.url != target, let view = webView { loadLocal(view, target) }
         if target.fragment?.hasPrefix("invite=") == true { pendingInvitation = nil }
         present()
+    }
+    func loadLocal(_ view: WKWebView, _ url: URL) {
+        let cookie = HTTPCookie(properties: [.name: "beam_local_session", .value: localToken, .domain: "127.0.0.1", .path: "/", HTTPCookiePropertyKey("HttpOnly"): "TRUE", HTTPCookiePropertyKey("SameSite"): "Strict"])!
+        view.configuration.websiteDataStore.httpCookieStore.setCookie(cookie) { view.load(URLRequest(url: url)) }
     }
     func isLocal(_ url: URL) -> Bool {
         url.scheme == "http" && ["127.0.0.1", "localhost"].contains(url.host ?? "") && url.port == 5173

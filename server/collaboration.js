@@ -1,3 +1,4 @@
+import { sessionStorage } from "./session-vault.js";
 import { randomUUID } from "node:crypto";
 import { safeActivity, recentActivity } from "../shared/presence.js";
 import { readFileSync } from "node:fs";
@@ -88,8 +89,25 @@ export function createCollaboration(
   store,
   clientFactory = createClient,
   accountStore = store,
+  options = {},
 ) {
+  const sessions = sessionStorage(accountStore, options.vault);
+  let sessionError = "";
+  let failedSessionVersion = null;
   const get = (k) => {
+    if (k === "beam_shared_session") {
+      if (sessionError && failedSessionVersion === sessions.version())
+        return null;
+      try {
+        const value = sessions.get();
+        sessionError = "";
+        return value;
+      } catch (e) {
+        sessionError = e.message;
+        failedSessionVersion = sessions.version();
+        return null;
+      }
+    }
     try {
       return JSON.parse(
         (k === "beam_shared_session" || k === "beam_shared_config"
@@ -103,13 +121,16 @@ export function createCollaboration(
       return null;
     }
   };
-  const put = (k, v) =>
-    (k === "beam_shared_session" || k === "beam_shared_config"
-      ? accountStore
-      : store
-    ).db
+  const put = (k, v) => {
+    if (k === "beam_shared_session") {
+      sessions.put(v);
+      sessionError = "";
+      return;
+    }
+    (k === "beam_shared_config" ? accountStore : store).db
       .prepare("INSERT OR REPLACE INTO metadata VALUES(?,?)")
       .run(k, JSON.stringify(v));
+  };
   let defaults;
   try {
     defaults = JSON.parse(
@@ -356,7 +377,7 @@ export function createCollaboration(
       email: session?.user?.email || "",
       workspace: workspace ? { ...workspace, revision } : null,
       connected: connected && !!session,
-      error: lastError,
+      error: lastError || sessionError,
     };
   }
   async function settings(action, b = {}) {
@@ -703,7 +724,8 @@ export function createCollaboration(
     async intakeStatus() {
       if (!workspace) return { shared: false, connections: [] };
       await authenticate();
-      const result = await client.from("beam_intake_connections")
+      const result = await client
+        .from("beam_intake_connections")
         .select("provider,external_id,channels,enabled,last_received_at")
         .eq("workspace_id", workspace.id);
       if (result.error?.code === "PGRST205" || result.error?.code === "42P01")

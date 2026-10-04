@@ -1,4 +1,5 @@
 import test from "node:test";
+import { get as httpGet } from "node:http";
 import { createCanvas } from "@napi-rs/canvas";
 import assert from "node:assert/strict";
 import { spawn } from "node:child_process";
@@ -394,7 +395,7 @@ test("Desktop production accepts its localhost origin for profile, onboarding an
       NODE_ENV: "production",
       BEAM_DESKTOP: "1",
       HOST: "127.0.0.1",
-      BEAM_ADMIN_TOKEN: "",
+      BEAM_ADMIN_TOKEN: "a".repeat(64),
       BEAM_DB: join(directory, "test.sqlite"),
       PORT: "5185",
     },
@@ -423,9 +424,61 @@ test("Desktop production accepts its localhost origin for profile, onboarding an
     ) =>
       fetch("http://127.0.0.1:5185/api/admin/" + path, {
         method,
-        headers: { "Content-Type": "application/json", Origin: origin },
+        headers: {
+          "Content-Type": "application/json",
+          Origin: origin,
+          Cookie: "beam_local_session=" + "a".repeat(64),
+        },
         body: body === undefined ? undefined : JSON.stringify(body),
       });
+    assert.equal(
+      (await fetch("http://127.0.0.1:5185/api/admin/product")).status,
+      401,
+    );
+    assert.equal(
+      (
+        await fetch("http://127.0.0.1:5185/api/admin/product", {
+          headers: { Cookie: "beam_local_session=" + "b".repeat(64) },
+        })
+      ).status,
+      401,
+    );
+    const rawRead = (headers) =>
+      new Promise((resolve, reject) => {
+        httpGet(
+          "http://127.0.0.1:5185/api/admin/product",
+          { headers },
+          (response) => {
+            response.resume();
+            resolve(response.statusCode);
+          },
+        ).on("error", reject);
+      });
+    assert.equal(
+      await rawRead({
+        Host: "outside.invalid:5185",
+        Cookie: "beam_local_session=" + "a".repeat(64),
+      }),
+      403,
+    );
+    assert.equal(
+      (
+        await fetch("http://127.0.0.1:5185/api/admin/product", {
+          headers: {
+            Origin: "https://outside.invalid",
+            Cookie: "beam_local_session=" + "a".repeat(64),
+          },
+        })
+      ).status,
+      403,
+    );
+    assert.equal(
+      await rawRead({
+        "Sec-Fetch-Site": "cross-site",
+        Cookie: "beam_local_session=" + "a".repeat(64),
+      }),
+      403,
+    );
     let r = await request("profile", "PATCH", {
       name: "Équipe 日本語",
       role: "PM",

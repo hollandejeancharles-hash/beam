@@ -33,7 +33,7 @@ const desktop =
   process.env.BEAM_DESKTOP === "1" &&
   (!process.env.HOST || process.env.HOST === "127.0.0.1");
 const assets = process.env.BEAM_ASSETS || "dist";
-if (prod && !desktop && !process.env.BEAM_ADMIN_TOKEN)
+if ((prod || desktop) && !process.env.BEAM_ADMIN_TOKEN)
   throw Error("BEAM_ADMIN_TOKEN est requis en production");
 mkdirSync("data", { recursive: true });
 const databasePath = process.env.BEAM_DB || "data/beam.sqlite";
@@ -200,10 +200,16 @@ const vite = prod
     ).createServer({ server: { middlewareMode: true }, appType: "spa" });
 const token = process.env.BEAM_ADMIN_TOKEN;
 const authorized = (req) =>
-  (!token && (!prod || desktop)) ||
+  (!token && !prod && !desktop) ||
   (() => {
     const a = Buffer.from(
-      req.headers.authorization?.replace(/^Bearer /, "") || "",
+      req.headers.authorization?.replace(/^Bearer /, "") ||
+        (desktop
+          ? req.headers.cookie?.match(
+              /(?:^|; )beam_local_session=([a-f0-9]{64})(?:;|$)/,
+            )?.[1]
+          : "") ||
+        "",
     );
     const b = Buffer.from(token || "");
     return a.length === b.length && timingSafeEqual(a, b);
@@ -222,6 +228,28 @@ function limited(key, max) {
   return ++entry.count > max;
 }
 const server = http.createServer(async (req, res) => {
+  // The Host header is untrusted, even when a request reaches loopback.
+  if (!process.env.HOST || process.env.HOST === "127.0.0.1") {
+    const hosts = [
+      `127.0.0.1:${process.env.PORT || 5173}`,
+      `localhost:${process.env.PORT || 5173}`,
+    ];
+    if (!hosts.includes(req.headers.host)) {
+      res.writeHead(403);
+      return res.end();
+    }
+  }
+  if (
+    req.url.startsWith("/api/") &&
+    (req.headers["sec-fetch-site"] === "cross-site" ||
+      (req.headers.origin &&
+        req.headers.origin !==
+          `${prod && !desktop ? "https" : "http"}://${req.headers.host}`))
+  ) {
+    res.writeHead(403);
+    return res.end();
+  }
+  res.setHeader("X-Beam-Local-Auth", desktop ? "required" : "development");
   const url = new URL(req.url, "http://localhost");
   if (!url.pathname.startsWith("/api/")) {
     if (vite) return vite.middlewares(req, res);

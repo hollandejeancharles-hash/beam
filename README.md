@@ -4,7 +4,7 @@ Beam est un espace de pilotage produit : organisez vos initiatives, projets et f
 
 ## Installer Beam sur Mac
 
-**[⬇ Télécharger Beam pour Mac — Apple Silicon](https://github.com/hollandejeancharles-hash/beam/releases/download/v2.0.0-beta.25/Beam-AppleSilicon.dmg)** · [Notes de version](https://github.com/hollandejeancharles-hash/beam/releases/tag/v2.0.0-beta.25)
+**[⬇ Télécharger Beam pour Mac — Apple Silicon](https://github.com/hollandejeancharles-hash/beam/releases/download/v2.0.0-beta.26/Beam-AppleSilicon.dmg)** · [Notes de version](https://github.com/hollandejeancharles-hash/beam/releases/tag/v2.0.0-beta.26)
 
 Mac **M1 ou plus récent**, **macOS 14+**. Pour l’IA locale, **16 Go de mémoire ou plus** sont recommandés. Aucun terminal, Node.js ou outil de développement à installer : le package contient Beam, Node et le moteur Ollama.
 
@@ -50,6 +50,12 @@ Le Gantt, le Kanban et les demandes du workspace partagé sont synchronisés via
 Le package autonome conserve vos données dans `~/Library/Application Support/Beam/data`. Elles ne sont pas incluses dans l’installateur et ne sont pas effacées quand vous remplacez l’app.
 
 Beam permet de vérifier les nouvelles versions et d’exporter une sauvegarde depuis **Réglages du workspace → Votre installation**. Pour mettre à jour : quittez Beam, téléchargez le nouveau DMG, remplacez l’app dans Applications et relancez-la. Exportez régulièrement vos sauvegardes.
+
+## Sécurité locale
+
+L’application Mac authentifie les accès administratifs avec une clé aléatoire par lancement, transmise aux fenêtres dans un cookie HTTPOnly. Le serveur local refuse les noms d’hôte inattendus et les origines tierces. Les sessions Supabase sont conservées dans le Trousseau macOS ; les anciennes sessions SQLite sont migrées après confirmation de leur enregistrement sécurisé.
+
+Les notes et pièces jointes restent dans la base locale : Beam ne chiffre pas toute cette base. Le chiffrement du disque dépend des réglages de macOS, notamment FileVault. Le mode de développement est distinct du package Mac sécurisé. Pour utiliser les connexions en développement sur Mac, construisez le lanceur et définissez `BEAM_KEYCHAIN_HELPER` avec le chemin de `../outputs/Beam.app/Contents/MacOS/BeamSecureStore`.
 
 ## Roadmap publique
 

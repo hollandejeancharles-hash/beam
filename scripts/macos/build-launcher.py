@@ -31,6 +31,9 @@ with tempfile.TemporaryDirectory(prefix='beam-mac-') as scratch:
     (contents / 'Resources').mkdir()
     executable = contents / 'MacOS' / 'Beam'
     subprocess.run(['xcrun', 'swiftc', '-O', '-module-cache-path', str(Path(tempfile.gettempdir()) / 'beam-swift-cache'), str(repo / 'scripts/macos/Beam.swift'), '-o', str(executable)], check=True)
+    secure = contents / 'MacOS' / 'BeamSecureStore'
+    subprocess.run(['xcrun', 'swiftc', '-O', '-module-cache-path', str(Path(tempfile.gettempdir()) / 'beam-swift-cache'), str(repo / 'scripts/macos/SecureStore.swift'), '-o', str(secure)], check=True)
+    subprocess.run(['codesign', '--force', '--sign', '-', str(secure)], check=True)
     iconset = scratch / 'Beam.iconset'
     iconset.mkdir()
     original = scratch / 'beam.png'
@@ -41,7 +44,7 @@ with tempfile.TemporaryDirectory(prefix='beam-mac-') as scratch:
             subprocess.run(['sips', '-z', str(size * scale), str(size * scale), str(original), '--out', str(iconset / filename)], check=True, stdout=subprocess.DEVNULL)
     subprocess.run(['iconutil', '-c', 'icns', str(iconset), '-o', str(contents / 'Resources' / 'Beam.icns')], check=True)
     version = json.loads((repo / 'shared/version.json').read_text())['version']
-    info = {'CFBundleName': 'Beam', 'CFBundleDisplayName': 'Beam', 'CFBundleIdentifier': 'local.beam.desktop', 'CFBundleExecutable': 'Beam', 'CFBundlePackageType': 'APPL', 'CFBundleShortVersionString': version.split('-')[0], 'CFBundleVersion': '26', 'BeamVersion': version, 'CFBundleIconFile': 'Beam.icns', 'NSHighResolutionCapable': True, 'LSMinimumSystemVersion': '12.0', 'BeamRepository': str(repo), 'BeamNode': node}
+    info = {'CFBundleName': 'Beam', 'CFBundleDisplayName': 'Beam', 'CFBundleIdentifier': 'local.beam.desktop', 'CFBundleExecutable': 'Beam', 'CFBundlePackageType': 'APPL', 'CFBundleShortVersionString': version.split('-')[0], 'CFBundleVersion': '27', 'BeamVersion': version, 'CFBundleIconFile': 'Beam.icns', 'NSHighResolutionCapable': True, 'LSMinimumSystemVersion': '12.0', 'BeamRepository': str(repo), 'BeamNode': node}
     info['CFBundleURLTypes'] = [{'CFBundleURLName': 'local.beam.invitation', 'CFBundleURLSchemes': ['beam']}]
     if args.portable:
         runtime = contents / 'Resources' / 'runtime'
