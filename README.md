@@ -1,51 +1,94 @@
 # Beam
 
-La roadmap produit de PULS : un espace de pilotage et un portail public pour construire la suite avec ses utilisateurs.
+Beam est un espace de pilotage produit : organisez vos initiatives, projets et features dans un Gantt ou un Kanban, capturez vos notes et collaborez avec votre équipe. L’assistant IA tourne sur votre Mac ; la roadmap et les demandes peuvent être partagées via Supabase.
 
-## Démarrer
+## Installer Beam sur Mac
 
-Node.js **24 ou supérieur** requis (SQLite intégré à Node).
+**[⬇ Télécharger Beam pour Mac — Apple Silicon](https://github.com/hollandejeancharles-hash/beam/releases/download/v2.0.0-beta.23/Beam-AppleSilicon.dmg)** · [Notes de version](https://github.com/hollandejeancharles-hash/beam/releases/tag/v2.0.0-beta.23)
+
+Mac **M1 ou plus récent**, **macOS 14+**. Pour l’IA locale, **16 Go de mémoire ou plus** sont recommandés. Aucun terminal, Node.js ou outil de développement à installer : le package contient Beam, Node et le moteur Ollama.
+
+**Cette bêta n’est pas notarisée par Apple. macOS peut bloquer la première ouverture et afficher un avertissement.** Téléchargez uniquement depuis ce dépôt officiel, si vous faites confiance à cette source.
+
+1. Téléchargez et ouvrez **Beam-AppleSilicon.dmg**.
+2. Glissez **Beam.app** dans **Applications**, puis ouvrez-la.
+3. Si macOS bloque Beam, fermez l’avertissement, puis allez dans **Réglages Système → Confidentialité et sécurité → Ouvrir quand même**. Confirmez l’ouverture si demandé. Ne désactivez pas les protections générales de macOS.
+4. Suivez l’accueil pour renseigner votre profil, créer un workspace ou rejoindre celui de votre équipe.
+5. Si vous souhaitez utiliser l’IA, téléchargez le modèle depuis les réglages du workspace : environ **6 Go** supplémentaires. Le téléchargement est explicite et nécessite Internet.
+
+[Guide d’installation et de mise à jour](docs/installation-mac.md) · [Procédure officielle Apple](https://support.apple.com/fr-fr/102445)
+
+Pour garder Beam dans le Dock, ouvrez-la depuis Applications, puis choisissez **Options → Garder dans le Dock**. L’icône de la barre de menus permet de capturer une note dans une petite fenêtre dédiée, agrandissable en carnet.
+
+## Ce que vous pouvez faire
+
+- **Planification** : Gantt avec initiatives, projets et features imbriqués, dates cibles ou engagements, dépendances, déplacement des éléments, scénarios et aperçu des impacts.
+- **Kanban** : écran distinct pour suivre les statuts et réorganiser les éléments par glisser-déposer.
+- **Notes** : carnet privé, capture rapide, images et PDF, sujets et regroupements proposés par l’assistant local.
+- **Demandes** : qualifier les retours, assigner un responsable, clarifier, différer, refuser, regrouper les doublons ou préparer une feature avec son contexte.
+- **Assistant local** : proposer des liens entre sources et roadmap, faire ressortir les décisions et signaler les contradictions. Les changements de roadmap nécessitent une validation.
+- **Intégrations** : informations GitHub, Azure DevOps, Notion et Confluence ; mentions Slack et Teams vers Demandes après configuration des applications.
+- **Publications** : préparer avec l’IA des release notes orientées utilisateurs à partir des commits d’une version GitHub, puis relire et publier.
+- **Recherche** : retrouver les éléments, notes, demandes et informations disponibles dans votre workspace avec **⌘K / Ctrl+K**.
+- **Workspaces** : plusieurs espaces, profils, invitations, présence, commentaires, historique des modifications et sauvegardes locales.
+
+Les intégrations nécessitent leurs autorisations propres. Slack et Teams ne sont pas connectés automatiquement à l’installation : [guide de configuration](docs/conversation-intake.md). Cette version importe le message mentionnant Beam dans les canaux autorisés, sans lire tout l’historique.
+
+## Travailler en équipe
+
+Depuis le sélecteur du workspace, choisissez **Inviter des personnes**. Connectez-vous ou créez votre compte, partagez le workspace si nécessaire et créez un lien d’invitation avec le rôle **Modifier** ou **Consulter**.
+
+Votre collègue installe Beam, ouvre le lien reçu et choisit **Ouvrir dans Beam → Rejoindre le workspace**. Le lien peut aussi être collé dans **Rejoindre un workspace**, depuis le sélecteur.
+
+Le Gantt, le Kanban et les demandes du workspace partagé sont synchronisés via Supabase. Les notes personnelles, pièces jointes, jetons et analyses IA restent locaux ; seul un extrait de note volontairement envoyé dans Demandes est partagé. Les messages adressés à Beam via les canaux Slack/Teams autorisés sont partagés avec les membres du workspace. Internet est nécessaire pour consulter et modifier les données partagées ; les écritures sont bloquées hors connexion.
+
+[Configuration de Supabase et limites de la collaboration](supabase/README.md)
+
+## Vos données et les mises à jour
+
+Le package autonome conserve vos données dans `~/Library/Application Support/Beam/data`. Elles ne sont pas incluses dans l’installateur et ne sont pas effacées quand vous remplacez l’app.
+
+Beam permet de vérifier les nouvelles versions et d’exporter une sauvegarde depuis **Réglages du workspace → Votre installation**. Pour mettre à jour : quittez Beam, téléchargez le nouveau DMG, remplacez l’app dans Applications et relancez-la. Exportez régulièrement vos sauvegardes.
+
+## Roadmap publique
+
+Beam peut publier une roadmap et des annonces orientées utilisateurs. GitHub Pages sert une vitrine **en lecture seule**, distincte de l’application Mac ; il n’héberge pas votre carnet, l’IA ou le serveur collaboratif.
+
+Pour le déploiement de ce dépôt : `npm run export:roadmap` exporte uniquement les champs publics dans `public/roadmap.json` et `public/publications.json`. Relisez ces fichiers avant de les envoyer sur `main`. Le workflow Pages les publie si la source Pages du dépôt est configurée sur **GitHub Actions**. Un retrait nécessite un nouvel export et déploiement ; les anciens contenus restent dans l’historique Git.
+
+## Développer Beam
+
+Cette section concerne uniquement les personnes qui souhaitent travailler sur le code. **Elle n’est pas nécessaire pour installer l’application Mac.**
+
+Node.js **24+** est requis pour SQLite intégré.
 
 ```sh
 npm ci
 npm run dev
 ```
 
-- Administration : http://localhost:5173
-- Roadmap publique : http://localhost:5173/roadmap
+Administration : `http://localhost:5173` · Portail public : `http://localhost:5173/roadmap`.
 
-Le mode développement fonctionne localement sans clé et initialise neuf évolutions **fictives**, modifiables. Aucune métrique de vote n’est inventée. Les exemples ne sont pas chargés automatiquement en production.
+Un nouveau workspace démarre vide. Les exemples sont optionnels avec `BEAM_SEED=true`.
 
-## Fonctionnalités
+```sh
+npm test
+npm run build
+```
 
-- Gantt à l’accueil : initiatives, projets et features avec hiérarchie repliable.
-- Dates précises, responsables, avancement, dépendance et horizons trimestriels estimés.
-- Déplacement et redimensionnement des barres datées ; dates et avancement des parents calculés depuis leurs enfants en l’absence de dates propres.
-- Kanban sur un écran distinct, en tableau ou liste, statuts À venir / En cours / Livré.
-- Création, modification, suppression, changement de statut par glisser-déposer ou formulaire.
-- Priorités, catégories, horizons et recherche ; tri par priorité ou popularité.
-- Évolutions publiques ou internes, filtrées côté serveur.
-- Portail public, votes anonymes réversibles et propositions d’idées.
-- Boîte de suggestions avec conversion en évolution, vue des nouveautés livrées.
-- Données persistées dans SQLite, formulaires accessibles au clavier, interface adaptative.
+React + Vite pour l’interface ; Node HTTP + SQLite pour le stockage local ; Supabase pour la collaboration ; Ollama pour le modèle local. Les icônes animées et leur licence MIT sont conservées dans `src/icons/vendor`.
 
-## Navigation et recherche
+### Construire le package Mac
 
-Le menu latéral utilise le composant TreeNav fourni, avec un repère animé et un accès aux initiatives/projets existants. Le bouton en haut à gauche le replie en une barre d’icônes (et le masque sur mobile) ; ce choix est conservé dans le navigateur. Les points du Gantt suivent le statut : gris À venir, ambre En cours, vert Livré.
+```sh
+python3 scripts/macos/build-launcher.py --portable
+```
 
-La palette fournie s’ouvre avec **⌘K / Ctrl+K** ou la recherche. Elle retrouve les éléments, ouvre les écrans et combine les filtres type, état et priorité sous forme de chips, appliqués ensemble. Flèches et Entrée sélectionnent ; Retour arrière retire un choix ; Échap efface puis referme. Les composants sont dans `src/components/ui`, compilés en TSX par Vite et stylés avec Tailwind 4 (sans son reset global).
+Produit `../outputs/Beam-AppleSilicon.dmg` avec Beam, Node et le moteur Ollama, sans données utilisateur ni secrets. Le runtime Ollama doit être disponible dans `data/ai/runtime` avant la construction. `--with-model` inclut aussi les poids déjà téléchargés. La signature est ad hoc ; le package n’est pas notarisé.
 
-Le fond Beams fourni couvre les écrans administrateur et public. Il utilise un canvas adapté au viewport et au ratio de pixels, s’arrête dans un onglet caché et devient statique avec la réduction des animations. Les icônes Planification (CalendarDays), Intégrations (PlugZap) et les contrôles associés proviennent de Lucide Animated référencé sur 21st.dev.
+Sans `--portable`, le script construit un lanceur lié au dépôt et à l’installation Node locale ; il est réservé au développement.
 
-## Intégrations produit
-
-L’écran **Intégrations** configure le nom du produit et ses sources GitHub, Azure DevOps, Notion et Confluence Cloud. Les lectures à la demande alimentent une boîte de réception interne ; associez une information à une initiative/projet/feature ou créez une feature interne. Les mises à jour des sources préservent la planification Beam. Les connexions peuvent être mises en pause.
-
-Les secrets sont configurés uniquement dans l’environnement serveur (`BEAM_GITHUB_TOKEN`, `BEAM_ADO_TOKEN`, `BEAM_NOTION_TOKEN`, `BEAM_CONFLUENCE_EMAIL`, `BEAM_CONFLUENCE_TOKEN`). Aucun compte n’est nécessaire pour préparer les liens ; GitHub public peut être lu sans token. Les autres lectures nécessitent leurs accès. Les logs complets sont ouverts dans l’outil d’origine. OAuth, webhooks et synchronisation automatique ne sont pas implémentés.
-
-Voir [le périmètre, la configuration et l’architecture](docs/integrations.md). Les intégrations sont disponibles dans l’administration Node, pas sur GitHub Pages.
-
-## Production
+### Héberger le serveur Node
 
 ```sh
 npm ci
@@ -53,138 +96,6 @@ npm run build
 BEAM_ADMIN_TOKEN='<une longue clé aléatoire>' HOST=0.0.0.0 PORT=5173 npm start
 ```
 
-Le serveur refuse de démarrer en production sans `BEAM_ADMIN_TOKEN`. L’administration demande cette clé, conservée uniquement dans le stockage de session du navigateur. Utiliser un hébergement Node avec disque persistant et HTTPS devant le serveur. Le chemin public partageable est `/roadmap` sur le domaine choisi ; une adresse localhost ne peut pas être partagée à distance.
+Utilisez un disque persistant et HTTPS devant le serveur. Le mode serveur exige la clé administrateur ; les comptes de collaboration Supabase constituent un accès distinct. `BEAM_DB` permet de choisir le chemin SQLite. Un `Dockerfile` est fourni ; montez un volume persistant sur `/app/data`.
 
-Variables : `BEAM_ADMIN_TOKEN`, `HOST` (127.0.0.1 par défaut), `PORT` (5173), `BEAM_DB` (`data/beam.sqlite`), `BEAM_SEED=true` (exemples optionnels, initialisés une seule fois). Le répertoire parent d’un chemin personnalisé doit exister. Sauvegarder SQLite avec une procédure compatible avec le mode WAL (base et journaux, ou sauvegarde SQLite).
-
-Les votes identifient un navigateur via un cookie HttpOnly, SameSite=Lax, Secure en production : ils ne constituent pas une vérification d’identité. La limitation de requêtes est locale au processus et à l’adresse de connexion ; derrière un proxy, prévoir aussi une protection adaptée au niveau du proxy. Cette première version utilise une clé administrateur partagée, sans comptes individuels ni intégration automatique au CMS PULS. Les horizons acceptent les trimestres de 2000 à 2099.
-
-## Vérification
-
-```sh
-npm test
-npm run build
-```
-
-Les tests couvrent la confidentialité des évolutions internes, l’authentification, les validations de dates, la migration des données, la hiérarchie, les dépendances, les calculs de planning, les votes, les suggestions, la suppression et l’initialisation unique des exemples. Le test HTTP lance un serveur isolé sur le port 5184 avec une base temporaire.
-
-## Architecture
-
-React + Vite pour l’interface ; Node HTTP + SQLite pour l’API et le stockage. Pas de service tiers requis. La police Inter est chargée via Google Fonts, avec repli sur les polices système. Logo vectoriel Beam original, icônes Lucide et composants Lucide Animated (pqoqubbw), référencés sur [21st.dev](https://21st.dev/community/icons/animated). Les composants animés et leur licence MIT sont conservés dans `src/icons/vendor`. Les animations sont déclenchées par le contrôle complet au survol, au focus et au clic, et désactivées si le système demande de réduire les animations.
-
-Un `Dockerfile` est fourni pour un hébergement conteneurisé. Monter un volume persistant sur `/app/data`, fournir `BEAM_ADMIN_TOKEN` à l’exécution et terminer HTTPS au niveau du proxy. La construction Docker n’a pas été exécutée dans cet environnement. Le workflow GitHub vérifie les tests et la compilation à chaque push et pull request.
-
-## GitHub Pages
-
-`npm run build:pages` produit un portail **public en lecture seule**, accessible sous `/beam/`. Le workflow `pages.yml` le publie à chaque mise à jour de `main` (Pages doit utiliser la source **GitHub Actions** dans les réglages du dépôt).
-
-GitHub Pages n’exécute pas Node/SQLite. Sur cette version, les boutons d’administration, de vote et de suggestion sont donc absents ; recherche, filtres, vues et détails fonctionnent. L’application complète reste disponible avec `npm run dev` ou sur un hébergement Node.
-
-Pour actualiser le portail : modifier les évolutions dans Beam localement, exécuter `npm run export:roadmap`, relire `public/roadmap.json` et `public/publications.json`, puis envoyer ces fichiers sur `main`. L’export ne conserve que les champs autorisés des évolutions publiques et n’inclut jamais la base SQLite ni les données de visiteur. On peut aussi modifier directement `public/roadmap.json` sur GitHub. Une évolution rendue interne localement disparaît du portail seulement après un nouvel export et déploiement ; les données précédemment publiées restent dans l’historique Git.
-
-Pour disposer de votes, suggestions et modifications synchronisés sur le site hébergé par Pages, il faudra connecter un serveur ou une base de données externe avec authentification adaptée.
-
-### Notes privées
-
-Le bouton **Noter** reste disponible sur tous les écrans de l’espace administrateur. **⌘⇧N / Ctrl⇧N** ouvre la capture ; **⌘Entrée / CtrlEntrée** enregistre et laisse le champ prêt pour la note suivante. Fermer la capture conserve le brouillon dans ce navigateur.
-
-Le carnet **Notes** propose une liste chronologique compacte, les vues « À suivre » et « À examiner », des filtres de sujets extraits automatiquement, la recherche, la correction du texte et du classement, la clôture et l’archivage réversible. Les notes sont enregistrées dans SQLite et protégées par l’accès administrateur. Elles ne sont jamais incluses dans la roadmap publique ou dans l’export GitHub Pages.
-
-L’interprétation actuelle repose sur des règles locales transparentes : intentions courantes en français, noms après certains verbes, `@personne`, `#sujet`, aujourd’hui/demain, jours de semaine et dates `AAAA-MM-JJ`, rapprochement des titres de roadmap. Un jour de semaine désigne sa prochaine occurrence. Une note ambiguë reste une note ; les propositions sont modifiables. Aucun appel à un service IA, aucune notification programmée et aucune modification automatique de la roadmap. GitHub Pages reste la vitrine publique ; le carnet nécessite le serveur Beam.
-
-### Lanceur Mac : Dock et barre de menus
-
-`python3 scripts/macos/build-launcher.py` construit `../outputs/Beam.app` avec le logo Beam. Un clic ouvre la roadmap locale dans une fenêtre Mac dédiée, sans onglets ni barre d’adresse, et démarre le serveur si nécessaire. Un clic gauche sur l’icône de la barre de menus ouvre uniquement une petite fenêtre de capture, sans afficher la roadmap. Le brouillon est conservé et ⌘↵ enregistre la note. Un clic à l’extérieur ou Échap ferme la capture. Un clic droit propose « Ouvrir Beam », « Capturer une note », « Ouvrir les notes » et « Quitter Beam ». Pour le garder dans le Dock, glissez `Beam.app` dans la partie Applications du Dock.
-
-Le lanceur conserve la base `data/beam.sqlite` du dépôt et écoute exclusivement sur `127.0.0.1:5173`. Il nécessite Node.js 24 et les dépendances du dépôt déjà installées. Il ne modifie pas le Dock, les réglages macOS ou les éléments d’ouverture de session. Quitter le lanceur arrête uniquement le serveur qu’il a lui-même démarré ; il laisse un serveur préexistant fonctionner. En cas de problème, consulter `data/launcher.log`.
-
-L’app peut être déplacée, mais le chemin du dépôt et celui de Node sont enregistrés lors de sa construction : reconstruisez le lanceur après avoir déplacé le dépôt ou changé l’installation Node. Compilation native avec les outils Apple existants ; signature ad hoc locale, sans distribution ni notarisation.
-
-La fenêtre utilise WebKit et conserve ses données de navigation localement. Les notes et la roadmap retrouvent la même base SQLite. Fermer la fenêtre garde Beam disponible dans la barre de menus ; cliquer dans le Dock la réaffiche sans recharger la page. Les liens externes et le portail partagé ouvrent le navigateur habituel. Les raccourcis Copier/Coller et ceux de Beam restent disponibles.
-
-Le bouton ↗ agrandit la fenêtre de capture sur place en mode carnet, avec la liste des notes et l’éditeur. La fenêtre principale reste sur son écran actuel. Le brouillon reste local et n’est pas enregistré automatiquement. Le même bouton réduit la fenêtre ; les pièces jointes doivent être enregistrées avant de réduire. Le workspace du carnet reste celui de la note capturée.
-
-### IA locale pour les notes et features
-
-L’assistant **Ministral 3 8B / Ollama** organise automatiquement les notes et prépare des propositions de roadmap avec leurs sources. Les notes acceptent des images, captures et PDF analysés localement. Les nouvelles notes sont enregistrées sans attendre l’analyse ; aucun changement de roadmap n’est appliqué sans validation. Depuis les détails d’un élément, l’assistant analyse ses notes et sources associées. Voir [installation, confidentialité et limites](docs/local-ai.md).
-
-### Espace vierge et archives
-
-Les données de démonstration ne sont chargées que si `BEAM_SEED=true` est explicitement défini. Les éléments et suggestions peuvent être archivés, restaurés depuis **Voir les archives**, ou supprimés définitivement après confirmation. Les éléments archivés sont exclus du portail public et de son export GitHub Pages.
-
-### Sujets vivants
-
-Dans Notes, les **Sujets vivants** regroupent les notes (avec leur analyse et le texte des pièces jointes) et les informations importées du produit. Le moteur local regroupe les sources en arrière-plan quand l’assistant est actif, par lots bornés. Les correspondances incertaines sont indiquées **À examiner**. Une source importée répétée à la même URL ne compte qu’une fois.
-
-Ouvrir un sujet pour lire sa synthèse, ses questions et ses sources datées, puis l’associer à une feature ou préparer une nouvelle feature interne. Le menu **Organiser ce sujet** permet de renommer/fusionner ; le sélecteur de chaque source permet de la déplacer ou la retirer. Les corrections de rattachement sont conservées. Les sujets restent privés et ne changent pas les priorités ou la roadmap automatiquement.
-
-### Profil utilisateur
-
-Cliquer sur l’avatar en bas du menu pour modifier le nom affiché, le rôle, l’email facultatif et la photo. La photo est recadrée au centre, redimensionnée et stockée dans le profil privé SQLite. Sans photo, Beam affiche les initiales du nom. Ce profil local ne crée pas de compte et n’est jamais exporté vers GitHub Pages.
-
-### Ordre personnalisé du Gantt
-
-Glisser la poignée à gauche d’une ligne pour la placer avant ou après un autre élément du même parent. Les enfants restent sous leur parent. L’ordre est conservé dans SQLite et retrouvé avec le tri **Ordre personnalisé** ; un déplacement réactive automatiquement ce tri. Au clavier, placer le focus sur la poignée puis utiliser **Alt + ↑ / ↓**. Le déplacement des barres continue de modifier les dates.
-
-### Kanban animé
-
-Les cartes se déplacent entre les états et se réordonnent dans chaque colonne, avec une carte flottante et un emplacement animé. Un clic ouvre le détail ; le bouton en pied de colonne crée un élément dans cet état. Au clavier : Entrée ouvre, Espace sélectionne, les flèches déplacent, Espace valide, Échap annule. Les gestes respectent la préférence de réduction des animations.
-
-L’ordre du Kanban est sauvegardé séparément du Gantt, sans modifier les rattachements. Les filtres préservent les éléments masqués. Le portail public et les archives restent en consultation. Adaptation du composant fourni, sans ses données de démonstration.
-
-### Rapprochement automatique des sources
-
-Quand l’assistant local est actif, Beam rapproche les notes et pièces jointes (texte des PDF, puis synthèse locale des pièces visuelles) ainsi que les tickets, PR et documents importés avec les initiatives, projets et features existants. Le serveur traite les sources nouvelles ou modifiées par petits lots, toutes les minutes. Une modification du titre, de la description ou du rattachement d’un élément relance aussi le rapprochement. Aucun cloud n’intervient.
-
-Un lien précis est associé automatiquement, avec une justification et un extrait vérifié dans le contenu fourni. Un rapprochement ambigu apparaît dans « À vérifier » et reste exclu de l’analyse tant qu’il n’est pas confirmé. Vous pouvez confirmer ou écarter un lien dans le détail de l’élément ou de la source. Les corrections manuelles sont conservées. Le bouton « Analyser » recherche les sources pertinentes avant de préparer ses propositions : aucune association préalable n’est nécessaire. Seules les propositions de modification de roadmap attendent une validation.
-
-Le rapprochement local est borné à 12 sources par lot et à un contexte de 52 000 caractères. Une roadmap dépassant à elle seule 42 000 caractères signale sa limite plutôt que tronquer silencieusement ses éléments. Les liens, extraits et notes restent privés et sont exclus de GitHub Pages.
-
-### Progression des analyses locales
-
-Le cercle de progression accompagne les notes, à droite de l’heure, les analyses dans les panneaux, les éléments du Gantt et du Kanban, ainsi que les sources et les sujets vivants. Un repère discret dans la barre supérieure permet de suivre une analyse depuis un autre écran. Les animations respectent la réduction des mouvements.
-
-Le suivi provient du serveur et des réponses Ollama reçues en continu : préparation, analyse locale, vérification et enregistrement. Le spinner neutre tourne continuellement pendant le travail du modèle. Le détail conserve les étapes réellement terminées, sans pourcentage ni remplissage partiel figé. Pendant la génération, un mouvement signale que le calcul continue ; le détail indique l’étape, la durée écoulée et le volume de réponse effectivement reçu. Ollama ne donne pas de pourcentage fiable avant la fin de la génération, donc Beam n’en invente pas. Les analyses interrompues conservent leur état d’erreur et ne passent jamais à 100 %. Le suivi reste privé.
-
-## Publications
-
-Dans **Communication → Publications**, créer une annonce indépendante ou préparer un brouillon depuis un élément livré (également depuis son panneau de détail). Rédaction et aperçu utilisateur permettent de relire le titre, la version facultative et le texte avant **Publier cette annonce**. L’assistant local propose un texte à partir des livraisons et de leurs sources associées ; il n’enregistre ni ne publie automatiquement sa proposition.
-
-Les brouillons et archives restent privés dans SQLite. Une annonce associée à un élément exige qu’il soit livré, public et non archivé pour être publiée. Les annonces publiées sont des instantanés éditoriaux indépendants : changer ensuite la roadmap ne réécrit pas leur texte. **Retirer et modifier** la repasse en brouillon et la masque du portail local ; l’archivage la masque également, et la restauration la remet en brouillon. La suppression définitive demande confirmation dans le panneau.
-
-Le portail expose l’onglet **Nouveautés** avec seulement les annonces publiées (titre, texte, version et date). Pour GitHub Pages, `npm run export:roadmap` produit aussi `public/publications.json` ; les ajouts, retraits et archives nécessitent un nouvel export et déploiement. Les annonces antérieurement exportées restent dans l’historique Git. Aucun brouillon ni lien interne d’élément n’est exporté.
-
-### Release notes d’une version GitHub
-
-**Préparer une release note** ouvre le choix de la version GitHub publiée à annoncer. La sélection lance la rédaction IA lorsque le texte est vide. La **version de départ** utilise par défaut la version publiée précédente du même dépôt ; on peut définir un autre tag ou commit, notamment pour une première release ou une branche de maintenance. GitHub doit être configuré et la version importée dans **Intégrations**.
-
-À chaque génération, Beam lit directement les logs GitHub entre le départ et la version cible. Les tags sont résolus en commits immuables avant comparaison. Les commits sont paginés et vérifiés contre le total annoncé ; une comparaison incomplète, divergente, vide ou dépassant 500 commits bloque la génération au lieu de produire une note partielle. Le contexte reste borné à 52 000 caractères.
-
-Le Gantt et les notes ne définissent plus le périmètre. Seuls les éléments publics livrés associés à des commits ou PR réellement présents dans cette comparaison apportent un contexte métier. Les documents et notes associés peuvent éclairer leur bénéfice, mais chaque évolution générée doit citer littéralement un commit de la version. Une release plus ancienne, une feature simplement marquée livrée ou une demande client ne peut servir de preuve de livraison pour la version cible. Les informations internes et logs CI restent hors du texte utilisateur.
-
-L’IA locale rédige **Nouveautés**, **Améliorations** et **Corrections**, sans sections vides et sans doublons. Les références et citations sont vérifiées ; le périmètre modifié exige une nouvelle génération avant publication. Le tag annoncé reste celui choisi, et le départ de la comparaison est conservé avec le brouillon. La relecture humaine reste nécessaire pour valider le sens des changements. Les sources et références de comparaison restent privées, exclues de l’API publique et de GitHub Pages. La publication nécessite une version, un départ et des références aux commits du brouillon généré.
-
-## Collaboration et installation autonome Mac
-
-**Avant de télécharger : la bêta Mac n’est pas notarisée par Apple et peut être bloquée à la première ouverture.** Consultez le [guide d’installation Mac](docs/installation-mac.md), qui explique comment autoriser Beam depuis les réglages de macOS.
-
-Beam peut partager le Gantt et le Kanban via Supabase tout en conservant les notes et l’IA sur chaque Mac. Cliquer sur le workspace, puis **Espace partagé** pour se connecter, créer/rejoindre un espace et générer des invitations éditeur ou lecteur. La copie de la roadmap locale exige une option explicite. Les notes et pièces jointes restent locales. Voir [configuration, installation Mac et limites](supabase/README.md).
-
-L’installateur Mac autonome se construit avec `python3 scripts/macos/build-launcher.py --portable`. Il embarque Node, Beam et Ollama et conserve les données dans Application Support ; le modèle IA se télécharge depuis les réglages. Le DMG est signé ad hoc pour les tests, pas encore notarifié pour une distribution publique fluide.
-
-
-## Accueil, collaboration et sauvegardes (bêta 2)
-
-- Premier lancement vierge : profil, création/rejoindre un espace, installation et activation de l’assistant. Le guide reste accessible dans les réglages du workspace.
-- Dans un espace partagé : partager explicitement son nom/photo, consulter les personnes connectées et commenter un élément. L’historique indique l’auteur et les propriétés modifiées. Les lecteurs consultent sans modifier ni commenter.
-- Les propositions IA validées peuvent créer ou modifier une feature partagée, avec contrôle de révision et des sources périmées. Le texte validé est partagé, les notes sources restent locales. La promotion directe d’une source reste à faire depuis le Gantt.
-- Réglages du workspace → Votre installation : vérifier les versions et exporter/importer une sauvegarde JSON incluant les notes et pièces jointes. Les sessions et clés sont exclues. Une copie locale précède chaque restauration ; restaurer nécessite de quitter l’espace partagé et d’attendre les analyses en cours.
-- Supabase : exécuter `002_team.sql` après `001_collaboration.sql`. `verify_team.sql` vérifie les permissions et annule ses données de test.
-
-La présence indique les sessions Beam connectées, pas une activité récente au clavier. Les 100 derniers commentaires/modifications par élément sont affichés. Les mises à jour sont téléchargées manuellement depuis GitHub ; quitter Beam avant de remplacer l’app dans Applications.
-
-### Demandes et triage
-
-« Demandes » remplace Suggestions et rassemble les retours du portail et les extraits volontairement partagés depuis les notes. Les vues À examiner, À clarifier et Traitées permettent de qualifier un besoin, lui attribuer un responsable et une priorité, le différer, le refuser ou le relier à une feature. « Préparer une feature » ouvre le formulaire existant avec une visibilité privée ; l’enregistrement relie la demande et crée la feature dans une même opération.
-
-L’assistant local activé analyse les demandes lorsque Beam consulte la file, sans appliquer ses propositions : citations vérifiées, questions à clarifier, liens possibles vers la roadmap et doublons à regrouper après validation. Les analyses restent sur le Mac. Les demandes, leurs extraits approuvés et leur historique sont partagés avec les membres du workspace via Supabase. Les intégrations Slack/Teams et les règles automatiques de routage restent hors de cette première version.
+[Connexions produit](docs/integrations.md) · [Slack et Teams](docs/conversation-intake.md) · [Schéma Supabase](supabase/README.md)

@@ -1,6 +1,6 @@
 # Installer Beam sur Mac
 
-[Télécharger Beam pour Mac Apple Silicon](https://github.com/hollandejeancharles-hash/beam/releases/tag/v2.0.0-beta.2)
+[Télécharger Beam pour Mac Apple Silicon](https://github.com/hollandejeancharles-hash/beam/releases/download/v2.0.0-beta.23/Beam-AppleSilicon.dmg)
 
 ## À savoir avant de télécharger
 
@@ -21,7 +21,8 @@ Cette exception concerne Beam ; ne désactivez pas les protections générales d
 
 - Beam nécessite un Mac **Apple Silicon (M1 ou plus récent), macOS 14 ou plus récent**. Pour l’IA, 16 Go de mémoire ou plus sont recommandés.
 - Le moteur IA est inclus. Le modèle se télécharge depuis les réglages du workspace : prévoyez environ **6 Go** supplémentaires et une connexion Internet pour ce téléchargement.
-- Pour rejoindre votre équipe : ouvrez le workspace → **Espace partagé**, créez votre compte et saisissez le code d’invitation reçu.
+- Au premier lancement, suivez l’accueil pour créer votre profil et votre workspace. Aucun terminal ni Node.js à installer.
+- Pour rejoindre votre équipe : ouvrez le lien d’invitation reçu, choisissez **Ouvrir dans Beam**, puis **Rejoindre le workspace**. Vous pouvez aussi coller ce lien dans **Rejoindre un workspace**, depuis le sélecteur du workspace. La connexion à votre compte est demandée si nécessaire.
 - Le Gantt et le Kanban de l’espace partagé se synchronisent en ligne. Les notes, pièces jointes et analyses IA restent sur votre Mac.
 
 ## Mettre Beam à jour
