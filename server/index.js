@@ -203,7 +203,7 @@ const authorized = (req) =>
   (!token && !prod && !desktop) ||
   (() => {
     const a = Buffer.from(
-      req.headers.authorization?.replace(/^Bearer /, "") ||
+      req.headers.authorization?.match(/^Bearer\s+(\S+)$/)?.[1] ||
         (desktop
           ? req.headers.cookie?.match(
               /(?:^|; )beam_local_session=([a-f0-9]{64})(?:;|$)/,

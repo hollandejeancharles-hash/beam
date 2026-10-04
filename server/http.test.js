@@ -427,6 +427,7 @@ test("Desktop production accepts its localhost origin for profile, onboarding an
         headers: {
           "Content-Type": "application/json",
           Origin: origin,
+          Authorization: "Bearer ",
           Cookie: "beam_local_session=" + "a".repeat(64),
         },
         body: body === undefined ? undefined : JSON.stringify(body),
