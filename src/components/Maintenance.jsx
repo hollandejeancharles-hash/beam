@@ -63,7 +63,27 @@ export default function Maintenance({ product, api, onRestore, onWelcome }) {
           Vérifier
         </button>
       </div>
-      {update?.available && (
+      {window.webkit?.messageHandlers?.beamUpdate && (
+        <div className="modal-actions">
+          <button
+            className="button primary"
+            onClick={() =>
+              window.webkit.messageHandlers.beamUpdate.postMessage("check")
+            }
+          >
+            Mettre à jour Beam
+          </button>
+          <button
+            className="button"
+            onClick={() =>
+              window.webkit.messageHandlers.beamUpdate.postMessage("rollback")
+            }
+          >
+            Version précédente
+          </button>
+        </div>
+      )}
+      {update?.available && !window.webkit?.messageHandlers?.beamUpdate && (
         <a
           className="button primary"
           href={update.url}

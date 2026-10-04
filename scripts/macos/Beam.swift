@@ -44,6 +44,9 @@ final class BeamDelegate: NSObject, NSApplicationDelegate, WKNavigationDelegate,
     var statusMenu: NSMenu?
     var capturePanel: CapturePanel?
     var captureView: WKWebView?
+    lazy var updater = BeamUpdater(self)
+    @objc func checkUpdate() { updater.begin() }
+    @objc func rollbackUpdate() { updater.begin(rollback: true) }
     var server: Process?
     var capturePending = false
     var starting = false
@@ -72,6 +75,11 @@ final class BeamDelegate: NSObject, NSApplicationDelegate, WKNavigationDelegate,
         for item in menu.items { item.target = self }
         statusMenu = menu
         installAppMenu()
+        let updateError = URL(fileURLWithPath: workDirectory).appendingPathComponent("update-backups/last-error.txt")
+        if let message = try? String(contentsOf: updateError, encoding: .utf8) {
+            try? FileManager.default.removeItem(at: updateError)
+            updater.alert("La mise à jour n’a pas été terminée", message)
+        }
         // The previous browser launcher is replaced by the dedicated-window app.
         let previous = NSRunningApplication.runningApplications(withBundleIdentifier: "local.beam.launcher")
         previous.forEach { $0.terminate() }
@@ -87,6 +95,8 @@ final class BeamDelegate: NSObject, NSApplicationDelegate, WKNavigationDelegate,
         let app = NSMenuItem(); root.addItem(app)
         let appMenu = NSMenu(); app.submenu = appMenu
         appMenu.addItem(withTitle: "Capturer une note", action: #selector(captureNote), keyEquivalent: "").target = self
+        appMenu.addItem(withTitle: "Rechercher une mise à jour…", action: #selector(checkUpdate), keyEquivalent: "").target = self
+        appMenu.addItem(withTitle: "Revenir à la version précédente…", action: #selector(rollbackUpdate), keyEquivalent: "").target = self
         appMenu.addItem(NSMenuItem.separator())
         appMenu.addItem(withTitle: "Quitter Beam", action: #selector(quit), keyEquivalent: "q").target = self
         let edit = NSMenuItem(title: "Édition", action: nil, keyEquivalent: ""); root.addItem(edit)
@@ -198,6 +208,12 @@ final class BeamDelegate: NSObject, NSApplicationDelegate, WKNavigationDelegate,
         captureView?.evaluateJavaScript("window.__beamFocusCapture?.()", completionHandler: nil)
     }
     func userContentController(_ userContentController: WKUserContentController, didReceive message: WKScriptMessage) {
+        if message.name == "beamUpdate" {
+            guard message.webView === webView, message.frameInfo.isMainFrame, let url = message.frameInfo.request.url, isLocal(url) else { return }
+            if message.body as? String == "rollback" { updater.begin(rollback: true) }
+            else if message.body as? String == "check" { updater.begin() }
+            return
+        }
         guard message.webView === captureView else { return }
         if message.body as? String == "close" { capturePanel?.orderOut(nil); return }
         guard let payload = message.body as? [String: String], payload["action"] == "resize", let panel = capturePanel else { return }
@@ -286,6 +302,7 @@ final class BeamDelegate: NSObject, NSApplicationDelegate, WKNavigationDelegate,
         if webView == nil {
             let config = WKWebViewConfiguration()
             config.websiteDataStore = .default()
+            config.userContentController.add(self, name: "beamUpdate")
             let view = WKWebView(frame: .zero, configuration: config)
             view.navigationDelegate = self; view.uiDelegate = self
             view.autoresizingMask = [.width, .height]

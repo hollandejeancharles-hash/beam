@@ -851,16 +851,29 @@ function App() {
             </div>
           )}
           <div className="top-actions">
-            {!publicMode && availableUpdate && (
-              <a
-                className="update-notice"
-                href={availableUpdate.url}
-                target="_blank"
-                rel="noreferrer"
-              >
-                Nouvelle version <ArrowUpRight size={13} />
-              </a>
-            )}
+            {!publicMode &&
+              availableUpdate &&
+              (window.webkit?.messageHandlers?.beamUpdate ? (
+                <button
+                  className="update-notice"
+                  onClick={() =>
+                    window.webkit.messageHandlers.beamUpdate.postMessage(
+                      "check",
+                    )
+                  }
+                >
+                  Mettre à jour <ArrowUpRight size={13} />
+                </button>
+              ) : (
+                <a
+                  className="update-notice"
+                  href={availableUpdate.url}
+                  target="_blank"
+                  rel="noreferrer"
+                >
+                  Nouvelle version <ArrowUpRight size={13} />
+                </a>
+              ))}
             {!publicMode && <AIProgress />}
             <button
               className="icon-button global-search"

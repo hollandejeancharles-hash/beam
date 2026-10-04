@@ -30,7 +30,9 @@ with tempfile.TemporaryDirectory(prefix='beam-mac-') as scratch:
     (contents / 'MacOS').mkdir(parents=True)
     (contents / 'Resources').mkdir()
     executable = contents / 'MacOS' / 'Beam'
-    subprocess.run(['xcrun', 'swiftc', '-O', '-module-cache-path', str(Path(tempfile.gettempdir()) / 'beam-swift-cache'), str(repo / 'scripts/macos/Beam.swift'), '-o', str(executable)], check=True)
+    source = scratch / 'main.swift'
+    source.write_text((repo / 'scripts/macos/BeamUpdater.swift').read_text() + '\n' + (repo / 'scripts/macos/Beam.swift').read_text())
+    subprocess.run(['xcrun', 'swiftc', '-O', '-module-cache-path', str(Path(tempfile.gettempdir()) / 'beam-swift-cache'), str(source), '-o', str(executable)], check=True)
     secure = contents / 'MacOS' / 'BeamSecureStore'
     subprocess.run(['xcrun', 'swiftc', '-O', '-module-cache-path', str(Path(tempfile.gettempdir()) / 'beam-swift-cache'), str(repo / 'scripts/macos/SecureStore.swift'), '-o', str(secure)], check=True)
     subprocess.run(['codesign', '--force', '--sign', '-', str(secure)], check=True)
@@ -43,8 +45,9 @@ with tempfile.TemporaryDirectory(prefix='beam-mac-') as scratch:
             filename = f'icon_{size}x{size}' + ('@2x' if scale == 2 else '') + '.png'
             subprocess.run(['sips', '-z', str(size * scale), str(size * scale), str(original), '--out', str(iconset / filename)], check=True, stdout=subprocess.DEVNULL)
     subprocess.run(['iconutil', '-c', 'icns', str(iconset), '-o', str(contents / 'Resources' / 'Beam.icns')], check=True)
+    shutil.copy2(repo / 'scripts/macos/install-update.mjs', contents / 'Resources' / 'install-update.mjs')
     version = json.loads((repo / 'shared/version.json').read_text())['version']
-    info = {'CFBundleName': 'Beam', 'CFBundleDisplayName': 'Beam', 'CFBundleIdentifier': 'local.beam.desktop', 'CFBundleExecutable': 'Beam', 'CFBundlePackageType': 'APPL', 'CFBundleShortVersionString': version.split('-')[0], 'CFBundleVersion': '35', 'BeamVersion': version, 'CFBundleIconFile': 'Beam.icns', 'NSHighResolutionCapable': True, 'LSMinimumSystemVersion': '12.0', 'BeamRepository': str(repo), 'BeamNode': node}
+    info = {'CFBundleName': 'Beam', 'CFBundleDisplayName': 'Beam', 'CFBundleIdentifier': 'local.beam.desktop', 'CFBundleExecutable': 'Beam', 'CFBundlePackageType': 'APPL', 'CFBundleShortVersionString': version.split('-')[0], 'CFBundleVersion': '36', 'BeamVersion': version, 'CFBundleIconFile': 'Beam.icns', 'NSHighResolutionCapable': True, 'LSMinimumSystemVersion': '12.0', 'BeamRepository': str(repo), 'BeamNode': node}
     info['CFBundleURLTypes'] = [{'CFBundleURLName': 'local.beam.invitation', 'CFBundleURLSchemes': ['beam']}]
     if args.portable:
         runtime = contents / 'Resources' / 'runtime'

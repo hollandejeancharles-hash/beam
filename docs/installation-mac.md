@@ -1,6 +1,6 @@
 # Installer Beam sur Mac
 
-[Télécharger Beam pour Mac Apple Silicon](https://github.com/hollandejeancharles-hash/beam/releases/download/v2.0.0-beta.34/Beam-AppleSilicon.dmg)
+[Télécharger Beam pour Mac Apple Silicon](https://github.com/hollandejeancharles-hash/beam/releases/download/v2.0.0-beta.35/Beam-AppleSilicon.dmg)
 
 ## À savoir avant de télécharger
 
@@ -27,4 +27,8 @@ Cette exception concerne Beam ; ne désactivez pas les protections générales d
 
 ## Mettre Beam à jour
 
-Beam signale les nouvelles versions dans l’interface. Vous pouvez aussi vérifier depuis les réglages du workspace → **Votre installation**. Quittez Beam, téléchargez le nouveau DMG, puis remplacez Beam dans Applications et relancez-le. Vos données sont conservées dans Application Support ; exportez une sauvegarde avant une mise à jour importante. Une nouvelle version non notarisée peut demander une nouvelle autorisation macOS.
+À partir de la bêta 35, ouvrez **Beam → Rechercher une mise à jour…** dans le menu macOS, ou **Votre installation → Mettre à jour Beam** dans les réglages. Beam télécharge et vérifie le paquet officiel, puis vous propose **Installer et relancer**. L’app doit être installée dans **Applications**, dans un dossier accessible en écriture ; le navigateur et le lanceur de développement proposent toujours le téléchargement manuel.
+
+La dernière app est conservée : **Beam → Revenir à la version précédente…**. Ce retour conserve vos données actuelles, y compris les notes ajoutées depuis la mise à jour. Avant chaque remplacement, une copie privée des données locales est stockée dans `~/Library/Application Support/Beam/update-backups/` ; les modèles IA ne sont pas dupliqués. En cas de changement de format de données entre versions, une restauration depuis cette copie peut être nécessaire ; n’effacez pas vos données pour tenter un retour. Les anciennes copies ne sont pas supprimées automatiquement.
+
+Installez une fois la bêta 35 manuellement pour activer ce mécanisme. Les protections de macOS restent actives : cette bêta non notarisée peut demander une nouvelle autorisation d’ouverture. Aucun contournement de Gatekeeper ni mot de passe administrateur n’est automatisé.
