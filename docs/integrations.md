@@ -58,3 +58,7 @@ Cette version utilise des lectures à la demande et une configuration serveur po
 - [Azure DevOps WIQL](https://learn.microsoft.com/en-us/rest/api/azure/devops/wit/wiql?view=azure-devops-rest-7.1)
 - [Notion : enfants des blocs](https://developers.notion.com/reference/get-block-children)
 - [Confluence Cloud : pages](https://developer.atlassian.com/cloud/confluence/rest/v2/api-group-page/)
+
+## Conversations Slack et Teams
+
+Les mentions adressées à Beam alimentent directement **Demandes**, plutôt que les tickets de la boîte de réception des sources produit. Leur réception est hébergée sur Supabase ; l’analyse reste locale. L’activation nécessite une application autorisée chez chaque fournisseur et une liaison explicite au workspace partagé. Voir [le guide Slack et Teams](conversation-intake.md).

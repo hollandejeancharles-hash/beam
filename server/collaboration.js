@@ -700,6 +700,16 @@ export function createCollaboration(
         );
       return check(result);
     },
+    async intakeStatus() {
+      if (!workspace) return { shared: false, connections: [] };
+      await authenticate();
+      const result = await client.from("beam_intake_connections")
+        .select("provider,external_id,channels,enabled,last_received_at")
+        .eq("workspace_id", workspace.id);
+      if (result.error?.code === "PGRST205" || result.error?.code === "42P01")
+        return { shared: true, setupRequired: true, connections: [] };
+      return { shared: true, connections: check(result) };
+    },
     async team(itemId) {
       if (!workspace) return { profiles: [], comments: [], activity: [] };
       await authenticate();

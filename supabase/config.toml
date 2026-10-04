@@ -1,0 +1,5 @@
+# Provider authentication is checked by each receiver, not by Supabase user JWTs.
+[functions.beam-slack]
+verify_jwt = false
+[functions.beam-teams]
+verify_jwt = false

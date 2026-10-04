@@ -629,6 +629,9 @@ export default function Demands({
                           {new Date(s.at).toLocaleDateString("fr-FR")}
                         </small>
                         <blockquote>{s.quote || current.data.title}</blockquote>
+                        {s.author && <small>{s.author}</small>}
+                        {typeof s.url === "string" && /^https:\/\/(slack\.com|[a-z0-9-]+\.slack\.com|teams\.microsoft\.com)\//.test(s.url) &&
+                          <a href={s.url} target="_blank" rel="noreferrer">{s.url_kind === "channel" ? "Ouvrir le canal Slack" : "Ouvrir la conversation"}</a>}
                       </div>
                     ))}
                   </section>

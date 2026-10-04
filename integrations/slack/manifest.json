@@ -1,0 +1,6 @@
+{
+  "display_information": {"name":"Beam","description":"Vos conversations deviennent des demandes produit dans Beam","background_color":"#14151c"},
+  "features": {"bot_user":{"display_name":"Beam","always_online":false}},
+  "oauth_config": {"scopes":{"bot":["app_mentions:read"]}},
+  "settings": {"event_subscriptions":{"request_url":"https://auerxzzdzhgawkcvqeiq.supabase.co/functions/v1/beam-slack","bot_events":["app_mention"]},"socket_mode_enabled":false}
+}

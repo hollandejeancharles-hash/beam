@@ -35,3 +35,7 @@ Exécuter `003_demands.sql` après les deux premières migrations. La file de tr
 `verify_demands.sql` vérifie les politiques et droits installés. `test_demands.sql` vérifie la conversion, les conflits et le regroupement dans un workspace temporaire créé dans une transaction entièrement annulée. Aucun workspace existant n’est modifié.
 
 Les notes et les analyses restent locales. Seul l’extrait explicitement envoyé par l’utilisateur devient une source partagée. Les retours du portail existant sont importés de manière idempotente par le Mac qui les reçoit, lorsqu’il est connecté au workspace. Le cache partagé ne remplace pas les demandes personnelles du Mac.
+
+### Conversations Slack et Teams
+
+Installer `004_intake.sql`, puis déployer `beam-slack` et `beam-teams`. Les fonctions vérifient l’authentification du fournisseur avant d’utiliser la RPC réservée au service Supabase. Les canaux autorisés sont liés par l’administrateur du projet à un workspace partagé ; les clients ne peuvent pas créer de liaison. Le registre de réception assure une création unique malgré les retries. [Configuration et limites](../docs/conversation-intake.md).

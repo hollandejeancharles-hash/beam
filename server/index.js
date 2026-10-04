@@ -533,6 +533,8 @@ const server = http.createServer(async (req, res) => {
           return send(200, store.list(true, visitor));
         if (url.pathname === "/api/admin/items")
           return send(200, store.list(false, visitor));
+        if (url.pathname === "/api/admin/intake")
+          return send(200, await collaboration.intakeStatus());
         if (url.pathname === "/api/admin/demands")
           return send(200, await demands.list());
         if (url.pathname === "/api/admin/suggestions")

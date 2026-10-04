@@ -1,3 +1,4 @@
+import ConversationIntake from "./ConversationIntake";
 import { includesSearch } from "../../shared/search";
 import AIProgress from "./AIProgress";
 import AutoSources from "./AutoSources";
@@ -501,6 +502,7 @@ export default function Integrations({
           </button>
         </form>
       </div>
+      {tab === "sources" && <ConversationIntake api={api} />}
       <div className="integration-tabs">
         {[
           ["sources", "Connexions"],
