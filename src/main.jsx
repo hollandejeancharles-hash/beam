@@ -10,6 +10,8 @@ import WorkspaceSettings from "./components/WorkspaceSettings";
 import Welcome from "./components/Welcome";
 import TeamActivity, { TeamPresence } from "./components/Team";
 import PlanningImpact from "./components/PlanningImpact";
+import ProductOutcome from "./components/ProductOutcome";
+import RoadmapScenario from "./components/RoadmapScenario";
 import ItemGovernance from "./components/ItemGovernance";
 import { DATE_KINDS } from "../shared/roadmap-impact";
 import MenuBarCapture from "./components/MenuBarCapture";
@@ -196,6 +198,7 @@ function App() {
   const localPreview = ["localhost", "127.0.0.1", "[::1]"].includes(
     location.hostname,
   );
+  const [scenarioOpen, setScenarioOpen] = useState(false);
   const [availableUpdate, setAvailableUpdate] = useState(null);
   const [welcomeOpen, setWelcomeOpen] = useState(false);
   const [sharedRevision, setSharedRevision] = useState(null);
@@ -206,6 +209,7 @@ function App() {
     if (
       (path.startsWith("admin/items") ||
         path.startsWith("admin/planning/") ||
+        path.startsWith("admin/scenarios/") ||
         path === "admin/history/undo" ||
         /^admin\/ai\/reviews\/[^/]+\/apply$/.test(path)) &&
       options.method &&
@@ -403,6 +407,7 @@ function App() {
   useEffect(() => {
     const handle = (e) => {
       if (e.key === "Escape") {
+        setScenarioOpen(false);
         setSelected(null);
         setEdit(null);
         setShare(false);
@@ -1008,6 +1013,14 @@ function App() {
                       {publicMode ? "Public" : product.name}
                     </span>
                   </div>
+                  {!roadmapReadOnly && page === "gantt" && (
+                    <button
+                      className="button"
+                      onClick={() => setScenarioOpen(true)}
+                    >
+                      Explorer un scénario
+                    </button>
+                  )}
                   <span className="subtle">
                     {publicMode
                       ? pagesMode
@@ -1821,6 +1834,20 @@ function App() {
           <div className="date-kind-label">
             {DATE_KINDS[selected.date_kind || "target"]}
           </div>
+          {!publicMode && (
+            <ProductOutcome
+              item={selected}
+              api={api}
+              readOnly={roadmapReadOnly}
+              onRefresh={refreshAssistant}
+              onError={setToast}
+              onOpenNote={(id) => {
+                setSelected(null);
+                setPage("notes");
+                setSearchTarget({ kind: "note", id, targetId: id });
+              }}
+            />
+          )}
           {!publicMode && sharedConnection?.workspace && (
             <TeamActivity
               api={api}
@@ -1920,6 +1947,21 @@ function App() {
               )}
             </div>
           )}
+        </Modal>
+      )}
+      {scenarioOpen && (
+        <Modal
+          title="Explorer un scénario"
+          close={() => setScenarioOpen(false)}
+          side
+        >
+          <RoadmapScenario
+            items={items}
+            api={api}
+            onRefresh={refreshAssistant}
+            onError={setToast}
+            onClose={() => setScenarioOpen(false)}
+          />
         </Modal>
       )}
       {planningReview && (
@@ -2076,6 +2118,40 @@ function App() {
                 />
               </label>
             </div>
+            <details className="outcome-form">
+              <summary>Résultat attendu</summary>
+              <label>
+                Quel résultat pour les utilisateurs ?
+                <textarea
+                  rows={2}
+                  maxLength={4000}
+                  value={edit.outcome || ""}
+                  onChange={(e) =>
+                    setEdit({ ...edit, outcome: e.target.value })
+                  }
+                />
+              </label>
+              <label>
+                Comment le vérifier ?
+                <input
+                  maxLength={4000}
+                  value={edit.success_measure || ""}
+                  onChange={(e) =>
+                    setEdit({ ...edit, success_measure: e.target.value })
+                  }
+                />
+              </label>
+              <label>
+                Cible souhaitée
+                <input
+                  maxLength={4000}
+                  value={edit.success_target || ""}
+                  onChange={(e) =>
+                    setEdit({ ...edit, success_target: e.target.value })
+                  }
+                />
+              </label>
+            </details>
             <label>
               Niveau d’engagement
               <select

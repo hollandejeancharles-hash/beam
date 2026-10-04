@@ -15,6 +15,7 @@ import { createPublications, publicPublications } from "./publications.js";
 import { activity } from "./ai-progress.js";
 import { createAssociations } from "./associations.js";
 import { createProfile } from "./profile.js";
+import { createProductFlows } from "./product-flows.js";
 import { createTopics } from "./topics.js";
 import { createAttachments } from "./attachments.js";
 import { startLocalAI } from "./ai-runtime.js";
@@ -100,6 +101,7 @@ function context(id) {
             ai.busy() ||
             associations.list().running ||
             topics.list().running ||
+            productFlows.busy() ||
             applyingReviews.size > 0,
         });
         const applyingReviews = new Set();
@@ -120,6 +122,13 @@ function context(id) {
           integrations,
         });
         const topics = createTopics(store, notes, integrations, ai);
+        const productFlows = createProductFlows(store, {
+          topics,
+          integrations,
+          notes,
+          publications,
+          ai,
+        });
         const searchIndex = createSearch({
           decisions,
           store,
@@ -127,6 +136,7 @@ function context(id) {
           topics,
           integrations,
           publications,
+          productFlows,
         });
         return {
           store,
@@ -136,6 +146,7 @@ function context(id) {
           notes,
           decisions,
           governance,
+          productFlows,
           attachments,
           ai,
           aiSetup,
@@ -155,7 +166,8 @@ context(workspaces.active());
 const organizeSources = async () => {
   const id = workspaces.active();
   await inWorkspace(id, async () => {
-    const { associations, topics, ai } = context(id);
+    const { associations, topics, ai, productFlows } = context(id);
+    if (productFlows.busy()) return;
     await associations.refresh();
     if (!ai.busy()) await topics.refresh();
   });
@@ -264,6 +276,7 @@ const server = http.createServer(async (req, res) => {
       notes,
       decisions,
       governance,
+      productFlows,
       notifications,
       attachments,
       ai,
@@ -438,6 +451,19 @@ const server = http.createServer(async (req, res) => {
           return send(200, profile.get());
         if (url.pathname === "/api/admin/associations")
           return send(200, associations.list());
+        const briefGet = url.pathname.match(
+          /^\/api\/admin\/briefs\/([a-f0-9-]+)$/,
+        );
+        if (briefGet) return send(200, productFlows.get(briefGet[1]));
+        const topicBriefs = url.pathname.match(
+          /^\/api\/admin\/topics\/([a-f0-9-]+)\/briefs$/,
+        );
+        if (topicBriefs) return send(200, productFlows.list(topicBriefs[1]));
+        const deliveryGet = url.pathname.match(
+          /^\/api\/admin\/items\/([a-f0-9-]+)\/delivery$/,
+        );
+        if (deliveryGet)
+          return send(200, productFlows.delivery(deliveryGet[1]));
         if (url.pathname === "/api/admin/topics")
           return send(200, topics.list());
         if (url.pathname === "/api/admin/ai/activity")
@@ -682,6 +708,54 @@ const server = http.createServer(async (req, res) => {
         return send(200, result);
       }
       store.setChangeContext({ actor: personalProfile.get().name || "Vous" });
+      const briefRoute = url.pathname.match(
+        /^\/api\/admin\/briefs\/([a-f0-9-]+)(?:\/(generate|prepare))?$/,
+      );
+      if (briefRoute) {
+        const [, id, action] = briefRoute;
+        if (req.method === "POST" && action === "generate")
+          return send(201, await productFlows.generate(id));
+        if (req.method === "POST" && action === "prepare")
+          return send(200, productFlows.prepare(id));
+        if (req.method === "PATCH" && !action)
+          return send(200, productFlows.save(id, body));
+      }
+      if (
+        url.pathname === "/api/admin/scenarios/preview" &&
+        req.method === "POST"
+      )
+        return send(
+          200,
+          productFlows.scenario(body.rows, body.cascade === true),
+        );
+      if (
+        url.pathname === "/api/admin/scenarios/apply" &&
+        req.method === "POST"
+      ) {
+        const plan = productFlows.validateScenario(body),
+          reason = String(body.reason || "Scénario de roadmap validé").slice(
+            0,
+            1000,
+          );
+        if (collaboration.active()) {
+          const result = await collaboration.items(
+            "POST",
+            "/api/admin/items/reschedule",
+            {
+              changes: plan.changes,
+              _revision: body._revision,
+              _change_reason: reason,
+            },
+          );
+          return send(result.status, result.data);
+        }
+        store.applyChanges(plan.changes, {
+          actor: personalProfile.get().name || "Vous",
+          reason,
+        });
+        return send(200, { ok: true });
+      }
+
       if (
         url.pathname === "/api/admin/planning/preview" &&
         req.method === "POST"
@@ -731,6 +805,12 @@ const server = http.createServer(async (req, res) => {
         return send(200, { ok: true });
       }
       if (
+        url.pathname === "/api/admin/items" &&
+        req.method === "POST" &&
+        body.brief_id
+      )
+        productFlows.validateBrief(body.brief_id);
+      if (
         /^\/api\/admin\/items(?:\/(?:kanban|reorder|[a-f0-9-]+(?:\/archive)?))?$/.test(
           url.pathname,
         ) &&
@@ -741,6 +821,13 @@ const server = http.createServer(async (req, res) => {
           url.pathname,
           body,
         );
+        if (
+          result.status < 300 &&
+          req.method === "POST" &&
+          url.pathname === "/api/admin/items" &&
+          body.brief_id
+        )
+          productFlows.linkBrief(body.brief_id, result.data.id);
         return send(result.status, result.data);
       }
       if (
@@ -934,8 +1021,11 @@ const server = http.createServer(async (req, res) => {
         store.reorder(body.id, body.target_id, body.after);
         return send(200, { ok: true });
       }
-      if (url.pathname === "/api/admin/items" && req.method === "POST")
-        return send(201, { id: store.save(body) });
+      if (url.pathname === "/api/admin/items" && req.method === "POST") {
+        const id = store.save(body);
+        if (body.brief_id) productFlows.linkBrief(body.brief_id, id);
+        return send(201, { id });
+      }
       const archiveItem = url.pathname.match(
         /^\/api\/admin\/items\/([a-f0-9-]+)\/archive$/,
       );

@@ -36,6 +36,8 @@ test("Authenticated impact, apply and undo API preserves workspace data and stal
     };
     for (const path of [
       "admin/contradictions",
+      "admin/briefs/00000000-0000-0000-0000-000000000000",
+      "admin/items/00000000-0000-0000-0000-000000000000/delivery",
       "admin/items/00000000-0000-0000-0000-000000000000/history",
     ])
       assert.equal((await call(path, "GET", null, false)).status, 401);
@@ -94,6 +96,62 @@ test("Authenticated impact, apply and undo API preserves workspace data and stal
     assert.equal(items[0].start_date, "2026-10-01");
     assert.equal(items[0].priority, "high");
     assert.equal((await call("admin/inbox")).status, 200);
+    const scenarioRows = [
+      {
+        id,
+        patch: {
+          priority: "low",
+          start_date: "2026-12-01",
+          end_date: "2026-12-10",
+        },
+      },
+    ];
+    assert.equal(
+      (
+        await call(
+          "admin/scenarios/preview",
+          "POST",
+          { rows: scenarioRows },
+          false,
+        )
+      ).status,
+      401,
+    );
+    const scenario = await call("admin/scenarios/preview", "POST", {
+      rows: scenarioRows,
+    });
+    assert.equal(scenario.status, 200);
+    assert.equal(
+      (
+        await call("admin/scenarios/apply", "POST", {
+          rows: scenarioRows,
+          token: scenario.data.token,
+        })
+      ).status,
+      200,
+    );
+    assert.equal((await call("admin/items")).data[0].priority, "low");
+    assert.equal(
+      (
+        await call("admin/scenarios/apply", "POST", {
+          rows: scenarioRows,
+          token: scenario.data.token,
+        })
+      ).status,
+      400,
+    );
+    assert.equal(
+      (
+        await call("admin/items/" + id, "PATCH", {
+          outcome: "Gain mesuré",
+          outcome_verdict: "positive",
+          outcome_result: "Test privé",
+        })
+      ).status,
+      200,
+    );
+    assert.equal((await call("admin/items")).data[0].outcome, "Gain mesuré");
+    assert.equal((await call("admin/items/" + id + "/delivery")).status, 200);
   } finally {
     server.kill();
     await new Promise((resolve) => server.once("exit", resolve));

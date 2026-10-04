@@ -8,6 +8,13 @@ const labels = {
   start_date: "Début",
   end_date: "Fin",
   date_kind: "Engagement",
+  outcome: "Résultat attendu",
+  success_measure: "Mesure",
+  success_target: "Cible",
+  outcome_result: "Bilan",
+  outcome_verdict: "Constat",
+  outcome_reviewed_at: "Date du bilan",
+  brief_id: "Brief source",
   owner: "Responsable",
   progress: "Avancement",
   quarter: "Horizon",
@@ -23,9 +30,16 @@ const labels = {
 const value = (k, v) =>
   k === "date_kind"
     ? DATE_KINDS[v] || "Date cible"
-    : k === "status"
-      ? { planned: "À venir", progress: "En cours", done: "Terminé" }[v] || v
-      : (v ?? "Non défini");
+    : k === "outcome_verdict"
+      ? {
+          unmeasured: "Pas encore mesuré",
+          positive: "Résultat atteint",
+          mixed: "Partiellement atteint",
+          negative: "Résultat non atteint",
+        }[v] || v
+      : k === "status"
+        ? { planned: "À venir", progress: "En cours", done: "Terminé" }[v] || v
+        : (v ?? "Non défini");
 export default function ItemGovernance({
   item,
   items,

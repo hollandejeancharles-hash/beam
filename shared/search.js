@@ -73,6 +73,9 @@ export function buildSearchRecords(
       i.title,
       [
         i.description,
+        ...(!publicOnly
+          ? [i.outcome, i.success_measure, i.success_target, i.outcome_result]
+          : []),
         types[i.type],
         states[i.status],
         i.category,

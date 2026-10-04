@@ -24,13 +24,35 @@ const fields = [
   "owner",
   "dependency_id",
   "date_kind",
+  "outcome",
+  "success_measure",
+  "success_target",
+  "outcome_result",
+  "outcome_verdict",
+  "outcome_reviewed_at",
+  "brief_id",
 ];
 export function cleanItems(items) {
   if (!Array.isArray(items) || items.length > 3000)
     throw Error("Roadmap invalide");
   return items.map((i) =>
     Object.fromEntries(
-      fields.map((k) => [k, i[k] ?? (k === "date_kind" ? "target" : null)]),
+      fields.map((k) => [
+        k,
+        i[k] ??
+          (k === "date_kind"
+            ? "target"
+            : k === "outcome_verdict"
+              ? "unmeasured"
+              : [
+                    "outcome",
+                    "success_measure",
+                    "success_target",
+                    "outcome_result",
+                  ].includes(k)
+                ? ""
+                : null),
+      ]),
     ),
   );
 }

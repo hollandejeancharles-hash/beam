@@ -10,6 +10,7 @@ const labels = {
   feature: "Analyse de l’élément",
   associations: "Rapprochement des sources",
   topics: "Regroupement des sujets",
+  brief: "Préparation du brief produit",
 };
 export function beginProgress(id, scope, entities = {}) {
   const displayId = id;

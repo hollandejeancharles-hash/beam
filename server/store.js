@@ -31,6 +31,13 @@ export function createStore(path) {
     owner: "TEXT NOT NULL DEFAULT ''",
     dependency_id: "TEXT",
     date_kind: "TEXT NOT NULL DEFAULT 'target'",
+    outcome: "TEXT NOT NULL DEFAULT ''",
+    success_measure: "TEXT NOT NULL DEFAULT ''",
+    success_target: "TEXT NOT NULL DEFAULT ''",
+    outcome_result: "TEXT NOT NULL DEFAULT ''",
+    outcome_verdict: "TEXT NOT NULL DEFAULT 'unmeasured'",
+    outcome_reviewed_at: "TEXT",
+    brief_id: "TEXT",
   })) {
     if (!columns.has(name))
       db.exec(`ALTER TABLE items ADD COLUMN ${name} ${definition}`);
@@ -95,7 +102,20 @@ export function createStore(path) {
               ? id
               : null;
           return {
-            ...item,
+            ...Object.fromEntries(
+              Object.entries(item).filter(
+                ([k]) =>
+                  ![
+                    "outcome",
+                    "success_measure",
+                    "success_target",
+                    "outcome_result",
+                    "outcome_verdict",
+                    "outcome_reviewed_at",
+                    "brief_id",
+                  ].includes(k),
+              ),
+            ),
             parent_id: publicId(item.parent_id),
             dependency_id: publicId(item.dependency_id),
           };
@@ -112,6 +132,13 @@ export function createStore(path) {
         owner: "",
         dependency_id: null,
         date_kind: "target",
+        outcome: "",
+        success_measure: "",
+        success_target: "",
+        outcome_result: "",
+        outcome_verdict: "unmeasured",
+        outcome_reviewed_at: null,
+        brief_id: null,
         ...old,
         ...input,
       };
@@ -122,6 +149,28 @@ export function createStore(path) {
       if (v.status === "done") v.progress = 100;
       if (!["target", "committed"].includes(v.date_kind))
         throw Error("Niveau d’engagement invalide");
+      for (const key of [
+        "outcome",
+        "success_measure",
+        "success_target",
+        "outcome_result",
+      ]) {
+        if (typeof v[key] !== "string" || v[key].length > 4000)
+          throw Error("Résultat attendu ou bilan invalide");
+      }
+      if (
+        !["unmeasured", "positive", "mixed", "negative"].includes(
+          v.outcome_verdict,
+        )
+      )
+        throw Error("Bilan invalide");
+      if (
+        v.outcome_reviewed_at &&
+        !/^20\d{2}-\d{2}-\d{2}T/.test(v.outcome_reviewed_at)
+      )
+        throw Error("Date de bilan invalide");
+      if (v.brief_id && !/^[a-f0-9-]{36}$/.test(v.brief_id))
+        throw Error("Brief invalide");
       validatePlanning(v, id, db.prepare("SELECT * FROM items").all());
       if (
         typeof v.title !== "string" ||
@@ -187,6 +236,18 @@ export function createStore(path) {
               )
               .get(v.status, id).n ?? -1) + 1;
       db.prepare("UPDATE items SET kanban_position=? WHERE id=?").run(rank, id);
+      db.prepare(
+        "UPDATE items SET outcome=?,success_measure=?,success_target=?,outcome_result=?,outcome_verdict=?,outcome_reviewed_at=?,brief_id=? WHERE id=?",
+      ).run(
+        v.outcome,
+        v.success_measure,
+        v.success_target,
+        v.outcome_result,
+        v.outcome_verdict,
+        v.outcome_reviewed_at,
+        v.brief_id,
+        id,
+      );
       if (old?.archived)
         db.prepare("UPDATE items SET archived=1 WHERE id=?").run(id);
       db.prepare("UPDATE items SET date_kind=? WHERE id=?").run(

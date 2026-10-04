@@ -6,12 +6,23 @@ export function createSearch({
   integrations,
   publications,
   decisions,
+  productFlows,
 }) {
   return () =>
     buildSearchRecords({
       items: store.list(),
       notes: notes.list(),
-      topics: topics.list().topics,
+      topics: topics
+        .list()
+        .topics.map((t) => ({
+          ...t,
+          summary: [
+            t.summary,
+            ...(productFlows?.list(t.id) || []).map((b) =>
+              Object.values(b.content).join(" "),
+            ),
+          ].join(" "),
+        })),
       signals: integrations.signals(),
       sources: integrations
         .list()

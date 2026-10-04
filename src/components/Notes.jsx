@@ -1,5 +1,6 @@
 import { receiveNoteTransfer } from "../../shared/note-transfer";
 import { usePersistentDraft } from "../usePersistentDraft";
+import ProductBrief from "./ProductBrief";
 import DecisionMemory from "./DecisionMemory";
 import ReviewInbox from "./ReviewInbox";
 import { includesSearch } from "../../shared/search";
@@ -1268,16 +1269,13 @@ function TopicDetail({
           Ouvrir l’élément associé
         </button>
       )}
-      {onPrepare && (
-        <button
-          className="button"
-          onClick={() =>
-            onPrepare({ title: topic.title, description: topic.summary })
-          }
-        >
-          Préparer une feature
-        </button>
-      )}
+      <ProductBrief
+        key={topic.id}
+        topicId={topic.id}
+        api={api}
+        onPrepare={onPrepare}
+        onError={onError}
+      />
       <h3>Sources · {topic.sources.length}</h3>
       {topic.sources.map((s) => (
         <article className="topic-source" key={s.id}>
