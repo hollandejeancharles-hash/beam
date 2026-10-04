@@ -6763,3 +6763,5 @@ main.menubar-capture {margin-left:0;width:100%;}
 .scenario-comparison article {padding:8px 0;border-bottom:1px solid #ffffff09;}
 .scenario-comparison p {font-size:12px;line-height:1.7;}
 .outcome-form {margin:22px 0;border-top:1px solid #ffffff09;padding-top:18px;}
+
+.gantt-tools .gantt-scenario {margin-left:8px;border-color:#70688b55;color:#c5bbde;}

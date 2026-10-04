@@ -36,6 +36,7 @@ export default function Gantt({
   onOpen,
   onCreate,
   onSchedule,
+  onScenario,
   onReorder,
 }) {
   const today = isoDate(Date.now()),
@@ -234,6 +235,11 @@ export default function Gantt({
             <option value="months">Mois</option>
             <option value="year">Année</option>
           </select>
+          {!readOnly && onScenario && (
+            <button className="button gantt-scenario" onClick={onScenario}>
+              Explorer un scénario
+            </button>
+          )}
         </div>
       </div>
       <div className="gantt-scroll">

@@ -1013,14 +1013,6 @@ function App() {
                       {publicMode ? "Public" : product.name}
                     </span>
                   </div>
-                  {!roadmapReadOnly && page === "gantt" && (
-                    <button
-                      className="button"
-                      onClick={() => setScenarioOpen(true)}
-                    >
-                      Explorer un scénario
-                    </button>
-                  )}
                   <span className="subtle">
                     {publicMode
                       ? pagesMode
@@ -1244,6 +1236,7 @@ function App() {
               readOnly={roadmapReadOnly}
               onOpen={setSelected}
               onCreate={() => setEdit({ ...blank })}
+              onScenario={() => setScenarioOpen(true)}
               onSchedule={schedule}
               onReorder={async (id, target_id, after) => {
                 try {
