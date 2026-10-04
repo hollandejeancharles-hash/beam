@@ -17,6 +17,7 @@ import { DATE_KINDS } from "../shared/roadmap-impact";
 import MenuBarCapture from "./components/MenuBarCapture";
 import { includesSearch } from "../shared/search";
 import Publications from "./components/Publications";
+import PublicRoadmap from "./components/PublicRoadmap";
 import AIProgress, { AIActivityProvider } from "./components/AIProgress";
 import React, { useEffect, useState, useRef } from "react";
 import { createRoot } from "react-dom/client";
@@ -155,7 +156,7 @@ function App() {
       publicMode ? "public-element" : "element",
       null,
     ),
-    [share, setShare] = useState(false),
+    [publicationView, setPublicationView] = useState("releases"),
     [suggest, setSuggest] = useState(false),
     [suggestions, setSuggestions] = useState([]),
     [showArchives, setShowArchives] = useState(false),
@@ -428,7 +429,7 @@ function App() {
         setScenarioOpen(false);
         setSelected(null);
         setEdit(null);
-        setShare(false);
+
         setProfileOpen(false);
         setWorkspaceOpen(false);
         setSuggest(false);
@@ -721,12 +722,6 @@ function App() {
                     href: "#publications",
                     icon: <Radio size={17} />,
                   },
-                  {
-                    label: "Roadmap publique",
-                    href: publicPath,
-                    external: true,
-                    icon: <Globe size={17} />,
-                  },
                 ]}
               />
             </nav>
@@ -885,6 +880,8 @@ function App() {
                   else if (target.kind === "demand") {
                     setPage("feedback");
                     setSearchTarget(target);
+                    if (target.kind === "publication")
+                      setPublicationView("releases");
                   } else if (target.kind === "review") {
                     setPage("notes");
                     setSearchTarget({ kind: "review" });
@@ -924,9 +921,15 @@ function App() {
                 powered by <b>beam.</b>
               </span>
             ) : (
-              <button className="button" onClick={() => setShare(true)}>
+              <button
+                className="button"
+                onClick={() => (
+                  setPublicationView("roadmap"),
+                  setPage("publications")
+                )}
+              >
                 <Globe size={15} />
-                Diffuser la roadmap
+                Partager
                 <ArrowUpRight size={14} />
               </button>
             )}
@@ -962,7 +965,7 @@ function App() {
                       : page === "publications"
                         ? publicMode
                           ? "Les évolutions disponibles, expliquées par l’équipe."
-                          : "Transformez vos livraisons en annonces pour vos utilisateurs."
+                          : "Partagez les nouveautés et la direction de votre produit."
                         : publicMode
                           ? pagesMode
                             ? "Les initiatives, projets et features de " +
@@ -1206,20 +1209,56 @@ function App() {
               </button>
             </div>
           ) : page === "publications" ? (
-            <Publications
-              api={api}
-              items={items}
-              product={product}
-              publicMode={publicMode}
-              pagesMode={pagesMode}
-              Modal={Modal}
-              onError={setToast}
-              onOpen={setSelected}
-              initialTarget={searchTarget}
-              onTargetConsumed={() => setSearchTarget(null)}
-              initialItem={publicationItem}
-              onConsumed={() => setPublicationItem(null)}
-            />
+            <>
+              {!publicMode && (
+                <div
+                  className="publication-switch"
+                  role="tablist"
+                  aria-label="Publications"
+                >
+                  <button
+                    role="tab"
+                    aria-selected={publicationView === "releases"}
+                    onClick={() => setPublicationView("releases")}
+                  >
+                    <Radio size={16} />
+                    Notes de version
+                  </button>
+                  <button
+                    role="tab"
+                    aria-selected={publicationView === "roadmap"}
+                    onClick={() => setPublicationView("roadmap")}
+                  >
+                    <Globe size={16} />
+                    Roadmap publique
+                  </button>
+                </div>
+              )}
+              {!publicMode && publicationView === "roadmap" ? (
+                <PublicRoadmap
+                  product={product}
+                  localPreview={localPreview}
+                  publicPath={publicPath}
+                  api={api}
+                  setToast={setToast}
+                />
+              ) : (
+                <Publications
+                  api={api}
+                  items={items}
+                  product={product}
+                  publicMode={publicMode}
+                  pagesMode={pagesMode}
+                  Modal={Modal}
+                  onError={setToast}
+                  onOpen={setSelected}
+                  initialTarget={searchTarget}
+                  onTargetConsumed={() => setSearchTarget(null)}
+                  initialItem={publicationItem}
+                  onConsumed={() => setPublicationItem(null)}
+                />
+              )}
+            </>
           ) : page === "notes" && !publicMode ? (
             <Notes
               onInboxCount={setInboxCount}
@@ -1505,6 +1544,8 @@ function App() {
                     setSelected(items.find((i) => i.id === target.id));
                   } else {
                     setSearchTarget(target);
+                    if (target.kind === "publication")
+                      setPublicationView("releases");
                     setPage(
                       {
                         decision: "notes",
@@ -1531,7 +1572,8 @@ function App() {
                     setPage("notes");
                     setSearchTarget({ kind: "review" });
                   }
-                  if (action === "share") setShare(true);
+                  if (action === "share")
+                    (setPublicationView("roadmap"), setPage("publications"));
                   if (action === "capture")
                     requestAnimationFrame(() =>
                       window.__beamCaptureNote?.({ fromSearch: true }),
@@ -1739,6 +1781,7 @@ function App() {
             onRefresh={refreshAssistant}
             onError={setToast}
             onPublish={() => {
+              setPublicationView("releases");
               setPublicationItem(selected);
               setSelected(null);
               setPage("publications");
@@ -2107,99 +2150,6 @@ function App() {
               </button>
             </div>
           </form>
-        </Modal>
-      )}
-      {share && (
-        <Modal title="Diffuser la roadmap" close={() => setShare(false)}>
-          <div className="share-illustration">
-            <Globe size={38} />
-            <span>Roadmap {product.name}</span>
-          </div>
-          <p className="modal-copy">
-            {localPreview
-              ? "Cette prévisualisation s’ouvre uniquement sur ce Mac. Elle ne constitue pas un lien à envoyer à vos utilisateurs."
-              : "Vos utilisateurs découvrent les évolutions publiques depuis cette adresse. Les éléments internes restent privés."}
-          </p>
-          <label>
-            {localPreview
-              ? "Adresse de prévisualisation locale"
-              : "Lien du portail public"}
-            <div className="copy-field">
-              <input readOnly value={location.origin + publicPath} />
-              <button
-                className="button"
-                onClick={async () => {
-                  try {
-                    await navigator.clipboard.writeText(
-                      location.origin + publicPath,
-                    );
-                    setToast("Lien copié");
-                  } catch {
-                    setToast("Sélectionnez le lien pour le copier");
-                  }
-                }}
-              >
-                <Copy size={16} />
-                {localPreview ? "Copier l’adresse locale" : "Copier le lien"}
-              </button>
-            </div>
-          </label>
-          {localPreview && (
-            <div className="share-publication-help">
-              <strong>Pour diffuser votre roadmap</strong>
-              <button
-                className="button"
-                onClick={async () => {
-                  try {
-                    const data = await api("admin/public-export");
-                    const url = URL.createObjectURL(
-                      new Blob([JSON.stringify(data, null, 2)], {
-                        type: "application/json",
-                      }),
-                    );
-                    const link = document.createElement("a");
-                    link.href = url;
-                    link.download = "beam-publication.json";
-                    link.click();
-                    setTimeout(() => URL.revokeObjectURL(url), 1000);
-                    setToast("Export public téléchargé");
-                  } catch (e) {
-                    setToast(e.message);
-                  }
-                }}
-              >
-                Exporter pour GitHub Pages <ArrowUpRight size={14} />
-              </button>
-              <p>
-                Exportez puis déposez le fichier beam-publication.json dans le
-                dossier public du dépôt Beam. GitHub Pages publiera cette
-                version. Seuls les éléments publics du workspace choisi sont
-                exportés. Les changements suivants nécessitent une nouvelle
-                publication.
-              </p>
-              <a
-                href="https://github.com/hollandejeancharles-hash/beam/actions"
-                target="_blank"
-                rel="noreferrer"
-                className="button"
-              >
-                Ouvrir les publications GitHub <ExternalLink size={14} />
-              </a>
-            </div>
-          )}
-          <p className="fine-print">
-            <Lock size={12} />
-            Les évolutions internes restent privées.
-          </p>
-          <a
-            className="button primary share-open"
-            href={publicPath}
-            target="_blank"
-            rel="noreferrer"
-          >
-            {localPreview ? "Prévisualiser sur ce Mac" : "Ouvrir le portail"}
-            <ExternalLink size={15} />
-          </a>
         </Modal>
       )}
       {suggest && (
