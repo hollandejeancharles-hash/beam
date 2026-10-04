@@ -30,7 +30,7 @@ export default function LocalAISetup({ api, showReady = false }) {
     return <p className="modal-copy">Vérification de l’assistant local…</p>;
   if (status.installed)
     return showReady ? (
-      <section className="collaboration-settings">
+      <section className="collaboration-settings local-ai-setup">
         <h3>Votre assistant est prêt</h3>
         <p className="modal-copy">
           Le modèle IA est installé sur ce Mac.{" "}
@@ -64,7 +64,7 @@ export default function LocalAISetup({ api, showReady = false }) {
       ? Math.floor((status.completed / status.total) * 100)
       : null;
   return (
-    <section className="collaboration-settings">
+    <section className="collaboration-settings local-ai-setup">
       <h3>Installer l’assistant local</h3>
       <p className="modal-copy">
         Le moteur est inclus dans Beam. Téléchargez le modèle une fois (environ
@@ -77,18 +77,24 @@ export default function LocalAISetup({ api, showReady = false }) {
         </p>
       )}
       {busy ? (
-        <>
+        <div className="local-ai-download" aria-live="polite">
           <p role="status">
-            {status.message}
+            {percent === 100
+              ? "Vérification du modèle"
+              : "Téléchargement du modèle"}
             {percent !== null ? " · " + percent + " %" : ""}
           </p>
           {percent !== null && (
-            <progress value={status.completed} max={status.total} />
+            <progress
+              aria-label="Téléchargement du modèle IA"
+              value={status.completed}
+              max={status.total}
+            />
           )}
           <small>
             Le téléchargement peut reprendre après une interruption.
           </small>
-        </>
+        </div>
       ) : (
         <button
           className="button"

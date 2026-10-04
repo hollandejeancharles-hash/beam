@@ -77,7 +77,7 @@ export default function Welcome({
         </>
       )}
       {step === 2 && (
-        <>
+        <section className="welcome-assistant-step">
           <LocalAISetup api={api} showReady />
           <p className="modal-copy">
             Le téléchargement peut continuer pendant que vous utilisez Beam.
@@ -86,7 +86,7 @@ export default function Welcome({
           <button className="button primary" onClick={finish}>
             Ouvrir ma roadmap
           </button>
-        </>
+        </section>
       )}
       <div className="welcome-footer">
         <button className="text-button" onClick={finish}>

@@ -6812,3 +6812,16 @@ main.notes-workspace{height:100dvh;display:flex;flex-direction:column;overflow:h
 .public-roadmap-settings .share-illustration{justify-content:flex-start}
 .public-roadmap-settings .share-open{margin-top:20px}
 @media(max-width:600px){.public-roadmap-settings{padding:16px}.public-roadmap-settings .copy-field{flex-wrap:wrap}.publication-switch{gap:16px}}
+
+.local-ai-setup h3{margin:0 0 12px;line-height:1.4}
+.local-ai-setup>.modal-copy{margin:0 0 20px;line-height:1.75}
+.local-ai-download{display:flex;flex-direction:column;gap:12px;padding:16px 18px;border:1px solid var(--line);border-radius:10px;background:rgba(255,255,255,.025);margin:20px 0}
+.local-ai-download p{margin:0;font-size:13px;font-weight:500}
+.local-ai-download progress{display:block;width:100%;height:6px;accent-color:var(--accent);overflow:hidden;border:0;border-radius:99px;background:#2c2d35}
+.local-ai-download progress::-webkit-progress-bar{background:#2c2d35;border-radius:99px}
+.local-ai-download progress::-webkit-progress-value{background:var(--accent);border-radius:99px}
+.local-ai-download small{display:block;color:var(--muted);font-size:11px;line-height:1.6}
+.welcome-assistant-step>.local-ai-setup{padding-top:24px}
+.welcome-assistant-step>.modal-copy{margin:24px 0;line-height:1.8;max-width:540px}
+.welcome-assistant-step>.button{margin-top:4px}
+.welcome-flow:has(.welcome-assistant-step) .welcome-footer{margin-top:28px;padding-top:20px;border-top:1px solid var(--line)}
