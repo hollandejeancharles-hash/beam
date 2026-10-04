@@ -17,7 +17,12 @@ export default function ReviewInbox({
   async function decide(row, accept) {
     setBusy(row.id);
     try {
-      if (row.kind === "decision")
+      if (row.kind === "contradiction")
+        await api("admin/contradictions/dismiss", {
+          method: "POST",
+          body: JSON.stringify({ fingerprint: row.fingerprint }),
+        });
+      else if (row.kind === "decision")
         await api("admin/decisions/" + row.decision_id, {
           method: "PATCH",
           body: JSON.stringify({ state: accept ? "confirmed" : "dismissed" }),
@@ -76,15 +81,17 @@ export default function ReviewInbox({
         visible.map((row) => (
           <article className="review-inbox-card" key={row.id}>
             <small>
-              {row.kind === "decision"
-                ? "Décision à confirmer"
-                : row.kind === "proposal"
-                  ? row.action === "create"
-                    ? "Nouvelle feature proposée"
-                    : "Mise à jour proposée"
-                  : row.kind === "topic"
-                    ? "Sujet · Rapprochement incertain"
-                    : "Roadmap · Rapprochement incertain"}
+              {row.kind === "contradiction"
+                ? "Écart à vérifier"
+                : row.kind === "decision"
+                  ? "Décision à confirmer"
+                  : row.kind === "proposal"
+                    ? row.action === "create"
+                      ? "Nouvelle feature proposée"
+                      : "Mise à jour proposée"
+                    : row.kind === "topic"
+                      ? "Sujet · Rapprochement incertain"
+                      : "Roadmap · Rapprochement incertain"}
             </small>
             <h3>{row.title}</h3>
             <p>{row.reason}</p>
@@ -118,7 +125,7 @@ export default function ReviewInbox({
               >
                 Examiner <ArrowRight size={14} />
               </button>
-              {row.kind !== "proposal" && (
+              {!["proposal", "contradiction"].includes(row.kind) && (
                 <button
                   className="button primary"
                   disabled={busy !== null}

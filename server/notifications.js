@@ -1,5 +1,12 @@
 import { createHash } from "node:crypto";
-const significant = ["status", "priority", "start_date", "end_date", "owner"];
+const significant = [
+  "status",
+  "priority",
+  "start_date",
+  "end_date",
+  "owner",
+  "date_kind",
+];
 export function notificationRows({
   inbox = [],
   team = {},

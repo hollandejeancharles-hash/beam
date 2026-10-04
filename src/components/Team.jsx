@@ -19,8 +19,11 @@ const labels = {
   type: "Type",
   category: "Catégorie",
   quarter: "Horizon",
+  date_kind: "Engagement",
 };
 const values = {
+  target: "Date cible",
+  committed: "Engagement confirmé",
   planned: "Planifié",
   progress: "En cours",
   done: "Terminé",

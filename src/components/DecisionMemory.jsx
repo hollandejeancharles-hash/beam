@@ -13,6 +13,8 @@ export default function DecisionMemory({
   items,
   onError,
   onChange,
+  onOpenNote,
+  hideEmptyMessage = false,
 }) {
   const [rows, setRows] = useState([]),
     [open, setOpen] = useState(false),
@@ -96,7 +98,7 @@ export default function DecisionMemory({
           </button>
         )}
       </div>
-      {!visible.length && !open && (
+      {!visible.length && !open && !hideEmptyMessage && (
         <p className="assistant-help">
           Aucun arbitrage validé. Les décisions confirmées ici guideront les
           prochaines analyses.
@@ -125,6 +127,14 @@ export default function DecisionMemory({
           <details>
             <summary>Voir la note source</summary>
             <blockquote>{d.quote}</blockquote>
+            {onOpenNote && (
+              <button
+                className="text-button"
+                onClick={() => onOpenNote(d.note_id)}
+              >
+                Ouvrir la note source
+              </button>
+            )}
           </details>
           {d.state === "proposed" && (
             <div className="modal-actions">

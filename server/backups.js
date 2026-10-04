@@ -7,6 +7,8 @@ const TABLES = [
   "notes",
   "note_attachments",
   "decisions",
+  "item_history",
+  "contradiction_dismissals",
   "sources",
   "signals",
   "signal_links",
@@ -94,6 +96,7 @@ export function createBackups(
           note_attachments: ["images"],
           topics: ["questions"],
           decisions: ["item_ids"],
+          item_history: ["before_json", "after_json"],
           signals: ["extra"],
         };
         if (row && typeof row === "object")

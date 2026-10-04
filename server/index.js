@@ -1,3 +1,4 @@
+import { createGovernance } from "./roadmap-governance.js";
 import { createNotifications, notificationRows } from "./notifications.js";
 import { invitationCode } from "../shared/invitations.js";
 import { publicRoadmap } from "../scripts/public-roadmap.js";
@@ -112,6 +113,12 @@ function context(id) {
           associations.refresh({ force: true, itemId: id }),
         );
         ai.resume();
+        const governance = createGovernance(store, {
+          notes,
+          decisions,
+          publications,
+          integrations,
+        });
         const topics = createTopics(store, notes, integrations, ai);
         const searchIndex = createSearch({
           decisions,
@@ -128,6 +135,7 @@ function context(id) {
           integrations,
           notes,
           decisions,
+          governance,
           attachments,
           ai,
           aiSetup,
@@ -255,6 +263,7 @@ const server = http.createServer(async (req, res) => {
       integrations,
       notes,
       decisions,
+      governance,
       notifications,
       attachments,
       ai,
@@ -326,14 +335,17 @@ const server = http.createServer(async (req, res) => {
             warning:
               "Les notifications de l’équipe ne sont pas disponibles pour le moment.",
           }));
-        const inbox = buildInbox({
-          reviews: ai.list(),
-          notes: notes.list(),
-          items: store.list(),
-          topics: topics.list().topics,
-          matches: associations.list().matches,
-          decisions: decisions.list(),
-        });
+        const inbox = [
+          ...governance.contradictions(),
+          ...buildInbox({
+            reviews: ai.list(),
+            notes: notes.list(),
+            items: store.list(),
+            topics: topics.list().topics,
+            matches: associations.list().matches,
+            decisions: decisions.list(),
+          }),
+        ];
         return send(200, {
           warning: team.warning,
           ...notifications.list(
@@ -432,12 +444,30 @@ const server = http.createServer(async (req, res) => {
           return send(200, activity());
         if (url.pathname === "/api/admin/ai/status")
           return send(200, await ai.status());
+        const historyRoute = url.pathname.match(
+          /^\/api\/admin\/items\/([a-f0-9-]+)\/history$/,
+        );
+        if (historyRoute)
+          return send(
+            200,
+            store.history.list(historyRoute[1]).map((r) => {
+              let can_undo = true;
+              try {
+                store.history.undo(r.id, store.list());
+              } catch {
+                can_undo = false;
+              }
+              return { ...r, can_undo };
+            }),
+          );
+        if (url.pathname === "/api/admin/contradictions")
+          return send(200, governance.contradictions());
         if (url.pathname === "/api/admin/decisions")
           return send(200, decisions.list());
         if (url.pathname === "/api/admin/inbox")
-          return send(
-            200,
-            buildInbox({
+          return send(200, [
+            ...governance.contradictions(),
+            ...buildInbox({
               reviews: ai.list(),
               notes: notes.list(),
               items: store.list(),
@@ -445,7 +475,7 @@ const server = http.createServer(async (req, res) => {
               matches: associations.list().matches,
               decisions: decisions.list(),
             }),
-          );
+          ]);
         if (url.pathname === "/api/admin/ai/reviews")
           return send(200, ai.list());
         if (url.pathname === "/api/admin/notes") return send(200, notes.list());
@@ -650,6 +680,55 @@ const server = http.createServer(async (req, res) => {
         }
         workspaces.notify();
         return send(200, result);
+      }
+      store.setChangeContext({ actor: personalProfile.get().name || "Vous" });
+      if (
+        url.pathname === "/api/admin/planning/preview" &&
+        req.method === "POST"
+      )
+        return send(
+          200,
+          governance.preview(body.id, body.patch, body.cascade === true),
+        );
+      if (
+        url.pathname === "/api/admin/contradictions/dismiss" &&
+        req.method === "POST"
+      ) {
+        governance.dismiss(body.fingerprint);
+        return send(200, { ok: true });
+      }
+      if (
+        ["/api/admin/planning/apply", "/api/admin/history/undo"].includes(
+          url.pathname,
+        ) &&
+        req.method === "POST"
+      ) {
+        const undo = url.pathname.endsWith("/undo");
+        const changes = undo
+          ? store.history.undo(body.history_id, store.list())
+          : governance.validatePlan(body).changes;
+        const reason = undo
+          ? "Annulation d’une modification"
+          : String(body.reason || "Replanification").slice(0, 1000);
+        if (collaboration.active()) {
+          const result = await collaboration.items(
+            "POST",
+            undo ? "/api/admin/items/undo" : "/api/admin/items/reschedule",
+            {
+              changes,
+              _revision: body._revision,
+              _change_reason: reason,
+              undo_of: undo ? body.history_id : null,
+            },
+          );
+          return send(result.status, result.data);
+        }
+        store.applyChanges(changes, {
+          actor: personalProfile.get().name || "Vous",
+          reason,
+          undo_of: undo ? body.history_id : null,
+        });
+        return send(200, { ok: true });
       }
       if (
         /^\/api\/admin\/items(?:\/(?:kanban|reorder|[a-f0-9-]+(?:\/archive)?))?$/.test(

@@ -1,3 +1,4 @@
+import { createItemHistory } from "./item-history.js";
 import { chmodSync } from "node:fs";
 import { DatabaseSync } from "node:sqlite";
 import { randomUUID } from "node:crypto";
@@ -29,6 +30,7 @@ export function createStore(path) {
     progress: "INTEGER NOT NULL DEFAULT 0",
     owner: "TEXT NOT NULL DEFAULT ''",
     dependency_id: "TEXT",
+    date_kind: "TEXT NOT NULL DEFAULT 'target'",
   })) {
     if (!columns.has(name))
       db.exec(`ALTER TABLE items ADD COLUMN ${name} ${definition}`);
@@ -42,8 +44,39 @@ export function createStore(path) {
     db.exec(
       "ALTER TABLE suggestions ADD COLUMN archived INTEGER NOT NULL DEFAULT 0",
     );
+  const history = createItemHistory(db);
+  let changeContext = {};
   return {
     db,
+    history,
+    setChangeContext(value) {
+      changeContext = value || {};
+    },
+    applyChanges(changes, meta = {}) {
+      if (
+        !Array.isArray(changes) ||
+        !changes.length ||
+        changes.length > 3000 ||
+        new Set(changes.map((c) => c.id)).size !== changes.length
+      )
+        throw Error("Modifications invalides");
+      const previous = changeContext;
+      changeContext = { ...changeContext, ...meta, batch_id: randomUUID() };
+      db.exec("BEGIN IMMEDIATE");
+      try {
+        for (const c of changes) {
+          if (!db.prepare("SELECT id FROM items WHERE id=?").get(c.id))
+            throw Error("Élément introuvable");
+          this.save(c.patch, c.id);
+        }
+        db.exec("COMMIT");
+      } catch (e) {
+        db.exec("ROLLBACK");
+        throw e;
+      } finally {
+        changeContext = previous;
+      }
+    },
     list(publicOnly = false, visitor = "") {
       return db
         .prepare(
@@ -78,6 +111,7 @@ export function createStore(path) {
         progress: 0,
         owner: "",
         dependency_id: null,
+        date_kind: "target",
         ...old,
         ...input,
       };
@@ -86,6 +120,8 @@ export function createStore(path) {
       v.parent_id ||= null;
       v.dependency_id ||= null;
       if (v.status === "done") v.progress = 100;
+      if (!["target", "committed"].includes(v.date_kind))
+        throw Error("Niveau d’engagement invalide");
       validatePlanning(v, id, db.prepare("SELECT * FROM items").all());
       if (
         typeof v.title !== "string" ||
@@ -153,6 +189,29 @@ export function createStore(path) {
       db.prepare("UPDATE items SET kanban_position=? WHERE id=?").run(rank, id);
       if (old?.archived)
         db.prepare("UPDATE items SET archived=1 WHERE id=?").run(id);
+      db.prepare("UPDATE items SET date_kind=? WHERE id=?").run(
+        v.date_kind,
+        id,
+      );
+      if (changeContext.undo_of)
+        for (const field of ["position", "kanban_position"]) {
+          if (Object.hasOwn(input, field)) {
+            if (!Number.isInteger(input[field]) || input[field] < 0)
+              throw Error("Ordre invalide");
+            db.prepare(`UPDATE items SET ${field}=? WHERE id=?`).run(
+              input[field],
+              id,
+            );
+          }
+        }
+      history.record(
+        old,
+        db.prepare("SELECT * FROM items WHERE id=?").get(id),
+        {
+          ...changeContext,
+          reason: input._change_reason || changeContext.reason,
+        },
+      );
       return id;
     },
     reorderKanban(columns) {
@@ -201,6 +260,17 @@ export function createStore(path) {
             ).run(column.id, progress, rank, id);
           });
         }
+        const batch_id = randomUUID();
+        for (const old of all)
+          history.record(
+            old,
+            db.prepare("SELECT * FROM items WHERE id=?").get(old.id),
+            {
+              ...changeContext,
+              batch_id,
+              reason: "Déplacement dans le Kanban",
+            },
+          );
         db.exec("COMMIT");
       } catch (error) {
         db.exec("ROLLBACK");
@@ -230,6 +300,13 @@ export function createStore(path) {
         siblings.forEach((i, index) =>
           db.prepare("UPDATE items SET position=? WHERE id=?").run(index, i.id),
         );
+        const batch_id = randomUUID();
+        for (const old of all)
+          history.record(
+            old,
+            db.prepare("SELECT * FROM items WHERE id=?").get(old.id),
+            { ...changeContext, batch_id, reason: "Réorganisation du Gantt" },
+          );
         db.exec("COMMIT");
       } catch (e) {
         db.exec("ROLLBACK");

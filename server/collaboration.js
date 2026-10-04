@@ -1,3 +1,4 @@
+import { randomUUID } from "node:crypto";
 import { safeActivity, recentActivity } from "../shared/presence.js";
 import { readFileSync } from "node:fs";
 import { createClient } from "@supabase/supabase-js";
@@ -22,15 +23,24 @@ const fields = [
   "progress",
   "owner",
   "dependency_id",
+  "date_kind",
 ];
 export function cleanItems(items) {
   if (!Array.isArray(items) || items.length > 3000)
     throw Error("Roadmap invalide");
   return items.map((i) =>
-    Object.fromEntries(fields.map((k) => [k, i[k] ?? null])),
+    Object.fromEntries(
+      fields.map((k) => [k, i[k] ?? (k === "date_kind" ? "target" : null)]),
+    ),
   );
 }
-export function replaceItems(store, rows) {
+export function replaceItems(
+  store,
+  rows,
+  actor = "Équipe · synchronisation",
+  meta = {},
+) {
+  const previous = store.list();
   const items = cleanItems(rows),
     placeholders = fields.map(() => "?").join(",");
   store.db.exec("BEGIN IMMEDIATE");
@@ -40,6 +50,12 @@ export function replaceItems(store, rows) {
       `INSERT INTO items(${fields.join(",")}) VALUES(${placeholders})`,
     );
     for (const i of items) insert.run(...fields.map((k) => i[k]));
+    const batch_id = meta.batch_id || randomUUID();
+    for (const before of previous) {
+      const after = items.find((i) => i.id === before.id);
+      if (after)
+        store.history.record(before, after, { ...meta, batch_id, actor });
+    }
     store.db.exec("COMMIT");
   } catch (e) {
     store.db.exec("ROLLBACK");
@@ -529,7 +545,9 @@ export function createCollaboration(
         replaceItems(copy, store.list());
         let data = { ok: true },
           status = 200;
-        if (path.endsWith("/kanban")) copy.reorderKanban(b.columns);
+        if (path.endsWith("/reschedule") || path.endsWith("/undo"))
+          copy.applyChanges(b.changes, { undo_of: b.undo_of });
+        else if (path.endsWith("/kanban")) copy.reorderKanban(b.columns);
         else if (path.endsWith("/reorder"))
           copy.reorder(b.id, b.target_id, b.after);
         else if (path.endsWith("/archive"))
@@ -560,7 +578,15 @@ export function createCollaboration(
           }
           throw Error(result.error.message);
         }
-        replaceItems(store, rows);
+        const identity = JSON.parse(
+          accountStore.db
+            .prepare("SELECT value FROM metadata WHERE key='user_profile'")
+            .get()?.value || "null",
+        );
+        replaceItems(store, rows, identity?.name || "Vous", {
+          reason: b._change_reason || "",
+          undo_of: b.undo_of || null,
+        });
         revision = result.data;
         lastError = "";
         emit();

@@ -23,6 +23,7 @@ export function publicRoadmap(items) {
       dependency_id: publicIds.has(item.dependency_id)
         ? item.dependency_id
         : null,
+      date_kind: item.date_kind || "target",
       start_date: item.start_date || null,
       end_date: item.end_date || null,
       progress: item.status === "done" ? 100 : item.progress || 0,

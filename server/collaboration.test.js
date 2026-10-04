@@ -312,3 +312,50 @@ test("Presence shares only a screen category and follows the recently used windo
     f.store.db.close();
   }
 });
+test("Shared grouped rescheduling and undo are atomic and reject stale revisions", async () => {
+  const f = fixture();
+  try {
+    await connect(f);
+    const before = f.store.list()[0];
+    const result = await f.c.items("POST", "/api/admin/items/reschedule", {
+      _revision: 0,
+      changes: [
+        {
+          id: f.id,
+          patch: {
+            start_date: "2026-11-01",
+            end_date: "2026-11-10",
+            date_kind: "committed",
+          },
+        },
+      ],
+      _change_reason: "Report validé",
+    });
+    assert.equal(result.status, 200);
+    assert.equal(f.remote.items[0].date_kind, "committed");
+    assert.equal(f.store.list()[0].start_date, "2026-11-01");
+    const h = f.store.history.list(f.id)[0];
+    assert.equal(h.reason, "Report validé");
+    const changes = f.store.history.undo(h.id, f.store.list());
+    f.remote.revision++;
+    const stale = await f.c.items("POST", "/api/admin/items/undo", {
+      _revision: 1,
+      changes,
+      undo_of: h.id,
+    });
+    assert.equal(stale.status, 409);
+    assert.equal(f.store.list()[0].start_date, "2026-11-01");
+    const fresh = await f.c.items("GET", "/api/admin/items");
+    const restored = await f.c.items("POST", "/api/admin/items/undo", {
+      _revision: fresh.data[0]._revision,
+      changes,
+      undo_of: h.id,
+    });
+    assert.equal(restored.status, 200);
+    assert.equal(f.store.list()[0].start_date, before.start_date);
+    assert.equal(f.store.list()[0].date_kind, before.date_kind);
+  } finally {
+    await f.c.close();
+    f.store.db.close();
+  }
+});

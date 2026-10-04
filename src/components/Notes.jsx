@@ -897,6 +897,15 @@ export default function Notes({
                 ))}
               </section>
             )}
+            <DecisionMemory
+              key={current.id}
+              api={api}
+              note={current}
+              items={items}
+              onError={onError}
+              onChange={load}
+              hideEmptyMessage
+            />
             <details
               className="notebook-insights"
               open={view === "review" ? true : undefined}
@@ -1009,14 +1018,6 @@ export default function Notes({
                   )}
                 </section>
 
-                <DecisionMemory
-                  key={current.id}
-                  api={api}
-                  note={current}
-                  items={items}
-                  onError={onError}
-                  onChange={load}
-                />
                 <LocalAssistant
                   key={current.id}
                   api={api}
@@ -1042,6 +1043,12 @@ export default function Notes({
               onRefresh={load}
               onError={onError}
               onExamine={(row) => {
+                if (row.kind === "contradiction") {
+                  const item = items.find((i) => i.id === row.item_id);
+                  if (item) onOpen(item);
+                  else onError("Cet élément n’est plus disponible.");
+                  return;
+                }
                 if (row.kind === "topic") {
                   setSubject(
                     subjects.topics.find((t) => t.id === row.topic_id),

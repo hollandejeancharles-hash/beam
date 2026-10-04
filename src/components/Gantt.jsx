@@ -1,3 +1,4 @@
+import { DATE_KINDS } from "../../shared/roadmap-impact";
 import AIProgress from "./AIProgress";
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { Flag, Target } from "lucide-react";
@@ -499,6 +500,9 @@ export default function Gantt({
                         className={
                           "gantt-bar " +
                           item.status +
+                          (item.date_kind === "committed"
+                            ? " committed-date"
+                            : " target-date") +
                           (range.estimated ? " estimated" : "") +
                           (range.derived ? " derived" : "") +
                           (late ? " overdue" : "")
@@ -523,7 +527,7 @@ export default function Gantt({
                         )}
                         <button
                           className="gantt-bar-body"
-                          title={`${item.title} · ${range.estimated ? "Horizon estimé : " + item.quarter : format(range.start) + " → " + format(range.end)}${dependency ? " · Dépend de " + dependency.title : ""}`}
+                          title={`${item.title} · ${DATE_KINDS[item.date_kind || "target"]} · ${range.estimated ? "Horizon estimé : " + item.quarter : format(range.start) + " → " + format(range.end)}${dependency ? " · Dépend de " + dependency.title : ""}`}
                           onClick={() => {
                             if (ignoreClick.current) {
                               ignoreClick.current = false;
@@ -596,7 +600,9 @@ export default function Gantt({
       <div className="gantt-bottom">
         <div>
           <span className="legend-solid" />
-          Dates précises
+          Engagement confirmé
+          <span className="legend-target" />
+          Date cible
           <span className="legend-dashed" />
           Horizon estimé
           <span className="legend-dependency" />

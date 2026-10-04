@@ -9,6 +9,9 @@ import AccountAccess from "./components/ui/neural-access-login";
 import WorkspaceSettings from "./components/WorkspaceSettings";
 import Welcome from "./components/Welcome";
 import TeamActivity, { TeamPresence } from "./components/Team";
+import PlanningImpact from "./components/PlanningImpact";
+import ItemGovernance from "./components/ItemGovernance";
+import { DATE_KINDS } from "../shared/roadmap-impact";
 import MenuBarCapture from "./components/MenuBarCapture";
 import DecisionMemory from "./components/DecisionMemory";
 import { includesSearch } from "../shared/search";
@@ -145,6 +148,8 @@ function App() {
     [priority, setPriority] = useState("all"),
     [filter, setFilter] = useState(false),
     [selected, setSelected] = useState(null),
+    [planningReview, setPlanningReview] = useState(null),
+    [planningBusy, setPlanningBusy] = useState(false),
     [edit, setEdit] = usePersistentDraft(
       publicMode ? "public-element" : "element",
       null,
@@ -200,6 +205,8 @@ function App() {
   async function api(path, options = {}) {
     if (
       (path.startsWith("admin/items") ||
+        path.startsWith("admin/planning/") ||
+        path === "admin/history/undo" ||
         /^admin\/ai\/reviews\/[^/]+\/apply$/.test(path)) &&
       options.method &&
       options.method !== "GET"
@@ -430,6 +437,15 @@ function App() {
     e.preventDefault();
     setSaving(true);
     try {
+      const current = edit.id && items.find((i) => i.id === edit.id);
+      if (
+        current &&
+        ((current.start_date || null) !== (edit.start_date || null) ||
+          (current.end_date || null) !== (edit.end_date || null))
+      ) {
+        await previewPlanning(current, edit, false);
+        return;
+      }
       await api("admin/items" + (edit.id ? "/" + edit.id : ""), {
         method: edit.id ? "PATCH" : "POST",
         body: JSON.stringify(edit),
@@ -517,23 +533,54 @@ function App() {
           : { high: 0, medium: 1, low: 2 }[a.priority] -
             { high: 0, medium: 1, low: 2 }[b.priority],
     );
+  async function previewPlanning(
+    item,
+    patch,
+    fromGantt = true,
+    cascade = false,
+  ) {
+    const plan = await api("admin/planning/preview", {
+      method: "POST",
+      body: JSON.stringify({ id: item.id, patch, cascade }),
+    });
+    setPlanningReview({ plan, item, patch, fromGantt });
+  }
   async function schedule(item, dates) {
     try {
-      await api("admin/items/" + item.id, {
-        method: "PATCH",
+      await previewPlanning(item, {
+        ...dates,
+        quarter: `T${Math.floor((Number(dates.start_date.slice(5, 7)) - 1) / 3) + 1} ${dates.start_date.slice(0, 4)}`,
+      });
+    } catch (e) {
+      setToast(e.message);
+    }
+  }
+  async function applyPlanning(reason) {
+    setPlanningBusy(true);
+    try {
+      await api("admin/planning/apply", {
+        method: "POST",
         body: JSON.stringify({
-          ...dates,
-          quarter:
-            "T" +
-            (Math.floor((Number(dates.start_date.slice(5, 7)) - 1) / 3) + 1) +
-            " " +
-            dates.start_date.slice(0, 4),
+          id: planningReview.item.id,
+          patch: planningReview.patch,
+          cascade: planningReview.plan.cascade,
+          token: planningReview.plan.token,
+          reason,
         }),
       });
-      await refresh();
-      setToast("Planification enregistrée");
-    } catch (error) {
-      setToast(error.message);
+      if (!planningReview.fromGantt) {
+        setEdit(null);
+        setSelected(null);
+      }
+      setPlanningReview(null);
+      await refreshAssistant();
+      setToast(
+        "Planification mise à jour · annulation disponible dans l’historique",
+      );
+    } catch (e) {
+      setToast(e.message);
+    } finally {
+      setPlanningBusy(false);
     }
   }
   return (
@@ -693,7 +740,9 @@ function App() {
               <button
                 className="profile-trigger"
                 aria-label="Ouvrir mon profil"
-                title={sidebarCollapsed ? (profile.name || "Mon profil") : undefined}
+                title={
+                  sidebarCollapsed ? profile.name || "Mon profil" : undefined
+                }
                 onClick={() => setProfileOpen(true)}
               >
                 <span className="avatar">
@@ -1426,6 +1475,9 @@ function App() {
                                 {status === "done"
                                   ? "Disponible"
                                   : item.quarter}
+                                <small className="date-kind-inline">
+                                  {DATE_KINDS[item.date_kind || "target"]}
+                                </small>
                               </span>
                               <span className="card-arrow">
                                 <ArrowUpRight size={14} />
@@ -1766,6 +1818,9 @@ function App() {
               </strong>
             </div>
           </div>
+          <div className="date-kind-label">
+            {DATE_KINDS[selected.date_kind || "target"]}
+          </div>
           {!publicMode && sharedConnection?.workspace && (
             <TeamActivity
               api={api}
@@ -1787,6 +1842,26 @@ function App() {
               itemId={selected.id}
               items={items}
               onError={setToast}
+              onOpenNote={(id) => {
+                setSelected(null);
+                setPage("notes");
+                setSearchTarget({ kind: "note", id, targetId: id });
+              }}
+            />
+          )}
+          {!publicMode && (
+            <ItemGovernance
+              item={selected}
+              items={items}
+              api={api}
+              readOnly={roadmapReadOnly}
+              onRefresh={refreshAssistant}
+              onError={setToast}
+              onOpenNote={(id) => {
+                setSelected(null);
+                setPage("notes");
+                setSearchTarget({ kind: "note", id, targetId: id });
+              }}
             />
           )}
           {!publicMode && (
@@ -1847,7 +1922,36 @@ function App() {
           )}
         </Modal>
       )}
-      {edit && (
+      {planningReview && (
+        <Modal
+          title="Impact de la replanification"
+          side
+          close={() => !planningBusy && setPlanningReview(null)}
+        >
+          <PlanningImpact
+            plan={planningReview.plan}
+            busy={planningBusy}
+            onClose={() => setPlanningReview(null)}
+            onConfirm={applyPlanning}
+            onCascade={async (cascade) => {
+              setPlanningBusy(true);
+              try {
+                await previewPlanning(
+                  planningReview.item,
+                  planningReview.patch,
+                  planningReview.fromGantt,
+                  cascade,
+                );
+              } catch (e) {
+                setToast(e.message);
+              } finally {
+                setPlanningBusy(false);
+              }
+            }}
+          />
+        </Modal>
+      )}
+      {edit && !planningReview && (
         <Modal
           title={edit.id ? "Modifier l’élément" : "Nouvel élément"}
           side
@@ -1972,6 +2076,20 @@ function App() {
                 />
               </label>
             </div>
+            <label>
+              Niveau d’engagement
+              <select
+                value={edit.date_kind || "target"}
+                onChange={(e) =>
+                  setEdit({ ...edit, date_kind: e.target.value })
+                }
+              >
+                <option value="target">Date cible · prévision ajustable</option>
+                <option value="committed">
+                  Engagement confirmé · communiqué à l’équipe
+                </option>
+              </select>
+            </label>
             <p className="fine-print">
               Sans dates précises, le Gantt affiche votre trimestre comme
               horizon estimé. L’avancement d’un parent est calculé depuis ses
