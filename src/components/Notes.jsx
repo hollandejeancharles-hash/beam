@@ -541,7 +541,7 @@ export default function Notes({
     >
       <aside className="notebook-index" aria-label="Votre carnet">
         <div className="notebook-index-head">
-          <strong>Votre carnet</strong>
+          <strong>Carnet</strong>
           <button
             className="icon-button"
             aria-label="Nouvelle note"
@@ -550,18 +550,9 @@ export default function Notes({
             <Plus size={17} />
           </button>
         </div>
-        <div className="notebook-search">
-          <Search size={14} />
-          <input
-            aria-label="Rechercher dans les notes"
-            placeholder="Rechercher dans le carnet…"
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-          />
-        </div>
         <nav className="notebook-views" aria-label="Vues des notes">
           {[
-            ["all", "Toutes"],
+            ["all", "Toutes les notes"],
             ["followup", "À suivre"],
             ["review", "À examiner"],
             ["archives", "Archives"],
@@ -572,7 +563,7 @@ export default function Notes({
               data-pending={
                 id === "review" && inbox.length > 0 ? "true" : undefined
               }
-              aria-pressed={view === id}
+              aria-pressed={view === id && !folder}
               onClick={() => {
                 setView(id);
                 setFolder(null);
@@ -648,23 +639,68 @@ export default function Notes({
           )}
           {subjects.error && <p>{subjects.error}</p>}
         </section>
-        {activeFolder && (
-          <div className="notebook-folder-context">
-            <span>{activeFolder.title}</span>
+        <div className="notebook-index-footer">
+          <span className={data.status?.enabled ? "active" : ""}>●</span>
+          <span>
+            {data.status?.enabled
+              ? "Organisé sur ce Mac"
+              : "Organisation en pause"}
+          </span>
+          <button
+            className="icon-button"
+            aria-label="Réglages des notes"
+            onClick={() => setSettings(!settings)}
+          >
+            ···
+          </button>
+        </div>
+      </aside>
+      <section className="notebook-list-pane" aria-label="Liste du carnet">
+        <div className="notebook-search">
+          <Search size={14} />
+          <input
+            aria-label="Rechercher dans les notes"
+            placeholder="Rechercher dans le carnet…"
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+          />
+        </div>
+        <div className="notebook-list-heading">
+          <div>
+            <strong>
+              {activeFolder?.title ||
+                {
+                  all: "Toutes les notes",
+                  followup: "À suivre",
+                  review: "À examiner",
+                  archives: "Archives",
+                }[view]}
+            </strong>
             <small>
-              Classement automatique · vos notes restent dans Toutes
+              {visible.length} note{visible.length > 1 ? "s" : ""}
             </small>
+          </div>
+          {activeFolder ? (
             <button
-              className="text-button"
+              className="icon-button"
+              aria-label="Comprendre ce dossier"
               onClick={() => {
                 setSubject(activeFolder);
                 setSelected(null);
               }}
             >
-              Comprendre ce dossier
+              ···
             </button>
-          </div>
-        )}
+          ) : (
+            <button
+              className="icon-button"
+              aria-label="Créer une note"
+              onClick={newNote}
+            >
+              <Plus size={16} />
+            </button>
+          )}
+        </div>
         {(text.trim() || files.length > 0) && !composing && (
           <button className="notebook-review" onClick={newNote}>
             <FileText size={14} />
@@ -742,22 +778,7 @@ export default function Notes({
             </p>
           )}
         </div>
-        <div className="notebook-index-footer">
-          <span className={data.status?.enabled ? "active" : ""}>●</span>
-          <span>
-            {data.status?.enabled
-              ? "Organisé sur ce Mac"
-              : "Organisation en pause"}
-          </span>
-          <button
-            className="icon-button"
-            aria-label="Réglages des notes"
-            onClick={() => setSettings(!settings)}
-          >
-            ···
-          </button>
-        </div>
-      </aside>
+      </section>
       <section className="notebook-detail" aria-label="Note ouverte">
         <div className="notebook-detail-toolbar">
           <button

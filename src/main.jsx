@@ -799,7 +799,11 @@ function App() {
           </div>
         </aside>
       )}
-      <main>
+      <main
+        className={
+          page === "notes" && !publicMode ? "notes-workspace" : undefined
+        }
+      >
         <header className="topbar">
           {!publicMode && !auth && (
             <QuickNote api={api} items={items} onError={setToast} />
