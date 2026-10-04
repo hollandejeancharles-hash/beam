@@ -1,6 +1,6 @@
 # Installer Beam sur Mac
 
-[Télécharger Beam pour Mac Apple Silicon](https://github.com/hollandejeancharles-hash/beam/releases/download/v2.0.0-beta.32/Beam-AppleSilicon.dmg)
+[Télécharger Beam pour Mac Apple Silicon](https://github.com/hollandejeancharles-hash/beam/releases/download/v2.0.0-beta.33/Beam-AppleSilicon.dmg)
 
 ## À savoir avant de télécharger
 

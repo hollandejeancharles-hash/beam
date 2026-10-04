@@ -1,4 +1,5 @@
-import { Globe, Copy, Lock, ArrowUpRight, ExternalLink } from "lucide-react";
+import React from "react";
+import { Globe, Copy, Lock, ArrowUpRight, ExternalLink } from "../icons";
 export default function PublicRoadmap({
   product,
   localPreview,
