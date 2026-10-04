@@ -50,6 +50,7 @@ export function buildSearchRecords(
     sources = [],
     publications = [],
     suggestions = [],
+    demands = [],
     decisions = [],
   },
   publicOnly = false,
@@ -189,6 +190,17 @@ export function buildSearchRecords(
       s.label,
       [s.provider, s.scope, s.url].join(" "),
       "Intégration",
+    );
+  for (const d of demands)
+    add(
+      "demand",
+      d.id,
+      d.data.title,
+      [d.data.description, ...(d.data.sources || []).map((s) => s.quote)].join(
+        " ",
+      ),
+      "Demande",
+      ["accepted", "deferred", "rejected", "merged"].includes(d.data.state),
     );
   for (const s of suggestions)
     add("suggestion", s.id, s.title, s.description, "Suggestion", s.archived);

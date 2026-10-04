@@ -27,3 +27,11 @@ Pour les utilisateurs : [installation et autorisation à la première ouverture]
 Produit `../outputs/Beam-AppleSilicon.dmg` avec Node, les dépendances, l’interface compilée et Ollama. Le modèle Ministral 3 8B se télécharge depuis les réglages du workspace au premier lancement (bouton explicite et suivi des octets reçus). `--with-model` permet aussi de construire un DMG complet pour une installation sans téléchargement du modèle. Aucune base utilisateur ni donnée du dossier data n’est embarquée, à l’exception des fichiers du moteur IA et des poids du modèle. Les données du destinataire vivent dans `~/Library/Application Support/Beam/data`.
 
 Le package cible Apple Silicon avec macOS 14+ ; 16 Go de mémoire ou plus recommandés pour l’IA. L’installateur de base fait environ 348 Mo, le modèle nécessite environ 6 Go supplémentaires. La signature actuelle est ad hoc pour les tests locaux : une signature Developer ID et une notarisation Apple restent nécessaires pour une distribution fluide avec Gatekeeper. Ne pas demander aux destinataires de désactiver les protections macOS.
+
+### Demandes partagées
+
+Exécuter `003_demands.sql` après les deux premières migrations. La file de triage utilise `beam_demands`, protégée par les mêmes appartenances et rôles que la roadmap, et synchronisée via Realtime. Les RPC contrôlent les révisions pour les modifications, les regroupements et la conversion atomique d’une demande en feature. Les sources d’origine et l’historique sont conservés.
+
+`verify_demands.sql` vérifie les politiques et droits installés. `test_demands.sql` vérifie la conversion, les conflits et le regroupement dans un workspace temporaire créé dans une transaction entièrement annulée. Aucun workspace existant n’est modifié.
+
+Les notes et les analyses restent locales. Seul l’extrait explicitement envoyé par l’utilisateur devient une source partagée. Les retours du portail existant sont importés de manière idempotente par le Mac qui les reçoit, lorsqu’il est connecté au workspace. Le cache partagé ne remplace pas les demandes personnelles du Mac.

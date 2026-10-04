@@ -9,6 +9,7 @@ const significant = [
 ];
 export function notificationRows({
   inbox = [],
+  demands = [],
   team = {},
   items = [],
   userId,
@@ -75,6 +76,26 @@ export function notificationRows({
       created: a.created_at,
       target: target(a.item_id),
     });
+  for (const d of demands) {
+    const event = [...(d.data.history || [])]
+      .reverse()
+      .find(
+        (h) => h.reviewer === userId && h.actor !== userId && h.at >= since,
+      );
+    if (
+      event &&
+      d.data.reviewer === userId &&
+      ["review", "clarify"].includes(d.data.state)
+    )
+      result.push({
+        id: "demand:" + d.id + ":" + event.at,
+        kind: "change",
+        title: "Une demande vous attend",
+        description: d.data.title,
+        created: event.at,
+        target: { kind: "demand", id: d.id },
+      });
+  }
   if (inbox.length) {
     const digest = createHash("sha256")
       .update(

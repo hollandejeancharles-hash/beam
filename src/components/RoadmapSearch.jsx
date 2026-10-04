@@ -65,7 +65,7 @@ export default function RoadmapSearch({
       ["publications", publicMode ? "Nouveautés" : "Publications", Radio],
       ...(!publicMode
         ? [
-            ["feedback", "Suggestions", MessageSquare],
+            ["feedback", "Demandes", MessageSquare],
             ["integrations", "Intégrations", Integration],
             ["notes", "Notes", MessageSquare],
           ]

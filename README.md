@@ -182,3 +182,9 @@ L’installateur Mac autonome se construit avec `python3 scripts/macos/build-lau
 - Supabase : exécuter `002_team.sql` après `001_collaboration.sql`. `verify_team.sql` vérifie les permissions et annule ses données de test.
 
 La présence indique les sessions Beam connectées, pas une activité récente au clavier. Les 100 derniers commentaires/modifications par élément sont affichés. Les mises à jour sont téléchargées manuellement depuis GitHub ; quitter Beam avant de remplacer l’app dans Applications.
+
+### Demandes et triage
+
+« Demandes » remplace Suggestions et rassemble les retours du portail et les extraits volontairement partagés depuis les notes. Les vues À examiner, À clarifier et Traitées permettent de qualifier un besoin, lui attribuer un responsable et une priorité, le différer, le refuser ou le relier à une feature. « Préparer une feature » ouvre le formulaire existant avec une visibilité privée ; l’enregistrement relie la demande et crée la feature dans une même opération.
+
+L’assistant local activé analyse les demandes lorsque Beam consulte la file, sans appliquer ses propositions : citations vérifiées, questions à clarifier, liens possibles vers la roadmap et doublons à regrouper après validation. Les analyses restent sur le Mac. Les demandes, leurs extraits approuvés et leur historique sont partagés avec les membres du workspace via Supabase. Les intégrations Slack/Teams et les règles automatiques de routage restent hors de cette première version.

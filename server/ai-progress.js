@@ -5,6 +5,7 @@ const scopedId = (id) =>
   workspaceContext.getStore() ? workspaceContext.getStore() + ":" + id : id;
 const jobs = new Map();
 const labels = {
+  demand: "Analyse de la demande",
   publication: "Rédaction de la publication",
   note: "Organisation de la note",
   feature: "Analyse de l’élément",

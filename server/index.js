@@ -1,3 +1,4 @@
+import { createDemands } from "./demands.js";
 import { createGovernance } from "./roadmap-governance.js";
 import { createNotifications, notificationRows } from "./notifications.js";
 import { invitationCode } from "../shared/invitations.js";
@@ -102,6 +103,7 @@ function context(id) {
             associations.list().running ||
             topics.list().running ||
             productFlows.busy() ||
+            demands.busy() ||
             applyingReviews.size > 0,
         });
         const applyingReviews = new Set();
@@ -129,6 +131,7 @@ function context(id) {
           publications,
           ai,
         });
+        const demands = createDemands(store, { collaboration, notes, ai });
         const searchIndex = createSearch({
           decisions,
           store,
@@ -137,6 +140,7 @@ function context(id) {
           integrations,
           publications,
           productFlows,
+          demands,
         });
         return {
           store,
@@ -147,6 +151,7 @@ function context(id) {
           decisions,
           governance,
           productFlows,
+          demands,
           attachments,
           ai,
           aiSetup,
@@ -277,6 +282,7 @@ const server = http.createServer(async (req, res) => {
       decisions,
       governance,
       productFlows,
+      demands,
       notifications,
       attachments,
       ai,
@@ -365,6 +371,7 @@ const server = http.createServer(async (req, res) => {
             connection.userId,
             notificationRows({
               inbox,
+              demands: demands.cached(),
               team,
               items: store.list(),
               userId: connection.userId,
@@ -439,8 +446,14 @@ const server = http.createServer(async (req, res) => {
         return res.end(Buffer.from(file.bytes));
       }
       if (req.method === "GET") {
-        if (url.pathname === "/api/admin/search")
+        if (url.pathname === "/api/admin/search") {
+          try {
+            await demands.list();
+          } catch {
+            /* Keep other local results available offline. */
+          }
           return send(200, searchIndex());
+        }
         if (url.pathname === "/api/admin/publications/options")
           return send(200, publications.options());
         if (url.pathname === "/api/admin/publications")
@@ -520,6 +533,8 @@ const server = http.createServer(async (req, res) => {
           return send(200, store.list(true, visitor));
         if (url.pathname === "/api/admin/items")
           return send(200, store.list(false, visitor));
+        if (url.pathname === "/api/admin/demands")
+          return send(200, await demands.list());
         if (url.pathname === "/api/admin/suggestions")
           return send(
             200,
@@ -570,6 +585,20 @@ const server = http.createServer(async (req, res) => {
           error:
             "Le workspace a changé ou cette fenêtre doit être actualisée. Rechargez Beam avant de continuer.",
         });
+      if (url.pathname === "/api/admin/demands/merge" && req.method === "POST")
+        return send(200, await demands.merge(body));
+      if (
+        url.pathname === "/api/admin/demands/analyze" &&
+        req.method === "POST"
+      )
+        return send(200, await demands.analyze(body));
+      if (url.pathname === "/api/admin/demands" && req.method === "POST")
+        return send(201, await demands.create(body));
+      const demandMatch = url.pathname.match(
+        /^\/api\/admin\/demands\/([0-9a-f-]{36})$/,
+      );
+      if (demandMatch && req.method === "PATCH")
+        return send(200, await demands.update(demandMatch[1], body));
       if (
         url.pathname === "/api/admin/notifications/read" &&
         req.method === "POST"
@@ -1022,7 +1051,9 @@ const server = http.createServer(async (req, res) => {
         return send(200, { ok: true });
       }
       if (url.pathname === "/api/admin/items" && req.method === "POST") {
-        const id = store.save(body);
+        const id = body._demand_id
+          ? demands.createFeature(body)
+          : store.save(body);
         if (body.brief_id) productFlows.linkBrief(body.brief_id, id);
         return send(201, { id });
       }

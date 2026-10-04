@@ -1,3 +1,4 @@
+import Demands from "./components/Demands";
 import { ActivityDropdown } from "./components/ui/activity-dropdown";
 import JoinWorkspace from "./components/JoinWorkspace";
 import WorkspaceInvite from "./components/WorkspaceInvite";
@@ -283,7 +284,15 @@ function App() {
       if (!pagesMode)
         setProduct(await api((publicMode ? "public" : "admin") + "/product"));
       if (!publicMode) {
-        setSuggestions(await api("admin/suggestions"));
+        try {
+          setSuggestions(
+            (await api("admin/demands")).demands.filter(
+              (d) => d.data.state === "review",
+            ),
+          );
+        } catch {
+          setSuggestions([]);
+        }
         setSignals(await api("admin/signals"));
         setProfile(await api("admin/profile"));
       }
@@ -376,6 +385,7 @@ function App() {
       const state = JSON.parse(event.data);
       setSharedRevision(state.workspace?.revision ?? null);
       setSharedConnection(state);
+      window.dispatchEvent(new Event("beam-demands-changed"));
       if (state.workspace) void refresh();
     };
     return () => events.close();
@@ -458,6 +468,7 @@ function App() {
       setEdit(null);
       setSelected(null);
       await refresh();
+      window.dispatchEvent(new Event("beam-demands-changed"));
       setToast("Évolution enregistrée");
     } catch (e) {
       setToast(e.message);
@@ -658,7 +669,7 @@ function App() {
                   icon: <LayoutGrid size={17} />,
                 },
                 {
-                  label: "Suggestions",
+                  label: "Demandes",
                   href: "#feedback",
                   badge: suggestions.length
                     ? String(suggestions.length)
@@ -827,7 +838,7 @@ function App() {
                       : page === "integrations"
                         ? "Intégrations"
                         : page === "feedback"
-                          ? "Suggestions"
+                          ? "Demandes"
                           : "Publications"}
               </span>
             </div>
@@ -859,7 +870,10 @@ function App() {
                 onNavigate={(target) => {
                   if (target.kind === "item")
                     setSelected(items.find((i) => i.id === target.id));
-                  else if (target.kind === "review") {
+                  else if (target.kind === "demand") {
+                    setPage("feedback");
+                    setSearchTarget(target);
+                  } else if (target.kind === "review") {
                     setPage("notes");
                     setSearchTarget({ kind: "review" });
                   } else if (target.kind === "workspace")
@@ -915,7 +929,7 @@ function App() {
                   : page === "integrations"
                     ? "Intégrations"
                     : page === "feedback"
-                      ? "Suggestions"
+                      ? "Demandes"
                       : page === "publications"
                         ? publicMode
                           ? "Nouveautés de " + product.name
@@ -932,7 +946,7 @@ function App() {
                   : page === "integrations"
                     ? "Reliez les outils de votre produit et transformez leurs informations en décisions de roadmap."
                     : page === "feedback"
-                      ? "Les retours de votre communauté, réunis au même endroit."
+                      ? "Qualifiez les besoins, gardez leur contexte et décidez de la suite."
                       : page === "publications"
                         ? publicMode
                           ? "Les évolutions disponibles, expliquées par l’équipe."
@@ -954,6 +968,7 @@ function App() {
               page !== "integrations" &&
               page !== "notes" &&
               page !== "publications" &&
+              page !== "feedback" &&
               (publicMode || page !== "gantt") && (
                 <button
                   className="button primary"
@@ -1252,100 +1267,28 @@ function App() {
               }}
             />
           ) : page === "feedback" ? (
-            <div className="suggestion-list">
-              <div className="toolbar suggestion-toolbar">
-                <div className="toolbar-left">
-                  <span className="subtle">
-                    {showArchives
-                      ? "Suggestions archivées"
-                      : "Suggestions reçues"}
-                  </span>
-                  <span className="pill">
-                    {
-                      suggestions.filter((s) => !!s.archived === showArchives)
-                        .length
-                    }
-                  </span>
-                </div>
-                <div className="toolbar-right">
-                  {" "}
-                  {!publicMode && (
-                    <button
-                      className="button"
-                      aria-pressed={showArchives}
-                      onClick={() => setShowArchives(!showArchives)}
-                    >
-                      {showArchives
-                        ? "Retour aux éléments actifs"
-                        : "Voir les archives"}
-                    </button>
-                  )}
-                </div>
-              </div>
-              {suggestions.filter((s) => !!s.archived === showArchives)
-                .length ? (
-                suggestions
-                  .filter((s) => !!s.archived === showArchives)
-                  .map((s) => (
-                    <article key={s.id} id={"suggestion-" + s.id} tabIndex={-1}>
-                      <span className="suggestion-icon">
-                        <MessageSquare size={20} />
-                      </span>
-                      <div>
-                        <small>
-                          Idée de la communauté ·{" "}
-                          {new Date(s.created).toLocaleDateString("fr-FR")}
-                        </small>
-                        <h3>{s.title}</h3>
-                        <p>{s.description}</p>
-                      </div>
-                      <button
-                        className="button"
-                        onClick={() =>
-                          setEdit({
-                            ...blank,
-                            title: s.title,
-                            description: s.description,
-                          })
-                        }
-                      >
-                        Ajouter à la roadmap
-                        <ArrowRight size={15} />
-                      </button>
-                      <button
-                        className="button"
-                        onClick={() => manageEntry("suggestions", s)}
-                      >
-                        {s.archived ? "Restaurer" : "Archiver"}
-                      </button>
-                      <button
-                        className="button danger"
-                        onClick={() => manageEntry("suggestions", s, true)}
-                      >
-                        Supprimer
-                      </button>
-                    </article>
-                  ))
-              ) : (
-                <div className="empty">
-                  <MessageSquare size={28} />
-                  <h3>
-                    {showArchives
-                      ? "Aucune suggestion archivée"
-                      : "La conversation commence ici."}
-                  </h3>
-                  <p>
-                    {showArchives
-                      ? "Les suggestions que vous archivez restent accessibles ici."
-                      : "Les idées envoyées depuis le portail public apparaîtront dans cet espace."}
-                  </p>
-                  <button className="button" onClick={() => setShare(true)}>
-                    Partager le portail
-                    <ArrowUpRight size={15} />
-                  </button>
-                </div>
-              )}
-            </div>
+            <Demands
+              key={workspaceIdRef.current}
+              api={api}
+              items={items}
+              readOnly={roadmapReadOnly}
+              onError={(e) => setToast(e)}
+              target={searchTarget}
+              onQueueChanged={setSuggestions}
+              onOpenItem={(item) => {
+                if (item) setSelected(item);
+              }}
+              onPrepare={(d) =>
+                setEdit({
+                  ...blank,
+                  title: d.title,
+                  description: d.description,
+                  visibility: "private",
+                  _demand_id: d._demand_id,
+                  _demand_revision: d._demand_revision,
+                })
+              }
+            />
           ) : page === "kanban" && view !== "list" ? (
             <BeamKanban
               items={filtered}
@@ -1560,6 +1503,7 @@ function App() {
                         source: "integrations",
                         publication: "publications",
                         suggestion: "feedback",
+                        demand: "feedback",
                       }[target.kind],
                     );
                     if (target.kind === "suggestion")

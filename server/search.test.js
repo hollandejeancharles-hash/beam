@@ -147,3 +147,22 @@ test("public search excludes internal items, archives, drafts and every private 
     1,
   );
 });
+test("demand titles and approved excerpts are searchable internally but never exported publicly", () => {
+  const data = {
+    demands: [
+      {
+        id: "request-a",
+        data: {
+          title: "Export",
+          description: "Need PDF",
+          state: "clarify",
+          sources: [{ quote: "Approved excerpt" }],
+        },
+      },
+    ],
+  };
+  const records = buildSearchRecords(data);
+  assert.equal(records[0].kind, "demand");
+  assert.ok(records[0].body.includes("Approved excerpt"));
+  assert.equal(buildSearchRecords(data, true).length, 0);
+});

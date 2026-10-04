@@ -7,22 +7,21 @@ export function createSearch({
   publications,
   decisions,
   productFlows,
+  demands,
 }) {
   return () =>
     buildSearchRecords({
       items: store.list(),
       notes: notes.list(),
-      topics: topics
-        .list()
-        .topics.map((t) => ({
-          ...t,
-          summary: [
-            t.summary,
-            ...(productFlows?.list(t.id) || []).map((b) =>
-              Object.values(b.content).join(" "),
-            ),
-          ].join(" "),
-        })),
+      topics: topics.list().topics.map((t) => ({
+        ...t,
+        summary: [
+          t.summary,
+          ...(productFlows?.list(t.id) || []).map((b) =>
+            Object.values(b.content).join(" "),
+          ),
+        ].join(" "),
+      })),
       signals: integrations.signals(),
       sources: integrations
         .list()
@@ -35,7 +34,10 @@ export function createSearch({
         })),
       publications: publications.list(),
       decisions: decisions?.list() || [],
-      suggestions: store.db.prepare("SELECT * FROM suggestions").all(),
+      demands: demands?.cached() || [],
+      suggestions: demands
+        ? []
+        : store.db.prepare("SELECT * FROM suggestions").all(),
       attachments: store.db
         .prepare("SELECT id,note_id,name,text FROM note_attachments")
         .all(),

@@ -4,6 +4,8 @@ const TABLES = [
   "items",
   "votes",
   "suggestions",
+  "demands",
+  "demand_analyses",
   "notes",
   "note_attachments",
   "decisions",
@@ -93,6 +95,8 @@ export function createBackups(
       for (const row of rows) {
         const jsonColumns = {
           notes: ["details"],
+          demands: ["data"],
+          demand_analyses: ["data"],
           ai_reviews: ["result", "context"],
           note_attachments: ["images"],
           topics: ["questions"],
@@ -175,6 +179,10 @@ export function createBackups(
       );
     if (busy())
       throw Error("Attendez la fin de l’analyse IA avant de restaurer.");
+    file = {
+      ...file,
+      data: { demands: [], demand_analyses: [], ...file.data },
+    };
     if (tables().some((t) => !Object.hasOwn(file.data, t)))
       throw Error(
         "Cette sauvegarde est incomplète pour cette version de Beam.",

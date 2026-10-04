@@ -278,6 +278,16 @@ export function createCollaboration(
         {
           event: "*",
           schema: "public",
+          table: "beam_demands",
+          filter: "workspace_id=eq." + workspace.id,
+        },
+        emit,
+      )
+      .on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
           table: "beam_comments",
           filter: "workspace_id=eq." + workspace.id,
         },
@@ -582,11 +592,23 @@ export function createCollaboration(
         else if (method === "DELETE") copy.remove(path.split("/").at(-1));
         else throw Error("Action invalide");
         const rows = cleanItems(copy.list());
-        const result = await client.rpc("beam_save_roadmap", {
-          p_workspace: workspace.id,
-          p_revision: revision,
-          p_items: rows,
-        });
+        const result = await client.rpc(
+          b._demand_id && method === "POST" && path === "/api/admin/items"
+            ? "beam_create_from_demand"
+            : "beam_save_roadmap",
+          {
+            ...(b._demand_id && method === "POST" && path === "/api/admin/items"
+              ? {
+                  p_demand: b._demand_id,
+                  p_demand_revision: b._demand_revision,
+                  p_item: data.id,
+                }
+              : {}),
+            p_workspace: workspace.id,
+            p_revision: revision,
+            p_items: rows,
+          },
+        );
         if (result.error) {
           if (result.error.message.includes("BEAM_CONFLICT")) {
             await pull();
@@ -635,6 +657,49 @@ export function createCollaboration(
     settings,
     items,
     ready,
+    async mergeDemands(payload) {
+      if (!workspace || workspace.role === "viewer")
+        throw Error("Modification refusée.");
+      await authenticate();
+      check(
+        await client.rpc("beam_merge_demands", {
+          p_workspace: workspace.id,
+          p_id: payload.id,
+          p_revision: payload.revision,
+          p_target: payload.target_id,
+          p_target_revision: payload.target_revision,
+          p_reason: payload.reason,
+        }),
+      );
+    },
+    async demands(method = "GET", payload = {}) {
+      if (!workspace)
+        throw Error(
+          "Connectez un workspace partagé pour accéder aux demandes.",
+        );
+      await authenticate();
+      if (method !== "GET" && workspace.role === "viewer")
+        throw Error("Ce workspace est en lecture seule.");
+      if (method === "GET")
+        return check(
+          await client
+            .from("beam_demands")
+            .select("*")
+            .eq("workspace_id", workspace.id)
+            .order("updated_at", { ascending: false }),
+        );
+      const result = await client.rpc("beam_save_demand", {
+        p_workspace: workspace.id,
+        p_id: payload.id,
+        p_revision: payload.revision ?? -1,
+        p_data: payload.data,
+      });
+      if (result.error?.message?.includes("BEAM_CONFLICT"))
+        throw Error(
+          "Cette demande a changé. Actualisez-la avant de continuer.",
+        );
+      return check(result);
+    },
     async team(itemId) {
       if (!workspace) return { profiles: [], comments: [], activity: [] };
       await authenticate();

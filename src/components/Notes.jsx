@@ -1,3 +1,4 @@
+import { DemandCapture } from "./Demands";
 import { receiveNoteTransfer } from "../../shared/note-transfer";
 import { usePersistentDraft } from "../usePersistentDraft";
 import ProductBrief from "./ProductBrief";
@@ -244,6 +245,7 @@ export default function Notes({
 }) {
   const workspaceId =
     new URLSearchParams(location.search).get("workspace") || "default";
+  const [demandNote, setDemandNote] = useState(null);
   const [composerKey, setComposerKey] = useState(
     () =>
       sessionStorage.getItem("beam-capture-composer:" + workspaceId) ||
@@ -897,6 +899,21 @@ export default function Notes({
                   </button>
                 ))}
               </section>
+            )}
+            <button className="button" onClick={() => setDemandNote(current)}>
+              Préparer une demande
+            </button>
+            {demandNote && (
+              <div className="demand-overlay">
+                <DemandCapture
+                  key={demandNote.id}
+                  note={demandNote}
+                  api={api}
+                  onError={onError}
+                  onClose={() => setDemandNote(null)}
+                  onDone={() => onRefresh?.()}
+                />
+              </div>
             )}
             <DecisionMemory
               key={current.id}

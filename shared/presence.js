@@ -16,7 +16,7 @@ export function activityPhrase(name, activity) {
     gantt: "joue au chef d’orchestre dans le gantt",
     kanban: "met les cartes sur la table dans le kanban",
     notes: "raconte sa vie dans ses notes",
-    feedback: "fait le tri dans la boîte à idées",
+    feedback: "fait le tri dans les demandes",
     integrations: "branche les fils dans les intégrations",
     publications: "prépare les nouvelles du produit",
     settings: "peaufine les réglages",
