@@ -1,3 +1,4 @@
+import NoteImage, { DraftImages } from "./NoteImage";
 import useVisiblePolling, { unchangedData } from "../hooks/useVisiblePolling";
 import { DemandCapture } from "./Demands";
 import { receiveNoteTransfer } from "../../shared/note-transfer";
@@ -7,7 +8,15 @@ import DecisionMemory from "./DecisionMemory";
 import ReviewInbox from "./ReviewInbox";
 import { includesSearch } from "../../shared/search";
 import AIProgress from "./AIProgress";
-import React, { useEffect, useRef, useState } from "react";
+import React, { lazy, Suspense, useEffect, useRef, useState } from "react";
+const LazyRichNoteEditor = lazy(() => import("./RichNoteEditor"));
+function RichNoteEditor(props) {
+  return (
+    <Suspense fallback={<p className="notebook-hint">Ouverture de la note…</p>}>
+      <LazyRichNoteEditor {...props} />
+    </Suspense>
+  );
+}
 import {
   MorphingPopover,
   MorphingPopoverTrigger,
@@ -252,6 +261,10 @@ export default function Notes({
       sessionStorage.getItem("beam-capture-composer:" + workspaceId) ||
       "note-composer",
   );
+  const [richDraft, setRichDraft] = usePersistentDraft(
+    composerKey + ":document",
+    null,
+  );
   const [notes, setNotes] = useState([]),
     [text, setText] = usePersistentDraft(composerKey, ""),
     [files, setFiles] = useState([]),
@@ -469,9 +482,11 @@ export default function Notes({
         method: "POST",
         body: JSON.stringify({
           text: text.trim() || files.map((f) => f.name).join(", "),
+          ...(text.trim() && richDraft ? { document: richDraft } : {}),
         }),
       });
       setText("");
+      setRichDraft(null);
       const chosen = files;
       setFiles([]);
       await attach(n.id, chosen);
@@ -529,6 +544,7 @@ export default function Notes({
           <button
             className="icon-button"
             aria-label="Nouvelle note"
+            autoFocus
             onClick={newNote}
           >
             <Plus size={17} />
@@ -839,23 +855,19 @@ export default function Notes({
                 year: "numeric",
               })}
             </div>
-            <textarea
-              ref={composer}
-              aria-label="Nouvelle note"
-              placeholder="Une idée, un échange, une suite à donner…"
-              value={text}
-              onChange={(e) => setText(e.target.value)}
-              onKeyDown={(e) => {
-                if (
-                  e.key === "Enter" &&
-                  (e.metaKey || e.ctrlKey) &&
-                  !e.nativeEvent.isComposing
-                ) {
-                  e.preventDefault();
-                  void save();
-                }
+            <RichNoteEditor
+              text={text}
+              document={richDraft}
+              label="Nouvelle note"
+              autoFocus
+              onChange={({ text, document }) => {
+                setText(text);
+                setRichDraft(document);
               }}
+              onSave={() => void save()}
+              onFiles={(chosen) => setFiles([...files, ...chosen].slice(0, 4))}
             />
+            <DraftImages files={files} />
             <div className="notebook-compose-actions">
               <label className="button attachment-picker">
                 Joindre un fichier
@@ -903,6 +915,17 @@ export default function Notes({
               note={current}
               update={update}
               pending={pending(current)}
+              onFiles={async (chosen) => {
+                setBusy(true);
+                try {
+                  await attach(current.id, chosen);
+                  await load();
+                } catch (e) {
+                  onError(e.message);
+                } finally {
+                  setBusy(false);
+                }
+              }}
             />
             <label className="text-button attachment-picker notebook-attach">
               Joindre un fichier
@@ -931,24 +954,37 @@ export default function Notes({
                 className="notebook-attachments"
                 aria-label="Pièces jointes"
               >
-                {current.attachments.map((a) => (
-                  <button
-                    className="notebook-attachment"
-                    key={a.id}
-                    onClick={() => download(a)}
-                  >
-                    <FileText size={20} />
-                    <span>
-                      <strong>{a.name}</strong>
-                      <small>
-                        {a.mime === "application/pdf"
-                          ? `${a.pages || ""} page(s) · PDF`
-                          : "Image"}{" "}
-                        · Ouvrir
-                      </small>
-                    </span>
-                  </button>
-                ))}
+                {current.attachments
+                  .filter((a) => a.mime.startsWith("image/"))
+                  .map((a) => (
+                    <NoteImage
+                      key={a.id}
+                      attachment={a}
+                      workspace={workspaceId}
+                      onError={onError}
+                      onOpen={() => download(a)}
+                    />
+                  ))}
+                {current.attachments
+                  .filter((a) => !a.mime.startsWith("image/"))
+                  .map((a) => (
+                    <button
+                      className="notebook-attachment"
+                      key={a.id}
+                      onClick={() => download(a)}
+                    >
+                      <FileText size={20} />
+                      <span>
+                        <strong>{a.name}</strong>
+                        <small>
+                          {a.mime === "application/pdf"
+                            ? `${a.pages || ""} page(s) · PDF`
+                            : "Image"}{" "}
+                          · Ouvrir
+                        </small>
+                      </span>
+                    </button>
+                  ))}
               </section>
             )}
             <button className="button" onClick={() => setDemandNote(current)}>
@@ -1190,16 +1226,23 @@ function NoteTopicLabels({ tags = [], limit = 3 }) {
     </span>
   ) : null;
 }
-function InlineNoteEditor({ note, update, pending }) {
+function InlineNoteEditor({ note, update, pending, onFiles }) {
   const [draft, setDraft] = usePersistentDraft("note-edit:" + note.id, null);
   const [saving, setSaving] = useState(false);
-  const value = draft ?? note.text;
-  const dirty = value !== note.text;
+  const value = typeof draft === "string" ? draft : (draft?.text ?? note.text);
+  const document =
+    typeof draft === "object" && draft ? draft.document : note.document;
+  const dirty =
+    value !== note.text ||
+    JSON.stringify(document) !== JSON.stringify(note.document);
   async function save() {
     if (!dirty || !value.trim() || saving) return;
     setSaving(true);
     try {
-      if (await update(note, { text: value })) setDraft(null);
+      if (
+        await update(note, { text: value, ...(document ? { document } : {}) })
+      )
+        setDraft(null);
     } finally {
       setSaving(false);
     }
@@ -1219,22 +1262,13 @@ function InlineNoteEditor({ note, update, pending }) {
         <NoteStateLabels note={note} pending={pending} />
         <NoteTopicLabels tags={note.tags} />
       </div>
-      <textarea
-        className="notebook-note-editor"
-        aria-label="Texte de la note"
-        value={value}
+      <RichNoteEditor
+        text={value}
+        document={document}
         readOnly={note.state === "archived"}
-        onChange={(e) => setDraft(e.target.value)}
-        onKeyDown={(e) => {
-          if (
-            e.key === "Enter" &&
-            (e.metaKey || e.ctrlKey) &&
-            !e.nativeEvent.isComposing
-          ) {
-            e.preventDefault();
-            void save();
-          }
-        }}
+        onChange={setDraft}
+        onSave={() => void save()}
+        onFiles={note.state === "archived" ? undefined : onFiles}
       />
       {dirty && (
         <div className="notebook-edit-status">

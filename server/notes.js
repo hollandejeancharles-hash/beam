@@ -1,6 +1,10 @@
 import { matchesFor, decideMatch } from "./associations.js";
 import { randomUUID } from "node:crypto";
 import { interpretNote, NOTE_KINDS } from "../shared/notes.js";
+import {
+  validateNoteDocument,
+  noteDocumentText,
+} from "../shared/note-document.js";
 export function createNotes(store) {
   const db = store.db;
   db.exec(
@@ -40,6 +44,11 @@ export function createNotes(store) {
     list: () =>
       db.prepare("SELECT * FROM notes ORDER BY created DESC").all().map(decode),
     save(input, id = randomUUID(), { automatic = false } = {}) {
+      let document;
+      if (input.document !== undefined && !automatic) {
+        document = validateNoteDocument(input.document);
+        input = { ...input, text: noteDocumentText(document) };
+      }
       const old = db.prepare("SELECT * FROM notes WHERE id=?").get(id);
       if (
         input.text !== undefined &&
@@ -76,6 +85,10 @@ export function createNotes(store) {
       details.manual_fields = automatic
         ? locked
         : [...new Set([...locked, ...Object.keys(input.classification || {})])];
+      if (document) details.document = document;
+      else if (old?.text === text && previous.document)
+        details.document = previous.document;
+      else delete details.document;
       if (
         !Object.hasOwn(NOTE_KINDS, details.kind) ||
         !Array.isArray(details.people) ||

@@ -19,6 +19,7 @@ const TABLES = [
   "product_briefs",
   "topics",
   "topic_members",
+  "topic_note_links",
   "publications",
   "ai_reviews",
 ];

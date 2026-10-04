@@ -51,7 +51,14 @@ export default function MenuBarCapture() {
   const close = () =>
     window.webkit?.messageHandlers?.beamCapture?.postMessage("close");
   useEffect(() => {
-    window.__beamFocusCapture = () => expanded ? document.querySelector(".capture-notebook .notebook-detail textarea")?.focus() : input.current?.focus();
+    window.__beamFocusCapture = () =>
+      expanded
+        ? document
+            .querySelector(
+              '.capture-notebook .notebook-detail [contenteditable="true"], .capture-notebook .notebook-detail textarea',
+            )
+            ?.focus()
+        : input.current?.focus();
     input.current?.focus();
     return () => {
       delete window.__beamFocusCapture;
@@ -62,7 +69,8 @@ export default function MenuBarCapture() {
   }, [busy]);
   useEffect(() => {
     const apply = (state) => {
-      if (!pinnedWorkspace.current) setWorkspace(state.workspaces.find((w) => w.id === state.active));
+      if (!pinnedWorkspace.current)
+        setWorkspace(state.workspaces.find((w) => w.id === state.active));
     };
     fetch("/api/admin/workspaces", {
       headers: {
@@ -138,13 +146,19 @@ export default function MenuBarCapture() {
       const url = new URL(location.href);
       url.searchParams.set("workspace", workspace.id);
       history.replaceState(null, "", url.pathname + url.search);
-      setTarget(payload.noteId ? { kind: "note", id: payload.noteId, targetId: payload.noteId } : { kind: "capture", id: payload.transferId });
+      setTarget(
+        payload.noteId
+          ? { kind: "note", id: payload.noteId, targetId: payload.noteId }
+          : { kind: "capture", id: payload.transferId },
+      );
       pinnedWorkspace.current = true;
       setNotebookOpened(true);
       setExpanded(true);
       setError("");
       bridge?.postMessage({ action: "resize", mode: "notebook" });
-      captureApi("admin/items").then(setItems).catch(() => {});
+      captureApi("admin/items")
+        .then(setItems)
+        .catch(() => {});
     } catch (e) {
       setError("Impossible d’agrandir la note. Votre brouillon est conservé.");
     }
@@ -161,19 +175,36 @@ export default function MenuBarCapture() {
         <div className="capture-window-actions">
           <button
             className="icon-button"
-            aria-label={expanded ? "Réduire la fenêtre" : "Agrandir en mode carnet"}
-            title={expanded && captureDraft?.hasFiles ? "Enregistrez les pièces jointes avant de réduire" : expanded ? "Réduire la fenêtre" : "Agrandir en mode carnet"}
-            disabled={busy || !workspace || (expanded && (captureDraft?.hasFiles || captureDraft?.busy))}
+            aria-label={
+              expanded ? "Réduire la fenêtre" : "Agrandir en mode carnet"
+            }
+            title={
+              expanded && captureDraft?.hasFiles
+                ? "Enregistrez les pièces jointes avant de réduire"
+                : expanded
+                  ? "Réduire la fenêtre"
+                  : "Agrandir en mode carnet"
+            }
+            disabled={
+              busy ||
+              !workspace ||
+              (expanded && (captureDraft?.hasFiles || captureDraft?.busy))
+            }
             onClick={() => {
               if (!expanded) return expand();
               setText(captureDraft?.composing ? captureDraft.text : "");
               setLastSaved(null);
               setExpanded(false);
-              window.webkit?.messageHandlers?.beamCapture?.postMessage({ action: "resize", mode: "quick" });
+              window.webkit?.messageHandlers?.beamCapture?.postMessage({
+                action: "resize",
+                mode: "quick",
+              });
               requestAnimationFrame(() => input.current?.focus());
             }}
           >
-            <span className={expanded ? "capture-shrink-icon" : ""}><ArrowUpRight size={17} /></span>
+            <span className={expanded ? "capture-shrink-icon" : ""}>
+              <ArrowUpRight size={17} />
+            </span>
           </button>
           <button
             className="icon-button"
@@ -184,10 +215,30 @@ export default function MenuBarCapture() {
           </button>
         </div>
       </header>
-      {notebookOpened ? <div hidden={!expanded} className="capture-notebook-content">
-        <Notes api={captureApi} items={items} initialTarget={target} onTargetConsumed={() => setTarget(null)} onError={setError} onCaptureDraft={setCaptureDraft} onRefresh={() => captureApi("admin/items").then(setItems)} onOpen={() => setError("Les détails de la roadmap sont disponibles dans la fenêtre principale de Beam.")} onPrepare={() => setError("La création d’un élément de roadmap est disponible dans la fenêtre principale de Beam.")} />
-        {error && <p role="alert">{error}</p>}
-      </div> : null}
+      {notebookOpened ? (
+        <div hidden={!expanded} className="capture-notebook-content">
+          <Notes
+            api={captureApi}
+            items={items}
+            initialTarget={target}
+            onTargetConsumed={() => setTarget(null)}
+            onError={setError}
+            onCaptureDraft={setCaptureDraft}
+            onRefresh={() => captureApi("admin/items").then(setItems)}
+            onOpen={() =>
+              setError(
+                "Les détails de la roadmap sont disponibles dans la fenêtre principale de Beam.",
+              )
+            }
+            onPrepare={() =>
+              setError(
+                "La création d’un élément de roadmap est disponible dans la fenêtre principale de Beam.",
+              )
+            }
+          />
+          {error && <p role="alert">{error}</p>}
+        </div>
+      ) : null}
       <form onSubmit={save} hidden={expanded}>
         <textarea
           ref={input}
