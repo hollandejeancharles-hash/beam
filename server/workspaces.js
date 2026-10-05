@@ -40,7 +40,7 @@ export function createWorkspaces(root, databasePath) {
       const db = store(id).db;
       const product = JSON.parse(
         db.prepare("SELECT value FROM metadata WHERE key='product'").get()
-          ?.value || '{"name":"PULS"}',
+          ?.value || '{"name":"Mon workspace"}',
       );
       return {
         id,

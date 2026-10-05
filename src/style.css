@@ -6875,3 +6875,9 @@ main.notes-workspace{height:100dvh;display:flex;flex-direction:column;overflow:h
 
 .app.notes-focused > .sidebar {display:none}
 .app.notes-focused > main {margin-left:0;width:100%}
+
+.welcome-workspace-name {display:grid;gap:12px;margin:0;color:var(--muted)}
+.welcome-workspace-name input {width:100%;padding:12px 14px;background:var(--input,#15151d);color:var(--text);border:1px solid var(--line);border-radius:8px}
+
+.demand-decision.is-trash > :not(h3):not(.demand-trash-action) {display:none}
+.note-conversion-actions[hidden] {display:none}

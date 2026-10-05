@@ -319,7 +319,8 @@ export default function Demands({
       (id === "local" ? "Vous" : "Membre du workspace");
   const shown = data.demands.filter(
     (d) =>
-      (view === "all" ||
+      (view === "trash" ? d.data.deleted === true : !d.data.deleted) &&
+      (view === "trash" || view === "all" ||
         (view === "done"
           ? ["accepted", "deferred", "rejected", "merged"].includes(
               d.data.state,
@@ -442,6 +443,7 @@ export default function Demands({
             ["clarify", "À clarifier"],
             ["done", "Traitées"],
             ["all", "Toutes"],
+            ["trash", "Corbeille"],
           ].map(([id, label]) => (
             <button
               className="button"
@@ -454,7 +456,7 @@ export default function Demands({
                 {
                   data.demands.filter(
                     (d) =>
-                      id === "all" ||
+                      (id === "trash" ? d.data.deleted === true : !d.data.deleted) && (id === "trash" || id === "all" ||
                       (id === "done"
                         ? [
                             "accepted",
@@ -462,7 +464,7 @@ export default function Demands({
                             "rejected",
                             "merged",
                           ].includes(d.data.state)
-                        : d.data.state === id),
+                        : d.data.state === id)),
                   ).length
                 }
               </span>
@@ -527,7 +529,7 @@ export default function Demands({
                   <strong>{r.data.title}</strong>
                   <p>{r.data.description}</p>
                   <small>
-                    {labels[r.data.state]} ·{" "}
+                    {r.data.deleted ? "Supprimée" : labels[r.data.state]} ·{" "}
                     {r.data.reviewer
                       ? profile(r.data.reviewer)
                       : "Non attribuée"}
@@ -555,7 +557,7 @@ export default function Demands({
           <section className="demand-detail">
             {current ? (
               <>
-                <small>{labels[current.data.state]}</small>
+                <small>{current.data.deleted ? "Supprimée" : labels[current.data.state]}</small>
                 <h2>{current.data.title}</h2>
                 <p className="demand-description">{current.data.description}</p>
                 {!readOnly && current.data.state !== "merged" && (
@@ -784,8 +786,12 @@ export default function Demands({
                         </div>
                       ))}
                     </section>
-                    <section className="demand-decision">
+                    <section className={`demand-decision ${current.data.deleted ? "is-trash" : ""}`}>
                       <h3>Décider de la suite</h3>
+                      <button className="button demand-trash-action" disabled={busy} onClick={async()=>{
+                        setBusy(true);
+                        try {await api(`admin/demands/${current.id}`,{method:current.data.deleted ? "PATCH" : "DELETE",body:JSON.stringify({revision:current.revision,restore:true})});setSelected(null);await load();}catch(e){onError(e.message);}finally{setBusy(false);}
+                      }}>{current.data.deleted ? "Restaurer la demande" : "Supprimer la demande"}</button>
                       <label>
                         Créer sous une initiative ou un projet, ou relier à un élément
                         <select

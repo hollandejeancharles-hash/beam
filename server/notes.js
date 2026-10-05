@@ -41,8 +41,8 @@ export function createNotes(store) {
       : [],
   });
   return {
-    list: () =>
-      db.prepare("SELECT * FROM notes ORDER BY created DESC").all().map(decode),
+    list: ({ trash = false } = {}) =>
+      db.prepare("SELECT * FROM notes ORDER BY created DESC").all().filter((note)=>trash || note.state !== "deleted").map(decode),
     linkItem(noteId, itemId) {
       const row = db.prepare("SELECT * FROM notes WHERE id=?").get(noteId);
       if (!row) throw Error("Note introuvable");
@@ -63,6 +63,7 @@ export function createNotes(store) {
           input.text.length > 5000)
       )
         throw Error("Une note doit contenir entre 1 et 5 000 caractères.");
+      if (automatic && old?.state === "deleted") return decode(old);
       const text = input.text?.trim() || old?.text;
       if (!text) throw Error("Note introuvable");
       const previous = old ? JSON.parse(old.details) : {};
@@ -112,7 +113,7 @@ export function createNotes(store) {
       if (details.linked.some((id) => !store.list().some((i) => i.id === id)))
         throw Error("Élément de roadmap introuvable");
       const state = input.state || old?.state || "open";
-      if (!["open", "done", "archived"].includes(state))
+      if (!["open", "done", "archived", "deleted"].includes(state))
         throw Error("État invalide");
       if (!automatic && input.classification?.linked) {
         for (const match of db

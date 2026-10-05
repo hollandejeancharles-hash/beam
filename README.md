@@ -2,9 +2,11 @@
 
 Beam est un espace de pilotage produit : organisez vos initiatives, projets et features dans un Gantt ou un Kanban, capturez vos notes et collaborez avec votre équipe. L’assistant IA tourne sur votre Mac ; la roadmap et les demandes peuvent être partagées via Supabase.
 
+Les notes et les demandes supprimées restent récupérables depuis leur corbeille. Une première installation propose « Mon workspace », personnalisable pendant la configuration.
+
 ## Installer Beam sur Mac
 
-**[⬇ Télécharger Beam pour Mac — Apple Silicon](https://github.com/hollandejeancharles-hash/beam/releases/download/v2.0.0-beta.50/Beam-AppleSilicon.dmg)** · [Notes de version](https://github.com/hollandejeancharles-hash/beam/releases/tag/v2.0.0-beta.50)
+**[⬇ Télécharger Beam pour Mac — Apple Silicon](https://github.com/hollandejeancharles-hash/beam/releases/download/v2.0.0-beta.51/Beam-AppleSilicon.dmg)** · [Notes de version](https://github.com/hollandejeancharles-hash/beam/releases/tag/v2.0.0-beta.51)
 
 Mac **M1 ou plus récent**, **macOS 14+**. Pour l’IA locale, **16 Go de mémoire ou plus** sont recommandés. Aucun terminal, Node.js ou outil de développement à installer : le package contient Beam, Node et le moteur Ollama.
 

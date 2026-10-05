@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import Profile from "./Profile";
 import Collaboration from "./Collaboration";
 import LocalAISetup from "./LocalAISetup";
@@ -12,6 +12,8 @@ export default function Welcome({
 }) {
   const [step, setStep] = useState(-1),
     [error, setError] = useState("");
+  const [workspaceName,setWorkspaceName]=useState("Mon workspace"), [workspaceGeneration,setWorkspaceGeneration]=useState(0);
+  useEffect(()=>{api("admin/product").then((p)=>setWorkspaceName(p.name)).catch(()=>{});},[]);
   const titles = ["Votre profil", "Votre équipe", "Votre assistant"];
   async function finish() {
     try {
@@ -67,7 +69,12 @@ export default function Welcome({
       )}
       {step === 1 && (
         <section className="welcome-team-step">
-          <Collaboration api={api} profile={profile} onChange={onChange} />
+          <label className="welcome-workspace-name">Nom de votre workspace
+            <input value={workspaceName} maxLength={80} onChange={(e)=>setWorkspaceName(e.target.value)} onBlur={async()=>{
+              try {await api("admin/product",{method:"PATCH",body:JSON.stringify({name:workspaceName})});setWorkspaceGeneration((n)=>n+1);onChange?.();}catch(e){setError(e.message);}
+            }} />
+          </label>
+          <Collaboration key={workspaceGeneration} api={api} profile={profile} onChange={onChange} />
           <button className="button primary" onClick={() => setStep(2)}>
             Continuer
           </button>

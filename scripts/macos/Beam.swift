@@ -344,6 +344,12 @@ final class BeamDelegate: NSObject, NSApplicationDelegate, WKNavigationDelegate,
     func webView(_ webView: WKWebView, didFailProvisionalNavigation navigation: WKNavigation!, withError error: Error) {
         if (error as NSError).code != NSURLErrorCancelled { fail("La fenêtre n’a pas pu charger Beam. Réouvrez Beam depuis la barre de menus pour réessayer.") }
     }
+    func webView(_ webView: WKWebView, runJavaScriptConfirmPanelWithMessage message: String, initiatedByFrame frame: WKFrameInfo, completionHandler: @escaping (Bool) -> Void) {
+        let alert = NSAlert(); alert.messageText = "Confirmer l’action"; alert.informativeText = message
+        alert.addButton(withTitle: "Confirmer"); alert.addButton(withTitle: "Annuler")
+        if let window = webView.window { alert.beginSheetModal(for: window) { response in completionHandler(response == .alertFirstButtonReturn) } }
+        else { completionHandler(alert.runModal() == .alertFirstButtonReturn) }
+    }
     func fail(_ message: String) {
         starting = false
         if let process = server, process.isRunning { process.terminate() }; server = nil

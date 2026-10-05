@@ -72,7 +72,7 @@ const ST = {
     subtitle: "En développement",
     icon: Clock3,
   },
-  done: { label: "Livré", subtitle: "Disponible dans PULS", icon: CheckCheck },
+  done: { label: "Livré", subtitle: "Disponible pour les utilisateurs", icon: CheckCheck },
 };
 const PR = { high: "Haute", medium: "Normale", low: "Basse" };
 const CAT = [
@@ -182,7 +182,7 @@ function App() {
     [sort, setSort] = useState("manual"),
     [kanbanSaving, setKanbanSaving] = useState(false),
     [typeFilter, setTypeFilter] = useState("all"),
-    [product, setProduct] = useState({ name: "PULS" }),
+    [product, setProduct] = useState({ name: "Mon workspace" }),
     [signals, setSignals] = useState([]),
     [commandOpen, setCommandOpen] = useState(false),
     [statusFilter, setStatusFilter] = useState("all"),

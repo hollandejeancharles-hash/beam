@@ -494,7 +494,7 @@ export function createIntegrations(
     product() {
       return JSON.parse(
         db.prepare("SELECT value FROM metadata WHERE key='product'").get()
-          ?.value || '{"name":"PULS"}',
+          ?.value || '{"name":"Mon workspace"}',
       );
     },
     async saveProduct(input) {
@@ -506,7 +506,7 @@ export function createIntegrations(
         throw new SourceError("Nom du produit invalide");
       const old = JSON.parse(
         db.prepare("SELECT value FROM metadata WHERE key='product'").get()
-          ?.value || '{"name":"PULS"}',
+          ?.value || '{"name":"Mon workspace"}',
       );
       const product = { ...old, name: input.name.trim() };
       if (input.description !== undefined) {

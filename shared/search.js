@@ -125,7 +125,7 @@ export function buildSearchRecords(
         d.state === "archived",
         d.note_id,
       );
-  for (const n of notes)
+  for (const n of notes.filter((n)=>n.state!=="deleted"))
     add(
       "note",
       n.id,
@@ -192,7 +192,7 @@ export function buildSearchRecords(
       [s.provider, s.scope, s.url].join(" "),
       "Intégration",
     );
-  for (const d of demands)
+  for (const d of demands.filter((d)=>!d.data.deleted))
     add(
       "demand",
       d.id,

@@ -559,7 +559,7 @@ const server = http.createServer(async (req, res) => {
           ]);
         if (url.pathname === "/api/admin/ai/reviews")
           return send(200, ai.list());
-        if (url.pathname === "/api/admin/notes") return send(200, notes.list());
+        if (url.pathname === "/api/admin/notes") return send(200, notes.list({trash:true}));
         if (
           url.pathname === "/api/public/product" ||
           url.pathname === "/api/admin/product"
@@ -646,6 +646,8 @@ const server = http.createServer(async (req, res) => {
       const demandMatch = url.pathname.match(
         /^\/api\/admin\/demands\/([0-9a-f-]{36})$/,
       );
+      if (demandMatch && req.method === "DELETE") return send(200, await demands.trash(demandMatch[1], body));
+      if (demandMatch && req.method === "PATCH" && body.restore === true) return send(200, await demands.trash(demandMatch[1],body,false));
       if (demandMatch && req.method === "PATCH")
         return send(200, await demands.update(demandMatch[1], body));
       if (

@@ -86,3 +86,10 @@ test("converting a note links the new item without changing its content or exist
   assert.throws(()=>n.linkItem("absent",task),/introuvable/);
   s.db.close();
 });
+
+test("trashed notes stay recoverable but are excluded from assistant sources",()=>{
+ const s=createStore(":memory:"),notes=createNotes(s);const note=notes.save({text:"Contenu à conserver"});
+ notes.save({state:"deleted"},note.id);assert.equal(notes.list().length,0);assert.equal(notes.list({trash:true})[0].text,note.text);
+ notes.save({text:"Analyse tardive"},note.id,{automatic:true});assert.equal(notes.list({trash:true})[0].text,note.text);
+ notes.save({state:"open"},note.id);assert.equal(notes.list()[0].text,note.text);s.db.close();
+});

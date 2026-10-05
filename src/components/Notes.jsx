@@ -459,14 +459,14 @@ export default function Notes({
   const current = notes.find((n) => n.id === selected?.id) || null;
   const topics = [
     ...new Set(
-      notes.filter((n) => n.state !== "archived").flatMap((n) => n.tags),
+      notes.filter((n) => !["archived","deleted"].includes(n.state)).flatMap((n) => n.tags),
     ),
   ];
   const folders = notebookFolders(subjects.topics);
   const activeFolder = folders.find((t) => t.id === folder);
   const visible = notes.filter(
     (n) =>
-      (view === "archives" ? n.state === "archived" : n.state !== "archived") &&
+      (view === "trash" ? n.state === "deleted" : view === "archives" ? n.state === "archived" : !["archived","deleted"].includes(n.state)) &&
       (view !== "followup" ||
         (n.state === "open" && ["action", "followup"].includes(n.kind))) &&
       (view !== "review" || pending(n)) &&
@@ -606,6 +606,7 @@ export default function Notes({
             ["followup", "À suivre"],
             ["review", "À examiner"],
             ["archives", "Archives"],
+            ["trash", "Corbeille"],
           ].map(([id, label]) => (
             <button
               key={id}
@@ -752,6 +753,7 @@ export default function Notes({
                   followup: "À suivre",
                   review: "À examiner",
                   archives: "Archives",
+                  trash: "Corbeille",
                 }[view]}
             </strong>
             <small>
@@ -896,6 +898,7 @@ export default function Notes({
           <div>
             {current && !composing && !subject && (
               <>
+                <button className="text-button" onClick={()=>update(current,{state:current.state === "deleted" ? "open" : "deleted"})}>{current.state === "deleted" ? "Restaurer" : "Supprimer"}</button>
                 <button
                   className="text-button"
                   onClick={() =>
@@ -1101,7 +1104,7 @@ export default function Notes({
                   ))}
               </section>
             )}
-            <div className="note-conversion-actions">
+            <div className="note-conversion-actions" hidden={current.state === "deleted"}>
               <span>Transformer cette note</span>
               <div>
                 <button className="button" onClick={() => setDemandNote(current)}>En demande</button>
@@ -1390,7 +1393,7 @@ function InlineNoteEditor({ note, update, pending, onFiles, toolbarTarget }) {
         text={value}
         toolbarTarget={toolbarTarget}
         document={document}
-        readOnly={note.state === "archived"}
+        readOnly={["archived","deleted"].includes(note.state)}
         onChange={setDraft}
         onSave={() => void save()}
         onFiles={note.state === "archived" ? undefined : onFiles}

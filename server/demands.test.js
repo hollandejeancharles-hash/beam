@@ -287,3 +287,12 @@ test("a demand creates its feature under the selected initiative", async () => {
   assert.notEqual(id, parent);
   store.db.close();
 });
+
+test("demand trash preserves provenance and restores without recreating its feature",async()=>{
+ const {store,demands}=fixture(); const request=await demands.create({title:"Besoin",description:"Une demande"});
+ const removed=await demands.trash(request.id,{revision:request.revision});
+ assert.equal(removed.data.deleted,true); assert.deepEqual(removed.data.sources,request.data.sources);
+ await assert.rejects(demands.trash(request.id,{revision:request.revision},false),/changé/);
+ const restored=await demands.trash(request.id,{revision:removed.revision},false);
+ assert.equal(restored.data.deleted,false);assert.equal(restored.data.state,"review");assert.equal(store.list().length,0);store.db.close();
+});

@@ -445,6 +445,23 @@ export function createDemands(
         throw e;
       }
     },
+    async trash(id, body, deleted = true) {
+      const previous=(await rows()).find((r)=>r.id===id);
+      if(!previous) throw Error("Demande introuvable");
+      const data={...previous.data};
+      if(Boolean(data.deleted) === deleted) return previous;
+      if(deleted){
+        data.trash_before={state:data.state,item_id:data.item_id,reason:data.reason};
+        data.deleted=true; data.state="deferred"; data.item_id=null; data.reason="Placée dans la corbeille";
+      } else {
+        const before=data.trash_before || {};
+        const item=store.list().find((i)=>i.id===before.item_id);
+        data.deleted=false; data.item_id=item?.id || null;
+        data.state=before.state === "accepted" && !item ? "review" : before.state || "review";
+        data.reason=before.reason || "Restaurée depuis la corbeille";
+      }
+      return save(id,body.revision,data);
+    },
     async update(id, body) {
       const previous = (await rows()).find((r) => r.id === id);
       if (!previous) throw Error("Demande introuvable");
