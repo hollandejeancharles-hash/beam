@@ -158,13 +158,23 @@ test("compact model identifiers persist as original note sources", async () => {
   const service = createTopics(
     store,
     notes,
-    { signals: () => [] },
+    {
+      signals: () =>
+        Array.from({ length: 20 }, (_, index) => ({
+          id: String(index),
+          kind: "github",
+          title: "Recent release",
+          updated: "2099-01-01",
+          body: "Change",
+        })),
+    },
     { status: async () => ({ enabled: true }), busy: () => false },
     {
       fetcher: async (url, options) => {
         const request = JSON.parse(options.body);
         const prompt = JSON.parse(request.messages.at(-1).content);
         assert.ok(prompt.sources.every((source) => /^s\d+$/.test(source.id)));
+        assert.equal(prompt.sources.length, 2);
         return {
           ok: true,
           json: async () => ({
