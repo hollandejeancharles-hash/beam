@@ -7,7 +7,9 @@ import {
   readFileSync,
   existsSync,
   rmSync,
+  symlinkSync,
 } from "node:fs";
+import { spawnSync } from "node:child_process";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { replaceApp } from "../scripts/macos/install-update.mjs";
@@ -90,6 +92,37 @@ test("Failed final replacement restores the original app", async (t) => {
   mkdirSync(nested);
   await assert.rejects(
     replaceApp({ ...p, staged: nested }, { open: () => {} }),
+  );
+  assert.equal(readFileSync(join(p.current, "value"), "utf8"), "old");
+});
+
+test("Mac installer CLI executes through a symlinked temporary path", (t) => {
+  const p = fixture(t);
+  const root = join(p.recovery, "..");
+  const script = join(root, "install-update.mjs");
+  writeFileSync(
+    script,
+    readFileSync(
+      new URL("../scripts/macos/install-update.mjs", import.meta.url),
+    ),
+  );
+  const alias = root + "-alias";
+  symlinkSync(root, alias);
+  t.after(() => rmSync(alias));
+  // Wait on this test process: the helper must acknowledge startup before mutation.
+  writeFileSync(
+    join(root, "plan.json"),
+    JSON.stringify({ ...p, pid: process.pid }),
+  );
+  const child = spawnSync(
+    process.execPath,
+    [join(alias, "install-update.mjs"), join(root, "plan.json")],
+    { timeout: 1000 },
+  );
+  assert.equal(child.error?.code, "ETIMEDOUT");
+  assert.equal(
+    JSON.parse(readFileSync(join(root, "started.json"))).started,
+    true,
   );
   assert.equal(readFileSync(join(p.current, "value"), "utf8"), "old");
 });

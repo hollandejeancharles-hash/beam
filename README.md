@@ -4,7 +4,7 @@ Beam est un espace de pilotage produit : organisez vos initiatives, projets et f
 
 ## Installer Beam sur Mac
 
-**[⬇ Télécharger Beam pour Mac — Apple Silicon](https://github.com/hollandejeancharles-hash/beam/releases/download/v2.0.0-beta.39/Beam-AppleSilicon.dmg)** · [Notes de version](https://github.com/hollandejeancharles-hash/beam/releases/tag/v2.0.0-beta.39)
+**[⬇ Télécharger Beam pour Mac — Apple Silicon](https://github.com/hollandejeancharles-hash/beam/releases/download/v2.0.0-beta.40/Beam-AppleSilicon.dmg)** · [Notes de version](https://github.com/hollandejeancharles-hash/beam/releases/tag/v2.0.0-beta.40)
 
 Mac **M1 ou plus récent**, **macOS 14+**. Pour l’IA locale, **16 Go de mémoire ou plus** sont recommandés. Aucun terminal, Node.js ou outil de développement à installer : le package contient Beam, Node et le moteur Ollama.
 
@@ -48,6 +48,8 @@ Le Gantt, le Kanban et les demandes du workspace partagé sont synchronisés via
 ## Vos données et les mises à jour
 
 Le package autonome conserve vos données dans `~/Library/Application Support/Beam/data`. Elles ne sont pas incluses dans l’installateur et ne sont pas effacées quand vous remplacez l’app.
+
+**Si une ancienne mise à jour ferme Beam sans rien installer :** quittez Beam, téléchargez la version ci-dessus et remplacez l’app dans Applications une fois. La bêta 40 corrige ce problème ; vos données restent dans Application Support.
 
 Depuis la bêta 35, choisissez **Beam → Rechercher une mise à jour…** dans le menu Mac, ou **Réglages du workspace → Installation → Mettre à jour Beam**. Beam télécharge et vérifie le paquet officiel, puis propose **Installer et relancer**. L’app doit être dans Applications, avec un accès en écriture. La version précédente et une sauvegarde des données sont conservées ; le menu Beam permet de revenir à cette version. macOS peut demander une nouvelle autorisation d’ouverture. Exportez régulièrement vos sauvegardes.
 

@@ -3,6 +3,7 @@ import {
   existsSync,
   mkdirSync,
   renameSync,
+  realpathSync,
   writeFileSync,
 } from "node:fs";
 import { execFileSync } from "node:child_process";
@@ -31,7 +32,8 @@ export async function replaceApp(
         return false;
       }
     });
-  const open = deps.open || ((path) => execFileSync("/usr/bin/open", [path]));
+  const open =
+    deps.open || ((path) => execFileSync("/usr/bin/open", ["-n", path]));
   for (let n = 0; n < 300 && [pid, serverPid].filter(Boolean).some(alive); n++)
     await delay(100);
   if ([pid, serverPid].filter(Boolean).some(alive))
@@ -84,11 +86,16 @@ export async function replaceApp(
 if (
   process.argv[2] &&
   import.meta.url ===
-    (await import("node:url")).pathToFileURL(process.argv[1]).href
+    (await import("node:url")).pathToFileURL(realpathSync(process.argv[1])).href
 ) {
   const { readFileSync } = await import("node:fs");
   const plan = JSON.parse(readFileSync(process.argv[2]));
   try {
+    writeFileSync(
+      join(dirname(process.argv[2]), "started.json"),
+      JSON.stringify({ started: true, pid: process.pid }),
+      { mode: 0o600 },
+    );
     await replaceApp(plan);
   } catch (e) {
     try {
@@ -101,7 +108,7 @@ if (
       mode: 0o600,
     });
     try {
-      execFileSync("/usr/bin/open", [plan.current]);
+      execFileSync("/usr/bin/open", ["-n", plan.current]);
     } catch {}
     process.exitCode = 1;
   }

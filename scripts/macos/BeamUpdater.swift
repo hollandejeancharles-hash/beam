@@ -9,6 +9,7 @@ final class BeamUpdater {
     var label: NSTextField?
     var progress: NSProgressIndicator?
     var timer: Timer?
+    var installer: Process?
     init(_ owner: BeamDelegate) { self.owner = owner }
     func alert(_ title: String, _ detail: String) { DispatchQueue.main.async { let a=NSAlert(); a.messageText=title; a.informativeText=detail; a.addButton(withTitle:"OK"); a.runModal() } }
     func begin(rollback: Bool = false) {
@@ -107,8 +108,28 @@ final class BeamUpdater {
             let recovery=URL(fileURLWithPath:owner.workDirectory).appendingPathComponent("update-backups/"+ISO8601DateFormatter().string(from:Date()))
             let value:[String:Any]=["current":app.path,"staged":staged.path,"previous":app.deletingLastPathComponent().appendingPathComponent(".Beam-previous.app").path,"data":owner.workDirectory+"/data","recovery":recovery.path,"pid":ProcessInfo.processInfo.processIdentifier,"serverPid":owner.server?.processIdentifier ?? 0,"rollback":rollback]
             try JSONSerialization.data(withJSONObject:value).write(to:plan)
-            let p=Process(); p.executableURL=node; p.arguments=[script.path,plan.path]; p.standardOutput=FileHandle.nullDevice; p.standardError=FileHandle.nullDevice; try p.run()
-            NSApplication.shared.terminate(nil)
+            let log=scratch.appendingPathComponent("installer.log")
+            FileManager.default.createFile(atPath:log.path,contents:nil,attributes:[.posixPermissions:0o600])
+            let output=try FileHandle(forWritingTo:log)
+            let p=Process(); p.executableURL=node; p.arguments=[script.path,plan.path]; p.standardOutput=output; p.standardError=output; try p.run()
+            self.installer=p
+            // Wait for the helper's acknowledgement before closing the app.
+            DispatchQueue.global().async {
+                let acknowledgement=scratch.appendingPathComponent("started.json")
+                for _ in 0..<100 {
+                    if FileManager.default.fileExists(atPath:acknowledgement.path) {
+                        DispatchQueue.main.async { NSApplication.shared.terminate(nil) }; return
+                    }
+                    if !p.isRunning { break }
+                    Thread.sleep(forTimeInterval:0.05)
+                }
+                if p.isRunning { p.terminate() }
+                let diagnostic=(try? String(contentsOf:log,encoding:.utf8)) ?? ""
+                DispatchQueue.main.async {
+                    self.installer=nil
+                    self.alert("Installation annulée", "Le programme d’installation n’a pas démarré. Beam reste ouvert et la version actuelle est conservée.\n"+String(diagnostic.prefix(500)))
+                }
+            }
         } catch { alert("Installation annulée",error.localizedDescription) }
     }
 }
