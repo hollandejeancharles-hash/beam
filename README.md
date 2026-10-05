@@ -49,7 +49,9 @@ Le Gantt, le Kanban et les demandes du workspace partagé sont synchronisés via
 
 Le package autonome conserve vos données dans `~/Library/Application Support/Beam/data`. Elles ne sont pas incluses dans l’installateur et ne sont pas effacées quand vous remplacez l’app.
 
-Beam permet de vérifier les nouvelles versions et d’exporter une sauvegarde depuis **Réglages du workspace → Votre installation**. Pour mettre à jour : quittez Beam, téléchargez le nouveau DMG, remplacez l’app dans Applications et relancez-la. Exportez régulièrement vos sauvegardes.
+Depuis la bêta 35, choisissez **Beam → Rechercher une mise à jour…** dans le menu Mac, ou **Réglages du workspace → Installation → Mettre à jour Beam**. Beam télécharge et vérifie le paquet officiel, puis propose **Installer et relancer**. L’app doit être dans Applications, avec un accès en écriture. La version précédente et une sauvegarde des données sont conservées ; le menu Beam permet de revenir à cette version. macOS peut demander une nouvelle autorisation d’ouverture. Exportez régulièrement vos sauvegardes.
+
+Pour transmettre Beam à vos collègues, partagez **[la page du dépôt](https://github.com/hollandejeancharles-hash/beam#installer-beam-sur-mac)** : le bouton de téléchargement en haut pointe vers la version publiée indiquée, avec les instructions d’installation. Envoyez ensuite votre lien d’invitation au workspace.
 
 ## Sécurité locale
 
