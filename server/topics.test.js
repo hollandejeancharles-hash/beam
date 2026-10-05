@@ -210,3 +210,57 @@ test("compact model identifiers persist as original note sources", async () => {
   );
   store.db.close();
 });
+
+test("empty model folders cannot mark notes as organized", async () => {
+  const store = createStore(":memory:"),
+    notes = createNotes(store);
+  store.db.exec(
+    "CREATE TABLE ai_reviews(entity_id TEXT,state TEXT,created TEXT,result TEXT)",
+  );
+  notes.save({ text: "Beam feedback from Arnaud" });
+  notes.save({ text: "Present Beam to Arnaud" });
+  const topics = createTopics(
+    store,
+    notes,
+    { signals: () => [] },
+    { status: async () => ({ enabled: true }), busy: () => false },
+    {
+      fetcher: async (url, options) => {
+        const request = JSON.parse(options.body);
+        assert.equal(
+          request.format.properties.topics.items.properties.members.minItems,
+          2,
+        );
+        return {
+          ok: true,
+          json: async () => ({
+            message: {
+              content: JSON.stringify({
+                topics: [
+                  {
+                    title: "Beam",
+                    summary: "Feedback",
+                    questions: [],
+                    members: [],
+                  },
+                ],
+              }),
+            },
+          }),
+        };
+      },
+    },
+  );
+  await topics.refresh();
+  assert.match(topics.list().error, /Sujet invalide/);
+  assert.equal(topics.list().topics.length, 0);
+  assert.equal(
+    store.db
+      .prepare(
+        "SELECT count(*) AS n FROM metadata WHERE key LIKE 'topic_seen:%'",
+      )
+      .get().n,
+    0,
+  );
+  store.db.close();
+});
