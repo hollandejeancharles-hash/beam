@@ -146,3 +146,55 @@ test("smart folders allow overlapping notes, preserve explicit corrections and h
   );
   store.db.close();
 });
+
+test("compact model identifiers persist as original note sources", async () => {
+  const store = createStore(":memory:"),
+    notes = createNotes(store);
+  store.db.exec(
+    "CREATE TABLE ai_reviews(entity_id TEXT,state TEXT,created TEXT,result TEXT)",
+  );
+  const a = notes.save({ text: "Permissions for the product" }),
+    b = notes.save({ text: "Review product permissions" });
+  const service = createTopics(
+    store,
+    notes,
+    { signals: () => [] },
+    { status: async () => ({ enabled: true }), busy: () => false },
+    {
+      fetcher: async (url, options) => {
+        const request = JSON.parse(options.body);
+        const prompt = JSON.parse(request.messages.at(-1).content);
+        assert.ok(prompt.sources.every((source) => /^s\d+$/.test(source.id)));
+        return {
+          ok: true,
+          json: async () => ({
+            message: {
+              content: JSON.stringify({
+                topics: [
+                  {
+                    title: "Permissions",
+                    summary: "Product permissions",
+                    questions: [],
+                    members: prompt.sources.map((source) => ({
+                      id: source.id,
+                      confidence: "clear",
+                    })),
+                  },
+                ],
+              }),
+            },
+          }),
+        };
+      },
+    },
+  );
+  await service.refresh();
+  assert.deepEqual(
+    service
+      .list()
+      .topics[0].sources.map((source) => source.id)
+      .sort(),
+    ["note:" + a.id, "note:" + b.id].sort(),
+  );
+  store.db.close();
+});

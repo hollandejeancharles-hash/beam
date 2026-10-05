@@ -192,10 +192,15 @@ export function createCollaboration(
     return state();
   }
   const listeners = new Set();
-  let changeVersion = 0;
+  let changeVersion = 0,
+    contentVersion = 0;
   const emit = () => {
     changeVersion++;
     listeners.forEach((f) => f());
+  };
+  const contentChanged = () => {
+    contentVersion++;
+    emit();
   };
   const exclusive = (f) => {
     const next = queue.then(f);
@@ -292,7 +297,7 @@ export function createCollaboration(
         .run(JSON.stringify(next));
       workspace = { ...workspace, name: row.name };
       put("beam_shared_workspace", workspace);
-      emit();
+      contentChanged();
     }
   }
   async function pull() {
@@ -383,7 +388,7 @@ export function createCollaboration(
           table: "beam_demands",
           filter: "workspace_id=eq." + workspace.id,
         },
-        emit,
+        contentChanged,
       )
       .on(
         "postgres_changes",
@@ -466,6 +471,7 @@ export function createCollaboration(
           : {}),
       },
       changeVersion,
+      contentVersion,
       userId: session?.user?.id || null,
       signedIn: !!session,
       email: session?.user?.email || "",

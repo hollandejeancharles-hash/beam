@@ -267,7 +267,18 @@ function App() {
       current ? latest.find((i) => i.id === current.id) || null : null,
     );
   }
-  async function refresh() {
+  const refreshInFlight = useRef(null);
+  const pageRef = useRef(page);
+  pageRef.current = page;
+  function refresh() {
+    if (refreshInFlight.current) return refreshInFlight.current;
+    const promise = refreshData().finally(() => {
+      refreshInFlight.current = null;
+    });
+    refreshInFlight.current = promise;
+    return promise;
+  }
+  async function refreshData() {
     try {
       setError("");
       if (!publicMode) {
@@ -283,11 +294,24 @@ function App() {
         );
         setWorkspaceList({ ...state, active: workspaceIdRef.current });
       }
+      if (!publicMode) {
+        const [localProduct, localProfile] = await Promise.all([
+          api("admin/product"),
+          api("admin/profile"),
+        ]);
+        setProduct(localProduct);
+        setProfile(localProfile);
+        if (pageRef.current === "notes") setLoading(false);
+      }
       if (pagesMode) {
         try {
           const intake = await fetch(import.meta.env.BASE_URL + "intake.json");
-          setPublicIntake(intake.ok ? validatePublicIntake(await intake.json()) : null);
-        } catch { setPublicIntake(null); }
+          setPublicIntake(
+            intake.ok ? validatePublicIntake(await intake.json()) : null,
+          );
+        } catch {
+          setPublicIntake(null);
+        }
         const response = await fetch(import.meta.env.BASE_URL + "roadmap.json");
         if (!response.ok)
           throw Error("La roadmap est temporairement indisponible.");
@@ -297,8 +321,7 @@ function App() {
       } else {
         setItems(await api((publicMode ? "public" : "admin") + "/items"));
       }
-      if (!pagesMode)
-        setProduct(await api((publicMode ? "public" : "admin") + "/product"));
+      if (publicMode && !pagesMode) setProduct(await api("public/product"));
       if (!publicMode) {
         try {
           setSuggestions(
@@ -310,7 +333,6 @@ function App() {
           setSuggestions([]);
         }
         setSignals(await api("admin/signals"));
-        setProfile(await api("admin/profile"));
       }
       setAuth(false);
     } catch (e) {
@@ -397,12 +419,23 @@ function App() {
             "default",
         ),
     );
+    let lastContent = null;
     events.onmessage = (event) => {
       const state = JSON.parse(event.data);
       setSharedRevision(state.workspace?.revision ?? null);
       setSharedConnection(state);
-      window.dispatchEvent(new Event("beam-demands-changed"));
-      if (state.workspace) void refresh();
+      const content = JSON.stringify([
+        state.workspace?.id,
+        state.workspace?.revision,
+        state.contentVersion,
+        state.connected,
+        state.signedIn,
+      ]);
+      if (state.workspace && content !== lastContent) {
+        window.dispatchEvent(new Event("beam-demands-changed"));
+        void refresh();
+      }
+      lastContent = content;
     };
     return () => events.close();
   }, [key, workspaceList?.active]);
@@ -1219,9 +1252,9 @@ function App() {
                 )}
               </>
             )}
-          {loading ? (
+          {loading && (page !== "notes" || !workspaceList) ? (
             <div className="empty">Chargement de votre roadmap…</div>
-          ) : error && !auth ? (
+          ) : error && !auth && page !== "notes" ? (
             <div className="empty">
               {error}
               <button className="button" onClick={refresh}>

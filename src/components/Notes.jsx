@@ -1,3 +1,4 @@
+import { loadNotebook } from "../../shared/notebook-load";
 import NoteImage, { DraftImages } from "./NoteImage";
 import useVisiblePolling, { unchangedData } from "../hooks/useVisiblePolling";
 import { DemandCapture } from "./Demands";
@@ -9,7 +10,8 @@ import ReviewInbox from "./ReviewInbox";
 import { includesSearch } from "../../shared/search";
 import AIProgress from "./AIProgress";
 import React, { lazy, Suspense, useEffect, useRef, useState } from "react";
-const LazyRichNoteEditor = lazy(() => import("./RichNoteEditor"));
+const richEditorModule = import("./RichNoteEditor");
+const LazyRichNoteEditor = lazy(() => richEditorModule);
 function RichNoteEditor(props) {
   return (
     <Suspense fallback={<p className="notebook-hint">Ouverture de la note…</p>}>
@@ -329,32 +331,46 @@ export default function Notes({
       onTargetConsumed?.();
     }
   }, [initialTarget]);
+  const mounted = useRef(true);
+  useEffect(() => {
+    mounted.current = true;
+    return () => {
+      mounted.current = false;
+    };
+  }, []);
   async function load() {
-    try {
-      const [n, status, reviews, groups, queue] = await Promise.all([
-        api("admin/notes"),
-        api("admin/ai/status"),
-        api("admin/ai/reviews"),
-        api("admin/topics"),
-        api("admin/inbox"),
-      ]);
-      setInbox((previous) => unchangedData(previous, queue));
-      onInboxCount?.(queue.length);
-      setLoaded(true);
-      setNotes((previous) => unchangedData(previous, n));
-      setSubjects((previous) => unchangedData(previous, groups));
-      setSubject((previous) =>
-        previous
-          ? unchangedData(
-              previous,
-              groups.topics.find((t) => t.id === previous.id) || null,
-            )
-          : null,
-      );
-      setData((previous) => unchangedData(previous, { status, reviews }));
-    } catch (e) {
-      onError(e.message);
-    }
+    await loadNotebook(
+      api,
+      (section, value) => {
+        if (!mounted.current) return;
+        if (section === "notes") {
+          setNotes((previous) => unchangedData(previous, value));
+          setLoaded(true);
+        }
+        if (section === "inbox") {
+          setInbox((previous) => unchangedData(previous, value));
+          onInboxCount?.(value.length);
+        }
+        if (section === "subjects") {
+          setSubjects((previous) => unchangedData(previous, value));
+          setSubject((previous) =>
+            previous
+              ? unchangedData(
+                  previous,
+                  value.topics.find((t) => t.id === previous.id) || null,
+                )
+              : null,
+          );
+        }
+        if (section === "status" || section === "reviews")
+          setData((previous) =>
+            unchangedData(previous, { ...previous, [section]: value }),
+          );
+      },
+      (error, section) => {
+        if (mounted.current && section === "notes") onError(error.message);
+      },
+    );
   }
   useVisiblePolling(
     load,
@@ -637,7 +653,28 @@ export default function Notes({
                 : "Dossiers masqués"}
             </button>
           )}
-          {subjects.error && <p>{subjects.error}</p>}
+          {subjects.error && (
+            <>
+              <p>{subjects.error}</p>
+              <button
+                className="text-button"
+                disabled={subjects.running}
+                onClick={async () => {
+                  try {
+                    await api("admin/topics/refresh", {
+                      method: "POST",
+                      body: "{}",
+                    });
+                    await load();
+                  } catch (e) {
+                    onError(e.message);
+                  }
+                }}
+              >
+                Relancer le regroupement
+              </button>
+            </>
+          )}
         </section>
         <div className="notebook-index-footer">
           <span className={data.status?.enabled ? "active" : ""}>●</span>
