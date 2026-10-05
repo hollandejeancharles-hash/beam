@@ -6834,3 +6834,5 @@ main.notes-workspace{height:100dvh;display:flex;flex-direction:column;overflow:h
 .workspace-member small, .workspace-members > small { color: var(--muted, #999bad); }
 .member-online { color: #8ab99a; font-size: 12px; }
 .member-offline { color: var(--muted, #999bad); font-size: 12px; }
+
+.notebook-folder-row .notebook-folder-proposal{display:block;margin-top:3px;font-size:10px;color:#afa1df;white-space:normal}

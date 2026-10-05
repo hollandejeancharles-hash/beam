@@ -1,3 +1,4 @@
+import { notebookFolders } from "../../shared/notebook-folders";
 import { loadNotebook } from "../../shared/notebook-load";
 import NoteImage, { DraftImages } from "./NoteImage";
 import useVisiblePolling, { unchangedData } from "../hooks/useVisiblePolling";
@@ -425,14 +426,7 @@ export default function Notes({
       notes.filter((n) => n.state !== "archived").flatMap((n) => n.tags),
     ),
   ];
-  const folders = subjects.topics
-    .map((t) => ({
-      ...t,
-      noteIds: t.sources
-        .filter((s) => s.id.startsWith("note:") && s.confidence === "clear")
-        .map((s) => s.id.slice(5)),
-    }))
-    .filter((t) => t.folderEligible || t.noteIds.length >= 2);
+  const folders = notebookFolders(subjects.topics);
   const activeFolder = folders.find((t) => t.id === folder);
   const visible = notes.filter(
     (n) =>
@@ -621,7 +615,14 @@ export default function Notes({
                   }}
                 >
                   <FileText size={14} />
-                  <span>{t.title}</span>
+                  <span>
+                    {t.title}
+                    {t.proposed && (
+                      <small className="notebook-folder-proposal">
+                        À confirmer
+                      </small>
+                    )}
+                  </span>
                   <small>{t.noteIds.length}</small>
                 </button>
                 <button
@@ -715,12 +716,17 @@ export default function Notes({
             </strong>
             <small>
               {visible.length} note{visible.length > 1 ? "s" : ""}
+              {activeFolder?.proposed ? " · Liens à confirmer" : ""}
             </small>
           </div>
           {activeFolder ? (
             <button
               className="icon-button"
-              aria-label="Comprendre ce dossier"
+              aria-label={
+                activeFolder.proposed
+                  ? "Vérifier les rapprochements proposés"
+                  : "Comprendre ce dossier"
+              }
               onClick={() => {
                 setSubject(activeFolder);
                 setSelected(null);
