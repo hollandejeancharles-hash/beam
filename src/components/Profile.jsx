@@ -31,7 +31,7 @@ export default function Profile({
         .then(setAccount)
         .catch(() => setAccount({ unavailable: true }));
   }, []);
-  const dirty = ["name", "role", "email", "photo"].some(
+  const dirty = ["name", "role", "email", "photo", "showTrackedItems"].some(
     (key) => (draft[key] || "") !== (profile[key] || ""),
   );
   async function photo(file) {
@@ -210,6 +210,14 @@ export default function Profile({
           )}
         </section>
       )}
+      <section className="profile-navigation-preference">
+        <h3>Navigation</h3>
+        <label className="shared-checkbox">
+          <input type="checkbox" checked={draft.showTrackedItems === true} onChange={(e) => setDraft({...draft, showTrackedItems:e.target.checked})} />
+          Afficher les initiatives et projets dans le menu
+        </label>
+        <p className="modal-copy">Masqués par défaut. Ils restent accessibles dans la planification et la recherche.</p>
+      </section>
       {error && (
         <p role="alert" className="source-error">
           {error}

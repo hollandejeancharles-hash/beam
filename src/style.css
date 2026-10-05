@@ -6857,3 +6857,21 @@ main.notes-workspace{height:100dvh;display:flex;flex-direction:column;overflow:h
 .note-conversion-actions > span { font-weight: 600; }
 .note-conversion-actions > div { display: flex; flex-wrap: wrap; gap: 10px; }
 .note-conversion-actions small { color: var(--muted); line-height: 1.6; }
+
+.notes-notebook { position: relative; }
+.notes-workspace .notes-notebook,.capture-notebook .notes-notebook {grid-template-columns:minmax(140px,var(--note-index-width,185px)) minmax(200px,var(--note-list-width,265px)) minmax(320px,1fr)}
+.notebook-resizer {position:absolute;top:0;bottom:0;width:8px;z-index:12;cursor:col-resize;touch-action:none;transform:translateX(-50%)}
+.resizer-index {left:var(--note-index-width,185px)}
+.resizer-list {left:calc(var(--note-index-width,185px) + var(--note-list-width,265px))}
+.notebook-resizer:hover,.notebook-resizer:focus-visible {background:#a898df44;outline:none}
+.notes-workspace .notes-notebook.note-focus,.capture-notebook .notes-notebook.note-focus {grid-template-columns:minmax(0,1fr)}
+.notes-notebook.note-focus > .notebook-index,.notes-notebook.note-focus > .notebook-list-pane,.notes-notebook.note-focus > .notebook-resizer {display:none}
+.notes-notebook.note-focus > .notebook-detail {display:block}
+.profile-navigation-preference {display:grid;gap:12px;margin:24px 0;padding-top:24px;border-top:1px solid var(--line)}
+.profile-navigation-preference h3,.profile-navigation-preference p {margin:0}
+.profile-navigation-preference .shared-checkbox {display:flex;flex-direction:row;align-items:center;gap:12px}
+.profile-navigation-preference input {width:16px;height:16px}
+@media(max-width:900px){.notebook-resizer{display:none}.notes-workspace .notes-notebook,.capture-notebook .notes-notebook{grid-template-columns:165px minmax(0,1fr)}.notes-workspace .notes-notebook.has-detail,.capture-notebook .notes-notebook.has-detail{grid-template-columns:minmax(0,1fr)}}
+
+.app.notes-focused > .sidebar {display:none}
+.app.notes-focused > main {margin-left:0;width:100%}

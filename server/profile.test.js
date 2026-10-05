@@ -22,3 +22,15 @@ test("profile validates inputs, normalizes private photos and allows removal", a
   assert.equal(p.get().photo, null);
   s.db.close();
 });
+
+test("tracked initiatives stay hidden by default and the preference survives profile edits", async () => {
+  const s=createStore(":memory:"),p=createProfile(s);
+  assert.notEqual(p.get().showTrackedItems,true);
+  await p.save({showTrackedItems:true});
+  await p.save({name:"JC"});
+  assert.equal(p.get().showTrackedItems,true);
+  await p.save({showTrackedItems:false});
+  assert.equal(p.get().showTrackedItems,false);
+  await assert.rejects(p.save({showTrackedItems:"true"}));
+  s.db.close();
+});

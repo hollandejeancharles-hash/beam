@@ -255,10 +255,46 @@ export default function Notes({
   onPrepare,
   onInboxCount,
   onCaptureDraft,
+  onFocusMode,
 }) {
   const workspaceId =
     new URLSearchParams(location.search).get("workspace") || "default";
   const [demandNote, setDemandNote] = useState(null);
+  const notebookRoot = useRef(null);
+  const [focusNote, setFocusNote] = useState(false);
+  useEffect(() => {onFocusMode?.(focusNote); return () => onFocusMode?.(false);}, [focusNote,onFocusMode]);
+  const [paneWidths, setPaneWidths] = useState(() => {
+    try { const saved=JSON.parse(localStorage.getItem("beam_note_columns")); return {index:Math.max(140,Math.min(360,Number(saved?.index)||185)),list:Math.max(200,Math.min(520,Number(saved?.list)||265))}; } catch { return {index:185,list:265}; }
+  });
+  useEffect(() => { localStorage.setItem("beam_note_columns",JSON.stringify(paneWidths)); }, [paneWidths]);
+  useEffect(() => {
+    const observer = new ResizeObserver(([entry]) => {
+      const width=entry.contentRect.width;
+      if(width < 660 || focusNote) return;
+      setPaneWidths((old)=>{
+        const index=Math.min(old.index,Math.max(140,width-520));
+        const list=Math.min(old.list,Math.max(200,width-index-320));
+        return index===old.index && list===old.list ? old : {index,list};
+      });
+    });
+    if(notebookRoot.current) observer.observe(notebookRoot.current);
+    return ()=>observer.disconnect();
+  }, [focusNote]);
+  function resizePane(e, pane) {
+    const separator=e.currentTarget, root=separator.parentElement, start=e.clientX, original=paneWidths[pane];
+    separator.setPointerCapture(e.pointerId);
+    const move=(event) => {
+      const other=paneWidths[pane === "index" ? "list" : "index"];
+      const max=Math.max(pane === "index" ? 140 : 200, Math.min(pane === "index" ? 360 : 520,root.clientWidth-other-320));
+      setPaneWidths((value)=>({...value,[pane]:Math.max(pane === "index" ? 140 : 200,Math.min(max,original+event.clientX-start))}));
+    };
+    const stop=()=>{separator.removeEventListener("pointermove",move);separator.removeEventListener("pointerup",stop);separator.removeEventListener("pointercancel",stop);};
+    separator.addEventListener("pointermove",move);separator.addEventListener("pointerup",stop);separator.addEventListener("pointercancel",stop);
+  }
+  function columnSeparator(pane, label) {
+    return <div className={`notebook-resizer resizer-${pane}`} role="separator" aria-label={label} aria-orientation="vertical" tabIndex={0} aria-valuemin={pane === "index" ? 140 : 200} aria-valuemax={pane === "index" ? 360 : 520} aria-valuenow={paneWidths[pane]} onPointerDown={(e)=>resizePane(e,pane)} onDoubleClick={()=>setPaneWidths({index:185,list:265})} onKeyDown={(e)=>{if(["ArrowLeft","ArrowRight"].includes(e.key)){e.preventDefault();setPaneWidths((value)=>({...value,[pane]:Math.max(pane === "index" ? 140 : 200,Math.min(pane === "index" ? 360 : 520,value[pane]+(e.key === "ArrowLeft" ? -20 : 20)))}));}}} />;
+  }
+
   const [composerKey, setComposerKey] = useState(
     () =>
       sessionStorage.getItem("beam-capture-composer:" + workspaceId) ||
@@ -547,8 +583,12 @@ export default function Notes({
   }
   return (
     <div
-      className={`notes-notebook ${composing || current || subject || settings || view === "review" ? "has-detail" : ""}`}
+      ref={notebookRoot}
+      style={{"--note-index-width":`${paneWidths.index}px`,"--note-list-width":`${paneWidths.list}px`}}
+      className={`notes-notebook ${focusNote ? "note-focus" : ""} ${composing || current || subject || settings || view === "review" ? "has-detail" : ""}`}
     >
+      {columnSeparator("index", "Largeur des dossiers")}
+      {columnSeparator("list", "Largeur de la liste des notes")}
       <aside className="notebook-index" aria-label="Votre carnet">
         <div className="notebook-index-head">
           <strong>Carnet</strong>
@@ -824,6 +864,7 @@ export default function Notes({
       </section>
       <section className="notebook-detail" aria-label="Note ouverte">
         <div className="notebook-detail-toolbar">
+          <button className="text-button" aria-pressed={focusNote} onClick={()=>setFocusNote(!focusNote)} title={focusNote ? "Afficher les colonnes du carnet" : "Masquer les colonnes pour se concentrer sur la note"}>{focusNote ? "Afficher le carnet" : "Agrandir la note"}</button>
           <button
             className="text-button notebook-back"
             onClick={() => {

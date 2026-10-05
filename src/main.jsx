@@ -186,6 +186,7 @@ function App() {
     [signals, setSignals] = useState([]),
     [commandOpen, setCommandOpen] = useState(false),
     [statusFilter, setStatusFilter] = useState("all"),
+    [notesFocused, setNotesFocused] = useState(false),
     [sidebarCollapsed, setSidebarCollapsed] = useState(
       localStorage.getItem("beam_sidebar_collapsed") === "true",
     );
@@ -672,7 +673,8 @@ function App() {
       className={
         "app " +
         (publicMode ? "public " : "") +
-        (!publicMode && sidebarCollapsed ? "sidebar-collapsed" : "")
+        (!publicMode && sidebarCollapsed ? "sidebar-collapsed " : "") +
+        (page === "notes" && notesFocused ? "notes-focused" : "")
       }
     >
       <BeamsBackground intensity="subtle" />
@@ -783,7 +785,7 @@ function App() {
               />
             </nav>
           </div>
-          {items.some(
+          {profile.showTrackedItems === true && items.some(
             (i) => i.type === "initiative" || i.type === "project",
           ) && (
             <div className="sidebar-projects">
@@ -1332,6 +1334,7 @@ function App() {
             </>
           ) : page === "notes" && !publicMode ? (
             <Notes
+              onFocusMode={setNotesFocused}
               onInboxCount={setInboxCount}
               api={api}
               items={items}

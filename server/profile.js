@@ -22,6 +22,10 @@ export function createProfile(store) {
           next[key] = input[key].trim();
         }
       }
+      if (input.showTrackedItems !== undefined) {
+        if (typeof input.showTrackedItems !== "boolean") throw Error("Préférence invalide");
+        next.showTrackedItems = input.showTrackedItems;
+      }
       if (next.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(next.email))
         throw Error("Adresse email invalide");
       if (input.photo !== undefined) {

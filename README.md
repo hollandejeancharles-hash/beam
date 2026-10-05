@@ -4,7 +4,7 @@ Beam est un espace de pilotage produit : organisez vos initiatives, projets et f
 
 ## Installer Beam sur Mac
 
-**[⬇ Télécharger Beam pour Mac — Apple Silicon](https://github.com/hollandejeancharles-hash/beam/releases/download/v2.0.0-beta.49/Beam-AppleSilicon.dmg)** · [Notes de version](https://github.com/hollandejeancharles-hash/beam/releases/tag/v2.0.0-beta.49)
+**[⬇ Télécharger Beam pour Mac — Apple Silicon](https://github.com/hollandejeancharles-hash/beam/releases/download/v2.0.0-beta.50/Beam-AppleSilicon.dmg)** · [Notes de version](https://github.com/hollandejeancharles-hash/beam/releases/tag/v2.0.0-beta.50)
 
 Mac **M1 ou plus récent**, **macOS 14+**. Pour l’IA locale, **16 Go de mémoire ou plus** sont recommandés. Aucun terminal, Node.js ou outil de développement à installer : le package contient Beam, Node et le moteur Ollama.
 
@@ -118,3 +118,9 @@ Le nom, la description et le logo des workspaces partagés sont synchronisés pa
 ### Tâches et conversion des notes
 
 Les initiatives, projets et features peuvent contenir des tâches, visibles dans le Gantt et le Kanban. Leur avancement contribue à celui du parent. Dans une note, « Transformer cette note » permet de préparer une demande, une tâche ou une feature. Le formulaire reste à valider ; la note et ses pièces jointes restent dans le carnet, avec un lien vers l’élément créé.
+
+### Affichage du carnet et du menu
+
+Les initiatives et projets sont masqués par défaut dans le menu latéral. Pour les afficher : **Mon profil → Navigation → Afficher les initiatives et projets dans le menu**, puis enregistrer.
+
+Dans le carnet, glissez les séparateurs pour ajuster les colonnes. Leurs largeurs sont mémorisées sur ce Mac. **Agrandir la note** masque le menu et les colonnes ; **Afficher le carnet** les restaure. Les séparateurs acceptent aussi les flèches gauche/droite au clavier et un double-clic rétablit les largeurs par défaut.
