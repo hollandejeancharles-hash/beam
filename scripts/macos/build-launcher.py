@@ -36,9 +36,9 @@ with tempfile.TemporaryDirectory(prefix='beam-mac-') as scratch:
     executable = contents / 'MacOS' / 'Beam'
     source = scratch / 'main.swift'
     source.write_text((repo / 'scripts/macos/BeamUpdater.swift').read_text() + '\n' + (repo / 'scripts/macos/Beam.swift').read_text())
-    subprocess.run(['xcrun', 'swiftc', '-O', '-module-cache-path', str(Path(tempfile.gettempdir()) / 'beam-swift-cache'), str(source), '-o', str(executable)], check=True)
+    subprocess.run(['xcrun', 'swiftc', '-target', 'arm64-apple-macos14.0', '-O', '-module-cache-path', str(Path(tempfile.gettempdir()) / 'beam-swift-cache'), str(source), '-o', str(executable)], check=True)
     secure = contents / 'MacOS' / 'BeamSecureStore'
-    subprocess.run(['xcrun', 'swiftc', '-O', '-module-cache-path', str(Path(tempfile.gettempdir()) / 'beam-swift-cache'), str(repo / 'scripts/macos/SecureStore.swift'), '-o', str(secure)], check=True)
+    subprocess.run(['xcrun', 'swiftc', '-target', 'arm64-apple-macos14.0', '-O', '-module-cache-path', str(Path(tempfile.gettempdir()) / 'beam-swift-cache'), str(repo / 'scripts/macos/SecureStore.swift'), '-o', str(secure)], check=True)
     subprocess.run(['codesign', '--force', '--sign', '-', str(secure)], check=True)
     iconset = scratch / 'Beam.iconset'
     iconset.mkdir()
@@ -51,7 +51,7 @@ with tempfile.TemporaryDirectory(prefix='beam-mac-') as scratch:
     subprocess.run(['iconutil', '-c', 'icns', str(iconset), '-o', str(contents / 'Resources' / 'Beam.icns')], check=True)
     shutil.copy2(repo / 'scripts/macos/install-update.mjs', contents / 'Resources' / 'install-update.mjs')
     version = json.loads((repo / 'shared/version.json').read_text())['version']
-    info = {'CFBundleName': 'Beam', 'CFBundleDisplayName': 'Beam', 'CFBundleIdentifier': 'local.beam.desktop', 'CFBundleExecutable': 'Beam', 'CFBundlePackageType': 'APPL', 'CFBundleShortVersionString': version.split('-')[0], 'CFBundleVersion': '38', 'BeamVersion': version, 'CFBundleIconFile': 'Beam.icns', 'NSHighResolutionCapable': True, 'LSMinimumSystemVersion': '12.0', 'BeamRepository': str(repo), 'BeamNode': node}
+    info = {'CFBundleName': 'Beam', 'CFBundleDisplayName': 'Beam', 'CFBundleIdentifier': 'local.beam.desktop', 'CFBundleExecutable': 'Beam', 'CFBundlePackageType': 'APPL', 'CFBundleShortVersionString': version.split('-')[0], 'CFBundleVersion': '39', 'BeamVersion': version, 'CFBundleIconFile': 'Beam.icns', 'NSHighResolutionCapable': True, 'LSMinimumSystemVersion': '14.0', 'BeamRepository': str(repo), 'BeamNode': node}
     info['CFBundleURLTypes'] = [{'CFBundleURLName': 'local.beam.invitation', 'CFBundleURLSchemes': ['beam']}]
     if args.portable:
         runtime = contents / 'Resources' / 'runtime'
@@ -112,6 +112,11 @@ with tempfile.TemporaryDirectory(prefix='beam-mac-') as scratch:
                         process.wait(timeout=5)
                     except subprocess.TimeoutExpired:
                         process.kill(); process.wait()
+    for binary in [executable, secure]:
+        report = subprocess.check_output(['xcrun', 'vtool', '-show-build', str(binary)], text=True)
+        minimums = [line.split()[-1] for line in report.splitlines() if line.strip().startswith('minos ')]
+        if not minimums or any(tuple(map(int, v.split('.'))) > (14, 0) for v in minimums):
+            raise SystemExit('Le binaire exige un macOS plus récent que macOS 14 : ' + str(binary))
     output.parent.mkdir(parents=True, exist_ok=True)
     if args.portable and output.suffix == '.dmg':
         disk = scratch / 'disk'
