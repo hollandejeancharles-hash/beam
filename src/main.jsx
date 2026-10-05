@@ -511,6 +511,7 @@ function App() {
         return;
       }
       const fromDemand = !!edit._demand_id;
+      const fromNote = !!edit._source_note_id;
       await api("admin/items" + (edit.id ? "/" + edit.id : ""), {
         method: edit.id ? "PATCH" : "POST",
         body: JSON.stringify(edit),
@@ -519,7 +520,7 @@ function App() {
       setSelected(null);
       await refresh();
       window.dispatchEvent(new Event("beam-demands-changed"));
-      if (fromDemand) {
+      if (fromDemand || fromNote) {
         setCategory("all");
         setTypeFilter("all");
         setStatusFilter("all");
@@ -530,8 +531,10 @@ function App() {
       }
       setToast(
         fromDemand
-          ? "Feature créée et reliée à la demande"
-          : "Évolution enregistrée",
+          ? `${TYPES[edit.type]} créée et reliée à la demande`
+          : fromNote
+            ? `${TYPES[edit.type]} créée et reliée à la note`
+            : "Évolution enregistrée",
       );
     } catch (e) {
       setToast(e.message);
@@ -787,7 +790,7 @@ function App() {
               <div className="nav-caption">INITIATIVES ET PROJETS</div>
               <TreeNav
                 items={hierarchyRows(items)
-                  .filter(({ item }) => item.type !== "feature")
+                  .filter(({ item }) => ["initiative", "project"].includes(item.type))
                   .map(({ item, depth }) => ({
                     label: item.title,
                     href: "#element-" + item.id,
@@ -1035,15 +1038,15 @@ function App() {
                           : "Partagez les nouveautés et la direction de votre produit."
                         : publicMode
                           ? pagesMode
-                            ? "Les initiatives, projets et features de " +
+                            ? "Les initiatives, projets, features et tâches de " +
                               product.name +
                               " dans le temps."
                             : "Suivez les évolutions de " +
                               product.name +
                               " et votez pour vos priorités."
                           : page === "kanban"
-                            ? "Suivez l’exécution de vos initiatives, projets et features par statut."
-                            : "Suivez vos initiatives, projets et features sur une même chronologie."}
+                            ? "Suivez l’exécution de vos initiatives, projets, features et tâches par statut."
+                            : "Suivez vos initiatives, projets, features et tâches sur une même chronologie."}
               </p>
             </div>
             {(!pagesMode || publicIntake) &&
@@ -1348,7 +1351,7 @@ function App() {
                 );
               }}
               onPrepare={(draft) => {
-                setEdit({ ...blank, ...draft, visibility: "private" });
+                setEdit({ ...blank, ...draft, quarter: items.find((i) => i.id === draft.parent_id)?.quarter || blank.quarter, visibility: "private" });
               }}
             />
           ) : page === "integrations" && !publicMode ? (
@@ -1400,6 +1403,7 @@ function App() {
               onPrepare={(d) =>
                 setEdit({
                   ...blank,
+                  type: d.type === "task" ? "task" : "feature",
                   title: d.title,
                   description: d.description,
                   visibility: "private",
@@ -1917,7 +1921,9 @@ function App() {
         <Modal
           title={
             edit._demand_id
-              ? "Créer une feature depuis la demande"
+              ? `Créer une ${TYPES[edit.type].toLowerCase()} depuis la demande`
+              : edit._source_note_id
+                ? `Créer une ${TYPES[edit.type].toLowerCase()} depuis la note`
               : edit.id
                 ? "Modifier l’élément"
                 : "Nouvel élément"
@@ -2102,7 +2108,7 @@ function App() {
               <label>
                 {edit.type === "project"
                   ? "Initiative parente"
-                  : "Initiative ou projet parent"}
+                  : edit.type === "task" ? "Initiative, projet ou feature parent" : "Initiative ou projet parent"}
                 <select
                   value={edit.parent_id || ""}
                   onChange={(e) =>
@@ -2117,7 +2123,7 @@ function App() {
                         !i.archived &&
                         (edit.type === "project"
                           ? i.type === "initiative"
-                          : ["initiative", "project"].includes(i.type)),
+                          : edit.type === "task" ? ["initiative", "project", "feature"].includes(i.type) : ["initiative", "project"].includes(i.type)),
                     )
                     .map((i) => (
                       <option key={i.id} value={i.id}>
@@ -2231,7 +2237,7 @@ function App() {
                 {saving
                   ? "Enregistrement…"
                   : edit._demand_id
-                    ? "Créer et relier la feature"
+                    ? `Créer et relier la ${TYPES[edit.type].toLowerCase()}`
                     : "Enregistrer"}
                 <Check size={15} />
               </button>

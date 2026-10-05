@@ -73,3 +73,16 @@ test("private notes persist corrections, completion and reversible archives inde
   assert.throws(() => notes.save({ state: "invalid" }, n.id));
   store.db.close();
 });
+
+test("converting a note links the new item without changing its content or existing links", () => {
+  const s = createStore(":memory:"), n = createNotes(s);
+  const item = (type) => s.save({title:"Suivi",description:"",category:"Éditeur",priority:"medium",status:"planned",visibility:"private",quarter:"T4 2026",type});
+  const existing = item("feature"), task = item("task");
+  const note = n.save({text:"Préparer la validation",classification:{linked:[existing]}});
+  n.linkItem(note.id,task); n.linkItem(note.id,task);
+  const linked = n.list().find(x=>x.id===note.id);
+  assert.equal(linked.text,note.text);
+  assert.deepEqual(linked.linked,[existing,task]);
+  assert.throws(()=>n.linkItem("absent",task),/introuvable/);
+  s.db.close();
+});

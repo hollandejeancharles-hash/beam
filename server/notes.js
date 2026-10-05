@@ -43,6 +43,12 @@ export function createNotes(store) {
   return {
     list: () =>
       db.prepare("SELECT * FROM notes ORDER BY created DESC").all().map(decode),
+    linkItem(noteId, itemId) {
+      const row = db.prepare("SELECT * FROM notes WHERE id=?").get(noteId);
+      if (!row) throw Error("Note introuvable");
+      const note = decode(row);
+      return this.save({ classification: { linked: [...new Set([...note.linked, itemId])] } }, noteId);
+    },
     save(input, id = randomUUID(), { automatic = false } = {}) {
       let document;
       if (input.document !== undefined && !automatic) {

@@ -354,6 +354,7 @@ export default function Demands({
       }
       onPrepare({
         ...request.data,
+        type: parent?.type === "project" ? "task" : "feature",
         parent_id: parent?.id || null,
         _demand_id: request.id,
         _demand_revision: request.revision,
@@ -786,7 +787,7 @@ export default function Demands({
                     <section className="demand-decision">
                       <h3>Décider de la suite</h3>
                       <label>
-                        Créer sous une initiative ou relier à une feature
+                        Créer sous une initiative ou un projet, ou relier à un élément
                         <select
                           disabled={busy}
                           value={current.data.item_id || ""}
@@ -794,7 +795,7 @@ export default function Demands({
                             const destination = items.find(
                               (item) => item.id === e.target.value,
                             );
-                            if (destination && destination.type !== "feature") {
+                            if (destination && ["initiative", "project"].includes(destination.type)) {
                               void prepareFeature(destination);
                               return;
                             }
@@ -807,7 +808,7 @@ export default function Demands({
                           }}
                         >
                           <option value="">
-                            Choisir une initiative, un projet ou une feature
+                            Choisir une initiative, un projet, une feature ou une tâche
                           </option>
                           {items
                             .filter((i) => !i.archived)
@@ -825,7 +826,7 @@ export default function Demands({
                           </strong>
                           {items.find(
                             (item) => item.id === current.data.item_id,
-                          )?.type !== "feature" && (
+                          ) && ["initiative", "project"].includes(items.find((item) => item.id === current.data.item_id)?.type) && (
                             <button
                               className="button primary"
                               disabled={busy}
@@ -837,7 +838,7 @@ export default function Demands({
                                 )
                               }
                             >
-                              Créer une feature sous cet élément
+                              Créer une {items.find((item) => item.id === current.data.item_id)?.type === "project" ? "tâche" : "feature"} sous cet élément
                               <ArrowRight size={14} />
                             </button>
                           )}

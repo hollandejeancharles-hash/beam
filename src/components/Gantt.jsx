@@ -176,7 +176,7 @@ export default function Gantt({
   return (
     <section
       className="gantt"
-      aria-label="Gantt des initiatives, projets et features"
+      aria-label="Gantt des initiatives, projets, features et tâches"
     >
       <div className="gantt-controls">
         <div className="gantt-summary">
@@ -246,7 +246,7 @@ export default function Gantt({
         <div className="gantt-canvas" style={{ width: META + width }}>
           <div className="gantt-head">
             <div className="gantt-meta-head" style={{ width: META }}>
-              <span>INITIATIVES / PROJETS / FEATURES</span>
+              <span>ÉLÉMENTS</span>
               <span>PROGRÈS</span>
             </div>
             <div className="gantt-calendar" style={{ width }}>
@@ -596,7 +596,7 @@ export default function Gantt({
                 <Target size={24} />
                 <strong>Aucun élément à afficher</strong>
                 <span>
-                  Créez une initiative, un projet ou une feature pour commencer.
+                  Créez une initiative, un projet, une feature ou une tâche pour commencer.
                 </span>
               </div>
             )}

@@ -6851,3 +6851,9 @@ main.notes-workspace{height:100dvh;display:flex;flex-direction:column;overflow:h
 .welcome-team-step .collaboration-settings small { display: block; line-height: 1.7; }
 .welcome-team-step .collaboration-settings .button { align-self: flex-start; justify-self: start; margin: 0; max-width: 100%; white-space: normal; }
 .welcome-team-step + .welcome-footer { margin-top: 32px; padding-top: 24px; border-top: 1px solid var(--line); }
+
+.kind-mark.task { border-radius: 2px; background: #315c55; border-color: #7cbbab; }
+.note-conversion-actions { display: grid; gap: 12px; margin: 24px 0; }
+.note-conversion-actions > span { font-weight: 600; }
+.note-conversion-actions > div { display: flex; flex-wrap: wrap; gap: 10px; }
+.note-conversion-actions small { color: var(--muted); line-height: 1.6; }

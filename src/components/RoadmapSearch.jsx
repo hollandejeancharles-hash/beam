@@ -99,7 +99,7 @@ export default function RoadmapSearch({
             {
               id: "action:create",
               label: "Créer un élément",
-              searchText: "nouvelle initiative projet feature ajouter",
+              searchText: "nouvelle initiative projet feature tâche ajouter",
               icon: <Planning size={16} />,
               slots: [
                 {

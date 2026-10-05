@@ -889,6 +889,8 @@ const server = http.createServer(async (req, res) => {
         body.brief_id
       )
         productFlows.validateBrief(body.brief_id);
+      if (url.pathname === "/api/admin/items" && req.method === "POST" && body._source_note_id && !notes.list().some((note) => note.id === body._source_note_id))
+        return send(400, { error: "La note d’origine est introuvable." });
       if (
         /^\/api\/admin\/items(?:\/(?:kanban|reorder|[a-f0-9-]+(?:\/archive)?))?$/.test(
           url.pathname,
@@ -907,6 +909,8 @@ const server = http.createServer(async (req, res) => {
           body.brief_id
         )
           productFlows.linkBrief(body.brief_id, result.data.id);
+        if (result.status < 300 && req.method === "POST" && url.pathname === "/api/admin/items" && body._source_note_id)
+          notes.linkItem(body._source_note_id, result.data.id);
         return send(result.status, result.data);
       }
       if (
@@ -1120,6 +1124,7 @@ const server = http.createServer(async (req, res) => {
           ? demands.createFeature(body)
           : store.save(body);
         if (body.brief_id) productFlows.linkBrief(body.brief_id, id);
+        if (body._source_note_id) notes.linkItem(body._source_note_id, id);
         return send(201, { id });
       }
       const archiveItem = url.pathname.match(

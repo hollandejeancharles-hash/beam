@@ -38,6 +38,7 @@ const types = {
     initiative: "Initiative",
     project: "Projet",
     feature: "Feature",
+    task: "Tâche",
   },
   states = { planned: "À venir", progress: "En cours", done: "Livré" };
 export function buildSearchRecords(

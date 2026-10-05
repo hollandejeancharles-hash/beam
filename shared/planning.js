@@ -2,6 +2,7 @@ export const TYPES = {
   initiative: "Initiative",
   project: "Projet",
   feature: "Feature",
+  task: "Tâche",
 };
 export const DAY = 86400000;
 export function dateValue(value) {
@@ -107,12 +108,13 @@ export function validatePlanning(value, id, items) {
         parent.id === record.id ||
         !(
           (record.type === "project" && parent.type === "initiative") ||
+          (record.type === "task" && ["initiative", "project", "feature"].includes(parent.type)) ||
           (record.type === "feature" &&
             ["project", "initiative"].includes(parent.type))
         )
       )
         throw Error(
-          "Une feature se rattache à un projet ou une initiative ; un projet se rattache à une initiative",
+          "Une feature se rattache à un projet ou une initiative ; un projet se rattache à une initiative ; une tâche se rattache à une initiative, un projet ou une feature",
         );
     }
   }

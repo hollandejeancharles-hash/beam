@@ -146,3 +146,23 @@ test("features may sit directly under initiatives with optional project level", 
   assert.equal(hierarchyRows(s.list(), new Set([root])).length, 1);
   s.db.close();
 });
+
+test("tasks belong to initiatives, projects or features and participate in hierarchy and progress", () => {
+  const s = createStore(":memory:");
+  const initiative = s.save({ ...entry, type: "initiative" });
+  const project = s.save({ ...entry, type: "project", parent_id: initiative });
+  const task = s.save({ ...entry, type: "task", parent_id: project, status: "done" });
+  assert.equal(s.list().find(i => i.id === task).type, "task");
+  assert.equal(hierarchyRows(s.list()).find(r => r.item.id === task).depth, 2);
+  assert.equal(progressValue(s.list().find(i => i.id === project), s.list()), 100);
+  const feature = s.save({ ...entry, type: "feature", parent_id: initiative });
+  const initiativeTask = s.save({ ...entry, type: "task", parent_id: initiative });
+  const featureTask = s.save({ ...entry, type: "task", parent_id: feature });
+  assert.equal(s.list().find(i => i.id === initiativeTask).parent_id, initiative);
+  assert.equal(s.list().find(i => i.id === featureTask).parent_id, feature);
+  assert.throws(() => s.save({type:"task",parent_id:featureTask}, feature));
+  assert.throws(() => s.save({ ...entry, type: "task", parent_id: task }));
+  s.remove(project);
+  assert.equal(s.list().find(i => i.id === task).parent_id, null);
+  s.db.close();
+});

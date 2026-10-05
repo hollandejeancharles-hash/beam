@@ -1060,9 +1060,19 @@ export default function Notes({
                   ))}
               </section>
             )}
-            <button className="button" onClick={() => setDemandNote(current)}>
-              Préparer une demande
-            </button>
+            <div className="note-conversion-actions">
+              <span>Transformer cette note</span>
+              <div>
+                <button className="button" onClick={() => setDemandNote(current)}>En demande</button>
+                {["task", "feature"].map((type) => (
+                  <button key={type} className="button" disabled={!onPrepare} onClick={() => {
+                    const parents = items.filter((i) => current.linked?.includes(i.id) && (type === "task" ? ["initiative", "project", "feature"].includes(i.type) : i.type === "initiative"));
+                    onPrepare?.({type, title: current.text.split("\n").find((line) => line.trim())?.slice(0,140) || "Nouvel élément", description: current.text, parent_id: parents.length === 1 ? parents[0].id : null, _source_note_id: current.id});
+                  }}>En {type === "task" ? "tâche" : "feature"}</button>
+                ))}
+              </div>
+              <small>La note reste dans votre carnet. Vérifiez le contenu avant de le partager dans la roadmap.</small>
+            </div>
             {demandNote && (
               <div className="demand-overlay">
                 <DemandCapture

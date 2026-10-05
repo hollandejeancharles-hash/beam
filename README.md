@@ -4,7 +4,7 @@ Beam est un espace de pilotage produit : organisez vos initiatives, projets et f
 
 ## Installer Beam sur Mac
 
-**[⬇ Télécharger Beam pour Mac — Apple Silicon](https://github.com/hollandejeancharles-hash/beam/releases/download/v2.0.0-beta.48/Beam-AppleSilicon.dmg)** · [Notes de version](https://github.com/hollandejeancharles-hash/beam/releases/tag/v2.0.0-beta.48)
+**[⬇ Télécharger Beam pour Mac — Apple Silicon](https://github.com/hollandejeancharles-hash/beam/releases/download/v2.0.0-beta.49/Beam-AppleSilicon.dmg)** · [Notes de version](https://github.com/hollandejeancharles-hash/beam/releases/tag/v2.0.0-beta.49)
 
 Mac **M1 ou plus récent**, **macOS 14+**. Pour l’IA locale, **16 Go de mémoire ou plus** sont recommandés. Aucun terminal, Node.js ou outil de développement à installer : le package contient Beam, Node et le moteur Ollama.
 
@@ -114,3 +114,7 @@ Utilisez un disque persistant et HTTPS devant le serveur. Le mode serveur exige 
 Les visiteurs de la roadmap publique peuvent cliquer sur **Faire une demande**, sans compte Beam. La demande arrive dans **Demandes** du workspace partagé. Le portail PULS est activé ; les futurs exports incluent automatiquement son récepteur public. Aucune note privée ni clé serveur n’est publiée.
 
 Le nom, la description et le logo des workspaces partagés sont synchronisés par leur administrateur. **Réglages → Équipe** liste tous les membres ayant accepté leur invitation, y compris hors ligne ; la barre supérieure indique les personnes actuellement connectées.
+
+### Tâches et conversion des notes
+
+Les initiatives, projets et features peuvent contenir des tâches, visibles dans le Gantt et le Kanban. Leur avancement contribue à celui du parent. Dans une note, « Transformer cette note » permet de préparer une demande, une tâche ou une feature. Le formulaire reste à valider ; la note et ses pièces jointes restent dans le carnet, avec un lien vers l’élément créé.
