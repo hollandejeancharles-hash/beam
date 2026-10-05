@@ -108,3 +108,5 @@ BEAM_ADMIN_TOKEN='<une longue clé aléatoire>' HOST=0.0.0.0 PORT=5173 npm start
 Utilisez un disque persistant et HTTPS devant le serveur. Le mode serveur exige la clé administrateur ; les comptes de collaboration Supabase constituent un accès distinct. `BEAM_DB` permet de choisir le chemin SQLite. Un `Dockerfile` est fourni ; montez un volume persistant sur `/app/data`.
 
 [Connexions produit](docs/integrations.md) · [Slack et Teams](docs/conversation-intake.md) · [Schéma Supabase](supabase/README.md)
+
+Les visiteurs de la roadmap publique peuvent cliquer sur **Faire une demande**, sans compte Beam. La demande arrive dans **Demandes** du workspace partagé. Le portail PULS est activé ; les futurs exports incluent automatiquement son récepteur public. Aucune note privée ni clé serveur n’est publiée.

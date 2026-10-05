@@ -39,3 +39,7 @@ Les notes et les analyses restent locales. Seul l’extrait explicitement envoy�
 ### Conversations Slack et Teams
 
 Installer `004_intake.sql`, puis déployer `beam-slack` et `beam-teams`. Les fonctions vérifient l’authentification du fournisseur avant d’utiliser la RPC réservée au service Supabase. Les canaux autorisés sont liés par l’administrateur du projet à un workspace partagé ; les clients ne peuvent pas créer de liaison. Le registre de réception assure une création unique malgré les retries. [Configuration et limites](../docs/conversation-intake.md).
+
+## Demandes depuis la roadmap publique
+
+Installer `005_public_demands.sql`, puis déployer `beam-public-demands` avec `--no-verify-jwt`. Le propriétaire active le portail à travers l’export public de son workspace partagé. `intake.json` contient uniquement un identifiant de portail et l’URL du récepteur. La fonction contrôle l’origine autorisée, les champs et les limites de débit ; sa RPC est réservée au rôle serveur. Une même réception ne crée pas deux demandes. Les visiteurs ne peuvent lire aucune table privée.

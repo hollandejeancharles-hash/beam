@@ -361,6 +361,7 @@ const server = http.createServer(async (req, res) => {
         return send(200, {
           format: "beam-publication",
           version: 1,
+          intake: await collaboration.publicPortal(),
           product: integrations.product(),
           roadmap: publicRoadmap(store.list()),
           publications: publicPublications(publications.list()),

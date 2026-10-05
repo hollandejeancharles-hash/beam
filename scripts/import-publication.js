@@ -1,4 +1,5 @@
 import { existsSync, readFileSync, writeFileSync } from "node:fs";
+import { publicIntake } from "../shared/public-intake.js";
 import { publicRoadmap } from "./public-roadmap.js";
 import { publicPublications } from "../server/publications.js";
 const path = "public/beam-publication.json";
@@ -22,6 +23,7 @@ if (existsSync(path)) {
     version: 1,
     roadmap: publicRoadmap(file.roadmap),
     product,
+    intake: publicIntake(file.intake),
     publications: publicPublications(
       file.publications.map((row) => ({ ...row, state: "published" })),
     ),
@@ -30,6 +32,7 @@ if (existsSync(path)) {
   for (const [name, value] of Object.entries({
     roadmap: publicRoadmap(file.roadmap),
     product,
+    intake: publicIntake(file.intake),
     publications: publicPublications(
       file.publications.map((row) => ({ ...row, state: "published" })),
     ),

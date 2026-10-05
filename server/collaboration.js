@@ -732,6 +732,17 @@ export function createCollaboration(
         return { shared: true, setupRequired: true, connections: [] };
       return { shared: true, connections: check(result) };
     },
+    async publicPortal() {
+      if (!workspace || !config) return null;
+      await authenticate();
+      const portal = check(
+        await client.rpc("beam_public_portal", { p_workspace: workspace.id }),
+      );
+      return {
+        portal,
+        endpoint: config.url + "/functions/v1/beam-public-demands",
+      };
+    },
     async team(itemId) {
       if (!workspace) return { profiles: [], comments: [], activity: [] };
       await authenticate();

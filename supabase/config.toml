@@ -3,3 +3,5 @@
 verify_jwt = false
 [functions.beam-teams]
 verify_jwt = false
+[functions.beam-public-demands]
+verify_jwt = false

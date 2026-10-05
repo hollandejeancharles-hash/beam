@@ -16,6 +16,7 @@ import RoadmapScenario from "./components/RoadmapScenario";
 import { DATE_KINDS } from "../shared/roadmap-impact";
 import MenuBarCapture from "./components/MenuBarCapture";
 import { includesSearch } from "../shared/search";
+import { publicIntake as validatePublicIntake } from "../shared/public-intake.js";
 import Publications from "./components/Publications";
 import PublicRoadmap from "./components/PublicRoadmap";
 import AIProgress, { AIActivityProvider } from "./components/AIProgress";
@@ -126,6 +127,7 @@ function App() {
         ? { kind: "note", id: note, targetId: note }
         : null;
   });
+  const publicRequestId = useRef(null);
   const [logoReplay, setLogoReplay] = useState(0);
   const publicMode = pagesMode || location.pathname === "/roadmap";
   const [items, setItems] = useState([]),
@@ -157,6 +159,7 @@ function App() {
       null,
     ),
     [publicationView, setPublicationView] = useState("releases"),
+    [publicIntake, setPublicIntake] = useState(null),
     [suggest, setSuggest] = useState(false),
     [suggestions, setSuggestions] = useState([]),
     [showArchives, setShowArchives] = useState(false),
@@ -281,6 +284,10 @@ function App() {
         setWorkspaceList({ ...state, active: workspaceIdRef.current });
       }
       if (pagesMode) {
+        try {
+          const intake = await fetch(import.meta.env.BASE_URL + "intake.json");
+          setPublicIntake(intake.ok ? validatePublicIntake(await intake.json()) : null);
+        } catch { setPublicIntake(null); }
         const response = await fetch(import.meta.env.BASE_URL + "roadmap.json");
         if (!response.ok)
           throw Error("La roadmap est temporairement indisponible.");
@@ -992,7 +999,7 @@ function App() {
                             : "Suivez vos initiatives, projets et features sur une même chronologie."}
               </p>
             </div>
-            {!pagesMode &&
+            {(!pagesMode || publicIntake) &&
               page !== "integrations" &&
               page !== "notes" &&
               page !== "publications" &&
@@ -1006,7 +1013,7 @@ function App() {
                   }
                 >
                   <Plus size={17} />
-                  {publicMode ? "Proposer une idée" : "Nouvel élément"}
+                  {publicMode ? "Faire une demande" : "Nouvel élément"}
                 </button>
               )}
           </section>
@@ -2166,19 +2173,50 @@ function App() {
         </Modal>
       )}
       {suggest && (
-        <Modal title="Proposer une idée" close={() => setSuggest(false)}>
+        <Modal
+          title="Faire une demande"
+          close={() => {
+            setSuggest(false);
+            publicRequestId.current = null;
+          }}
+        >
           <form
             onSubmit={async (e) => {
               e.preventDefault();
               const data = new FormData(e.currentTarget);
               setSaving(true);
               try {
-                await api("public/suggestions", {
-                  method: "POST",
-                  body: JSON.stringify(Object.fromEntries(data)),
-                });
+                if (pagesMode) {
+                  if (!publicIntake)
+                    throw Error(
+                      "Les demandes ne sont pas encore activées sur ce portail.",
+                    );
+                  const fingerprint = JSON.stringify(Object.fromEntries(data));
+                  if (publicRequestId.current?.fingerprint !== fingerprint)
+                    publicRequestId.current = {
+                      id: crypto.randomUUID(),
+                      fingerprint,
+                    };
+                  const response = await fetch(publicIntake.endpoint, {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({
+                      ...Object.fromEntries(data),
+                      portal: publicIntake.portal,
+                      request: publicRequestId.current.id,
+                    }),
+                  });
+                  const result = await response.json();
+                  if (!response.ok || !result.received)
+                    throw Error(result.error || "Envoi impossible. Réessayez.");
+                  publicRequestId.current = null;
+                } else
+                  await api("public/suggestions", {
+                    method: "POST",
+                    body: JSON.stringify(Object.fromEntries(data)),
+                  });
                 setSuggest(false);
-                setToast("Merci ! Votre idée a été transmise à l’équipe.");
+                setToast("Merci ! Votre demande a été transmise à l’équipe.");
               } catch (e) {
                 setToast(e.message);
               } finally {
@@ -2190,8 +2228,18 @@ function App() {
               Dites-nous ce qui rendrait {product.name} encore plus utile au
               quotidien.
             </p>
+            <input
+              name="website"
+              tabIndex={-1}
+              autoComplete="off"
+              aria-hidden="true"
+              style={{ display: "none" }}
+            />
+            <p className="fine-print">
+              Votre demande sera partagée avec l’équipe du produit.
+            </p>
             <label>
-              Votre idée
+              Votre demande
               <input
                 name="title"
                 required
@@ -2211,7 +2259,7 @@ function App() {
             </label>
             <div className="modal-actions">
               <button className="button primary" disabled={saving}>
-                {saving ? "Envoi…" : "Envoyer mon idée"}
+                {saving ? "Envoi…" : "Envoyer ma demande"}
                 <ArrowRight size={15} />
               </button>
             </div>
