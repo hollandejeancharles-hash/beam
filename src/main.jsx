@@ -510,6 +510,7 @@ function App() {
         await previewPlanning(current, edit, false);
         return;
       }
+      const fromDemand = !!edit._demand_id;
       await api("admin/items" + (edit.id ? "/" + edit.id : ""), {
         method: edit.id ? "PATCH" : "POST",
         body: JSON.stringify(edit),
@@ -518,7 +519,11 @@ function App() {
       setSelected(null);
       await refresh();
       window.dispatchEvent(new Event("beam-demands-changed"));
-      setToast("Évolution enregistrée");
+      setToast(
+        fromDemand
+          ? "Feature créée et reliée à la demande"
+          : "Évolution enregistrée",
+      );
     } catch (e) {
       setToast(e.message);
     } finally {
@@ -1388,6 +1393,10 @@ function App() {
                   title: d.title,
                   description: d.description,
                   visibility: "private",
+                  priority: ["low", "medium", "high"].includes(d.priority)
+                    ? d.priority
+                    : "medium",
+                  _change_reason: d._change_reason,
                   _demand_id: d._demand_id,
                   _demand_revision: d._demand_revision,
                 })
@@ -1892,7 +1901,13 @@ function App() {
       )}
       {edit && !planningReview && (
         <Modal
-          title={edit.id ? "Modifier l’élément" : "Nouvel élément"}
+          title={
+            edit._demand_id
+              ? "Créer une feature depuis la demande"
+              : edit.id
+                ? "Modifier l’élément"
+                : "Nouvel élément"
+          }
           side
           close={() => setEdit(null)}
         >
@@ -1902,6 +1917,7 @@ function App() {
                 Type d’élément
                 <select
                   value={edit.type || "feature"}
+                  disabled={!!edit._demand_id}
                   onChange={(e) =>
                     setEdit({
                       ...edit,
@@ -2198,7 +2214,11 @@ function App() {
                 Annuler
               </button>
               <button className="button primary" disabled={saving}>
-                {saving ? "Enregistrement…" : "Enregistrer"}
+                {saving
+                  ? "Enregistrement…"
+                  : edit._demand_id
+                    ? "Créer et relier la feature"
+                    : "Enregistrer"}
                 <Check size={15} />
               </button>
             </div>

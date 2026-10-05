@@ -78,6 +78,15 @@ function fixture(role = "owner") {
         profileCalls.push(b);
         if (remote.failProfile) return { error: { message: "offline" } };
       }
+      if (name === "beam_create_from_demand") {
+        remote.lastConversion = b;
+        if (remote.conversionConflict)
+          return { error: { message: "BEAM_CONFLICT" } };
+        if (b.p_revision !== remote.revision)
+          return { error: { message: "BEAM_CONFLICT" } };
+        remote.items = b.p_items;
+        return { data: ++remote.revision };
+      }
       if (name === "beam_save_roadmap") {
         if (b.p_revision !== remote.revision)
           return { error: { message: "BEAM_CONFLICT" } };
@@ -454,5 +463,31 @@ test("A lost realtime channel clears stale avatars and recovers after an HTTP pu
   oldCallback("CLOSED");
   assert.equal(f.c.state().presenceStatus, "online");
   await f.c.close();
+  f.store.db.close();
+});
+
+test("shared feature creation uses atomic demand conversion and rejects a stale demand without adding an item", async () => {
+  const f = fixture();
+  await connect(f);
+  const body = {
+    ...item,
+    _revision: 0,
+    _demand_id: "request",
+    _demand_revision: 3,
+  };
+  const result = await f.c.items("POST", "/api/admin/items", body);
+  assert.equal(result.status, 201);
+  assert.equal(f.remote.lastConversion.p_demand, "request");
+  assert.equal(f.remote.lastConversion.p_demand_revision, 3);
+  assert.equal(f.remote.lastConversion.p_item, result.data.id);
+  assert.equal(f.store.list().length, 2);
+  f.remote.conversionConflict = true;
+  const rejected = await f.c.items("POST", "/api/admin/items", {
+    ...body,
+    _revision: 1,
+  });
+  assert.equal(rejected.status, 409);
+  assert.equal(f.store.list().length, 2);
+  assert.equal(f.remote.items.length, 2);
   f.store.db.close();
 });

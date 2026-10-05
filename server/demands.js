@@ -331,7 +331,9 @@ export function createDemands(
                 at: now,
                 actor: "local",
                 state: "accepted",
-                reason: "Feature créée depuis cette demande",
+                reason: String(
+                  body._change_reason || "Feature créée depuis cette demande",
+                ).slice(0, 1000),
               },
             ],
           },

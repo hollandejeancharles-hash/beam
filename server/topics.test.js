@@ -155,6 +155,7 @@ test("compact model identifiers persist as original note sources", async () => {
   );
   const a = notes.save({ text: "Permissions for the product" }),
     b = notes.save({ text: "Review product permissions" });
+  let signalDate = "2099-01-01";
   const service = createTopics(
     store,
     notes,
@@ -164,7 +165,7 @@ test("compact model identifiers persist as original note sources", async () => {
           id: String(index),
           kind: "github",
           title: "Recent release",
-          updated: "2099-01-01",
+          updated: signalDate,
           body: "Change",
         })),
     },
@@ -175,6 +176,7 @@ test("compact model identifiers persist as original note sources", async () => {
         const prompt = JSON.parse(request.messages.at(-1).content);
         assert.ok(prompt.sources.every((source) => /^s\d+$/.test(source.id)));
         assert.equal(prompt.sources.length, 2);
+        signalDate = "2099-02-01"; // An unrelated integration update must not discard the notes.
         return {
           ok: true,
           json: async () => ({

@@ -286,19 +286,15 @@ export function createTopics(
           seen.add(m.id);
         }
       }
+      const currentSources = new Map(
+        deduplicated().map((source) => [source.id, source]),
+      );
       if (
-        createHash("sha256")
-          .update(
-            JSON.stringify(
-              deduplicated().sort(
-                (a, b) =>
-                  Number(b.id.startsWith("note:")) -
-                    Number(a.id.startsWith("note:")) ||
-                  b.created.localeCompare(a.created),
-              ),
-            ),
-          )
-          .digest("hex") !== hash
+        batch.some(
+          (source) =>
+            !currentSources.has(source.id) ||
+            sourceHash(currentSources.get(source.id)) !== sourceHash(source),
+        )
       )
         throw Error("Les sources ont changé ; le regroupement sera relancé");
       progress.update("Enregistrement des sujets", 3);

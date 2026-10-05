@@ -630,8 +630,16 @@ export default function Demands({
                         </small>
                         <blockquote>{s.quote || current.data.title}</blockquote>
                         {s.author && <small>{s.author}</small>}
-                        {typeof s.url === "string" && /^https:\/\/(slack\.com|[a-z0-9-]+\.slack\.com|teams\.microsoft\.com)\//.test(s.url) &&
-                          <a href={s.url} target="_blank" rel="noreferrer">{s.url_kind === "channel" ? "Ouvrir le canal Slack" : "Ouvrir la conversation"}</a>}
+                        {typeof s.url === "string" &&
+                          /^https:\/\/(slack\.com|[a-z0-9-]+\.slack\.com|teams\.microsoft\.com)\//.test(
+                            s.url,
+                          ) && (
+                            <a href={s.url} target="_blank" rel="noreferrer">
+                              {s.url_kind === "channel"
+                                ? "Ouvrir le canal Slack"
+                                : "Ouvrir la conversation"}
+                            </a>
+                          )}
                       </div>
                     ))}
                   </section>
@@ -719,12 +727,13 @@ export default function Demands({
                         Relier à un élément existant
                         <select
                           disabled={busy}
-                          value=""
+                          value={current.data.item_id || ""}
                           onChange={(e) => {
                             if (e.target.value)
                               update({
                                 item_id: e.target.value,
                                 state: "accepted",
+                                reason,
                               });
                           }}
                         >
@@ -740,29 +749,66 @@ export default function Demands({
                             ))}
                         </select>
                       </label>
-                      <button
-                        className="button"
-                        disabled={
-                          busy ||
-                          !!current.data.item_id ||
-                          !["review", "clarify"].includes(current.data.state)
-                        }
-                        onClick={() =>
-                          onPrepare({
-                            ...current.data,
-                            _demand_id: current.id,
-                            _demand_revision: current.revision,
-                          })
-                        }
-                      >
-                        Préparer une feature
-                        <ArrowRight size={14} />
-                      </button>
-                      <p className="subtle">
-                        La création ouvre un brouillon. En l’enregistrant, la
-                        feature sera reliée à cette demande ; aucune livraison
-                        n’est engagée automatiquement.
-                      </p>
+                      {current.data.item_id ? (
+                        <div className="demand-linked-result">
+                          <strong>
+                            Cette demande est déjà reliée à la roadmap.
+                          </strong>
+                          <p>
+                            Vous pouvez ouvrir l’élément ou choisir un autre
+                            rattachement ci-dessus.
+                          </p>
+                          <button
+                            className="button"
+                            disabled={
+                              !items.some(
+                                (item) => item.id === current.data.item_id,
+                              )
+                            }
+                            onClick={() =>
+                              onOpenItem(
+                                items.find(
+                                  (item) => item.id === current.data.item_id,
+                                ),
+                              )
+                            }
+                          >
+                            Ouvrir{" "}
+                            {items.find(
+                              (item) => item.id === current.data.item_id,
+                            )?.title || "l’élément"}
+                            <ArrowRight size={14} />
+                          </button>
+                        </div>
+                      ) : ["review", "clarify"].includes(current.data.state) ? (
+                        <>
+                          <button
+                            className="button primary"
+                            disabled={busy}
+                            onClick={() =>
+                              onPrepare({
+                                ...current.data,
+                                _demand_id: current.id,
+                                _demand_revision: current.revision,
+                                _change_reason: reason,
+                              })
+                            }
+                          >
+                            Créer une feature…
+                            <ArrowRight size={14} />
+                          </button>
+                          <p className="subtle">
+                            Vérifiez la feature dans le formulaire. Elle sera
+                            créée et reliée à cette demande uniquement après
+                            l’enregistrement.
+                          </p>
+                        </>
+                      ) : (
+                        <p className="subtle">
+                          Remettez cette demande à examiner pour créer une
+                          feature.
+                        </p>
+                      )}
                       <label>
                         Contexte de la décision
                         <textarea
@@ -773,6 +819,12 @@ export default function Demands({
                           placeholder="Pourquoi cette décision ?"
                         />
                       </label>
+                      {!reason.trim() && (
+                        <p className="subtle">
+                          Pour différer ou refuser, indiquez le contexte de la
+                          décision.
+                        </p>
+                      )}
                       <div className="demand-actions">
                         <button
                           className="button"
