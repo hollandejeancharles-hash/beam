@@ -765,6 +765,7 @@ const server = http.createServer(async (req, res) => {
           result.workspace
         ) {
           const product = context(targetId).integrations.product();
+
           await context(targetId).integrations.saveProduct({
             ...product,
             name: result.workspace.name.slice(0, 80),
@@ -1058,7 +1059,21 @@ const server = http.createServer(async (req, res) => {
       if (decisionMatch && req.method === "PATCH")
         return send(200, decisions.decide(decisionMatch[1], body.state));
       if (url.pathname === "/api/admin/product" && req.method === "PATCH") {
+        if (
+          collaboration.active() &&
+          collaboration.state().workspace.role !== "owner"
+        )
+          throw Error(
+            "Seul l’administrateur peut modifier l’identité du workspace.",
+          );
+        const before = integrations.product();
         const product = await integrations.saveProduct(body);
+        try {
+          await collaboration.saveIdentity(product);
+        } catch (error) {
+          await integrations.saveProduct(before);
+          throw error;
+        }
         workspaces.notify();
         return send(200, product);
       }

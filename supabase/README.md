@@ -43,3 +43,5 @@ Installer `004_intake.sql`, puis déployer `beam-slack` et `beam-teams`. Les fon
 ## Demandes depuis la roadmap publique
 
 Installer `005_public_demands.sql`, puis déployer `beam-public-demands` avec `--no-verify-jwt`. Le propriétaire active le portail à travers l’export public de son workspace partagé. `intake.json` contient uniquement un identifiant de portail et l’URL du récepteur. La fonction contrôle l’origine autorisée, les champs et les limites de débit ; sa RPC est réservée au rôle serveur. Une même réception ne crée pas deux demandes. Les visiteurs ne peuvent lire aucune table privée.
+
+Installer `006_workspace_identity.sql` pour synchroniser le nom, la description et le logo des workspaces et lister tous les membres. Seul le propriétaire peut modifier cette identité. La liste ne divulgue aucune adresse e-mail et reste accessible uniquement aux membres du workspace.

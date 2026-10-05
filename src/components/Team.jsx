@@ -107,6 +107,16 @@ export function TeamPresence({ api, state, onOpen, activity = "browsing" }) {
       alive = false;
     };
   }, [state?.workspace?.id, state?.presence?.join(","), state?.changeVersion]);
+  useVisiblePolling(
+    async () => {
+      if (!state?.workspace) return;
+      try {
+        setProfiles((await api("admin/team")).profiles);
+      } catch {}
+    },
+    15000,
+    [state?.workspace?.id],
+  );
   usePresenceActivity(api, state, activity);
   if (!state?.workspace) return null;
   const online = profiles.filter((p) => state.presence?.includes(p.user_id));

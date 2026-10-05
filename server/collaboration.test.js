@@ -55,7 +55,7 @@ function fixture(role = "owner") {
           return {
             data:
               table === "beam_workspaces"
-                ? { id: "w", name: "Team" }
+                ? { id: "w", name: "Team", ...(remote.identity || {}) }
                 : table === "beam_members"
                   ? { role }
                   : { ...remote },
@@ -64,6 +64,11 @@ function fixture(role = "owner") {
       };
     },
     rpc: async (name, b) => {
+      if (name === "beam_team_members") return { data: remote.members || [] };
+      if (name === "beam_workspace_identity") {
+        remote.identity = { description: b.p_description, image: b.p_image, identity_configured: true };
+        remote.identityWrites = (remote.identityWrites || 0) + 1;
+      }
       if (name === "beam_team_profile") {
         profileCalls.push(b);
         if (remote.failProfile) return { error: { message: "offline" } };
@@ -358,4 +363,24 @@ test("Shared grouped rescheduling and undo are atomic and reject stale revisions
     await f.c.close();
     f.store.db.close();
   }
+});
+
+test("Joined members receive the shared workspace logo and description", async () => {
+  const f = fixture("editor");
+  f.remote.identity = { description: "Shared product", image: "data:image/png;base64,logo", identity_configured: true };
+  await connect(f);
+  const product = JSON.parse(f.store.db.prepare("SELECT value FROM metadata WHERE key='product'").get().value);
+  assert.equal(product.image, f.remote.identity.image);
+  assert.equal(product.description, "Shared product");
+  await f.c.close(); f.store.db.close();
+});
+test("Team lists accepted members even before their profile exists or while profile sync fails", async () => {
+  const f = fixture(); await connect(f);
+  f.remote.members = [{ user_id: "other", name: "Membre de l’équipe", role: "editor", photo: null }];
+  f.store.db.prepare("INSERT OR REPLACE INTO metadata VALUES('user_profile',?)").run(JSON.stringify({name: "New identity"}));
+  f.remote.failProfile = true;
+  const team = await f.c.team();
+  assert.deepEqual(team.profiles, f.remote.members);
+  assert.ok(team.warning);
+  await f.c.close(); f.store.db.close();
 });

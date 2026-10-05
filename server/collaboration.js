@@ -247,10 +247,51 @@ export function createCollaboration(
       put("beam_team_identity", fingerprint);
     }
   }
+  async function pullIdentity() {
+    const row = check(
+      await client
+        .from("beam_workspaces")
+        .select("id,name,description,image,identity_configured")
+        .eq("id", workspace.id)
+        .single(),
+    );
+    // Older mocked clients and pre-migration servers may omit the new fields.
+    if (!("description" in row)) return;
+    const current = JSON.parse(
+      store.db.prepare("SELECT value FROM metadata WHERE key='product'").get()
+        ?.value || "{}",
+    );
+    if (!row.identity_configured && workspace.role === "owner") {
+      check(
+        await client.rpc("beam_workspace_identity", {
+          p_workspace: workspace.id,
+          p_name: current.name || row.name,
+          p_description: current.description || "",
+          p_image: current.image || null,
+        }),
+      );
+      return;
+    }
+    const next = {
+      ...current,
+      name: row.name,
+      description: row.description,
+      image: row.image || null,
+    };
+    if (JSON.stringify(current) !== JSON.stringify(next)) {
+      store.db
+        .prepare("INSERT OR REPLACE INTO metadata VALUES('product',?)")
+        .run(JSON.stringify(next));
+      workspace = { ...workspace, name: row.name };
+      put("beam_shared_workspace", workspace);
+      emit();
+    }
+  }
   async function pull() {
     try {
       await authenticate();
       await syncIdentity().catch(() => {});
+      await pullIdentity();
       const row = check(
         await client
           .from("beam_roadmaps")
@@ -294,6 +335,28 @@ export function createCollaboration(
         );
         emit();
       })
+      .on(
+        "postgres_changes",
+        {
+          event: "UPDATE",
+          schema: "public",
+          table: "beam_workspaces",
+          filter: "id=eq." + workspace.id,
+        },
+        () => {
+          void exclusive(pullIdentity).catch(() => {});
+        },
+      )
+      .on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table: "beam_members",
+          filter: "workspace_id=eq." + workspace.id,
+        },
+        emit,
+      )
       .on(
         "postgres_changes",
         {
@@ -492,7 +555,7 @@ export function createCollaboration(
         const w = check(
           await client
             .from("beam_workspaces")
-            .select("id,name")
+            .select("id,name,description,image,identity_configured")
             .eq("id", id)
             .single(),
         );
@@ -518,6 +581,8 @@ export function createCollaboration(
         revision = roadmap.revision;
         connected = true;
         lastError = "";
+        await pullIdentity();
+        await syncIdentity().catch(() => {});
         await subscribe();
         emit();
         return state();
@@ -743,15 +808,27 @@ export function createCollaboration(
         endpoint: config.url + "/functions/v1/beam-public-demands",
       };
     },
+    async saveIdentity(product) {
+      if (!workspace) return;
+      await authenticate();
+      check(
+        await client.rpc("beam_workspace_identity", {
+          p_workspace: workspace.id,
+          p_name: product.name,
+          p_description: product.description || "",
+          p_image: product.image || null,
+        }),
+      );
+      await pullIdentity();
+      emit();
+    },
     async team(itemId) {
       if (!workspace) return { profiles: [], comments: [], activity: [] };
       await authenticate();
-      await syncIdentity();
+      let warning = "";
+      await syncIdentity().catch(() => { warning = "Votre profil sera synchronisé à la reconnexion."; });
       const profiles = check(
-        await client
-          .from("beam_profiles")
-          .select("user_id,name,photo")
-          .eq("workspace_id", workspace.id),
+        await client.rpc("beam_team_members", { p_workspace: workspace.id }),
       );
       let comments = [],
         activity = [];
@@ -775,7 +852,7 @@ export function createCollaboration(
             .limit(100),
         );
       }
-      return { profiles, comments, activity };
+      return { profiles, comments, activity, warning };
     },
     async notificationEvents(since) {
       if (!workspace || !session)

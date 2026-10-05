@@ -6825,3 +6825,12 @@ main.notes-workspace{height:100dvh;display:flex;flex-direction:column;overflow:h
 .welcome-assistant-step>.modal-copy{margin:24px 0;line-height:1.8;max-width:540px}
 .welcome-assistant-step>.button{margin-top:4px}
 .welcome-flow:has(.welcome-assistant-step) .welcome-footer{margin-top:28px;padding-top:20px;border-top:1px solid var(--line)}
+
+.workspace-members { margin: 24px 0; padding: 20px 0; border-block: 1px solid var(--border, #30313b); }
+.workspace-members h4 { margin: 0 0 16px; }
+.workspace-members h4 small { margin-left: 8px; opacity: .6; }
+.workspace-member { display: flex; align-items: center; gap: 12px; padding: 10px 0; }
+.workspace-member > div { display: grid; gap: 4px; flex: 1; }
+.workspace-member small, .workspace-members > small { color: var(--muted, #999bad); }
+.member-online { color: #8ab99a; font-size: 12px; }
+.member-offline { color: var(--muted, #999bad); font-size: 12px; }

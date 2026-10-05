@@ -1,3 +1,5 @@
+import useVisiblePolling from "../hooks/useVisiblePolling";
+import { initials } from "./Profile";
 import { invitationLink } from "../../shared/invitations";
 import React, { useEffect, useState } from "react";
 import AccountAccess from "./ui/neural-access-login";
@@ -22,6 +24,21 @@ export default function Collaboration({
       .then(setState)
       .catch((e) => setError(e.message));
   }, []);
+  const [members, setMembers] = useState([]);
+  useVisiblePolling(
+    async () => {
+      try {
+        const current = await api("admin/collaboration");
+        setState(current);
+        if (current.workspace) setMembers((await api("admin/team")).profiles);
+        else setMembers([]);
+      } catch (e) {
+        setError(e.message);
+      }
+    },
+    10000,
+    [],
+  );
   async function action(action, values = {}) {
     setBusy(true);
     setError("");
@@ -144,6 +161,49 @@ export default function Collaboration({
             </span>
             <small>{state.email}</small>
           </div>
+          <section
+            className="workspace-members"
+            aria-label="Membres du workspace"
+          >
+            <h4>
+              Équipe <small>{members.length}</small>
+            </h4>
+            {members.map((member) => (
+              <div className="workspace-member" key={member.user_id}>
+                <span className="avatar">
+                  {member.photo ? (
+                    <img src={member.photo} alt="" />
+                  ) : (
+                    initials(member.name)
+                  )}
+                </span>
+                <div>
+                  <strong>{member.name}</strong>
+                  <small>
+                    {member.role === "owner"
+                      ? "Administrateur"
+                      : member.role === "viewer"
+                        ? "Lecture seule"
+                        : "Éditeur"}
+                  </small>
+                </div>
+                <span
+                  className={
+                    state.presence?.includes(member.user_id)
+                      ? "member-online"
+                      : "member-offline"
+                  }
+                >
+                  {state.presence?.includes(member.user_id)
+                    ? "En ligne"
+                    : "Hors ligne"}
+                </span>
+              </div>
+            ))}
+            <small>
+              Une personne apparaît ici après avoir accepté son invitation.
+            </small>
+          </section>
           <p className="modal-copy">
             Les changements du Gantt et du Kanban sont partagés. Hors connexion,
             les modifications sont bloquées pour éviter les conflits.
