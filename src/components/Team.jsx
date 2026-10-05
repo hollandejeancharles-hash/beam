@@ -144,7 +144,13 @@ export function TeamPresence({ api, state, onOpen, activity = "browsing" }) {
           </span>
         </span>
       ))}
-      <span>{online.length ? `${online.length} en ligne` : "Équipe"}</span>
+      <span>
+        {state.presenceStatus === "reconnecting"
+          ? "Reconnexion…"
+          : online.length
+            ? `${online.length} en ligne`
+            : "Équipe"}
+      </span>
     </button>
   );
 }

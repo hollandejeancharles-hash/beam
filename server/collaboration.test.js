@@ -28,6 +28,7 @@ function fixture(role = "owner") {
       getSession: async () => ({ data: { session } }),
       setSession: async () => ({ data: { session } }),
       signInWithPassword: async (values) => {
+        session = { user: { id: "user", email: "team@example.test" } };
         authCalls.push(values);
         return { data: { session } };
       },
@@ -66,7 +67,11 @@ function fixture(role = "owner") {
     rpc: async (name, b) => {
       if (name === "beam_team_members") return { data: remote.members || [] };
       if (name === "beam_workspace_identity") {
-        remote.identity = { description: b.p_description, image: b.p_image, identity_configured: true };
+        remote.identity = {
+          description: b.p_description,
+          image: b.p_image,
+          identity_configured: true,
+        };
         remote.identityWrites = (remote.identityWrites || 0) + 1;
       }
       if (name === "beam_team_profile") {
@@ -82,14 +87,21 @@ function fixture(role = "owner") {
       return { data: "w" };
     },
     channel() {
+      remote.subscriptions = (remote.subscriptions || 0) + 1;
       return {
         async track(value) {
           remote.lastPresence = value;
         },
-        on() {
+        presenceState() {
+          return remote.peers || {};
+        },
+        on(kind, filter, callback) {
+          if (kind === "presence") remote.syncPresence = callback;
           return this;
         },
-        subscribe() {
+        subscribe(callback) {
+          remote.channelCallback = callback;
+          callback?.("SUBSCRIBED");
           return this;
         },
       };
@@ -367,20 +379,80 @@ test("Shared grouped rescheduling and undo are atomic and reject stale revisions
 
 test("Joined members receive the shared workspace logo and description", async () => {
   const f = fixture("editor");
-  f.remote.identity = { description: "Shared product", image: "data:image/png;base64,logo", identity_configured: true };
+  f.remote.identity = {
+    description: "Shared product",
+    image: "data:image/png;base64,logo",
+    identity_configured: true,
+  };
   await connect(f);
-  const product = JSON.parse(f.store.db.prepare("SELECT value FROM metadata WHERE key='product'").get().value);
+  const product = JSON.parse(
+    f.store.db.prepare("SELECT value FROM metadata WHERE key='product'").get()
+      .value,
+  );
   assert.equal(product.image, f.remote.identity.image);
   assert.equal(product.description, "Shared product");
-  await f.c.close(); f.store.db.close();
+  await f.c.close();
+  f.store.db.close();
 });
 test("Team lists accepted members even before their profile exists or while profile sync fails", async () => {
-  const f = fixture(); await connect(f);
-  f.remote.members = [{ user_id: "other", name: "Membre de l’équipe", role: "editor", photo: null }];
-  f.store.db.prepare("INSERT OR REPLACE INTO metadata VALUES('user_profile',?)").run(JSON.stringify({name: "New identity"}));
+  const f = fixture();
+  await connect(f);
+  f.remote.members = [
+    {
+      user_id: "other",
+      name: "Membre de l’équipe",
+      role: "editor",
+      photo: null,
+    },
+  ];
+  f.store.db
+    .prepare("INSERT OR REPLACE INTO metadata VALUES('user_profile',?)")
+    .run(JSON.stringify({ name: "New identity" }));
   f.remote.failProfile = true;
   const team = await f.c.team();
   assert.deepEqual(team.profiles, f.remote.members);
   assert.ok(team.warning);
-  await f.c.close(); f.store.db.close();
+  await f.c.close();
+  f.store.db.close();
+});
+
+test("Logging back in restores the workspace presence subscription without joining again", async () => {
+  const f = fixture();
+  await connect(f);
+  const before = f.remote.subscriptions;
+  await f.c.settings("logout");
+  await f.c.settings("login", {
+    email: "team@example.test",
+    password: "password123",
+  });
+  assert.equal(f.remote.subscriptions, before + 1);
+  assert.equal(f.c.state().presenceStatus, "online");
+  await f.c.close();
+  f.store.db.close();
+});
+
+test("A lost realtime channel clears stale avatars and recovers after an HTTP pull", async (t) => {
+  const f = fixture();
+  await connect(f);
+  f.remote.peers = {
+    user: [{ activity: "gantt", updatedAt: Date.now() }],
+    colleague: [{ activity: "notes", updatedAt: Date.now() }],
+  };
+  f.remote.syncPresence();
+  assert.equal(f.c.state().presence.length, 2);
+  const oldCallback = f.remote.channelCallback;
+  oldCallback("CHANNEL_ERROR");
+  assert.deepEqual(f.c.state().presence, []);
+  assert.equal(f.c.state().presenceStatus, "reconnecting");
+  await f.c.items("GET", "/api/admin/items");
+  assert.equal(f.c.state().presenceStatus, "reconnecting");
+  assert.match(f.c.state().error, /Présence interrompue/);
+  const now = Date.now();
+  t.mock.method(Date, "now", () => now + 16000);
+  await f.c.items("GET", "/api/admin/items");
+  assert.equal(f.c.state().presenceStatus, "online");
+  oldCallback("CLOSED");
+  assert.equal(f.c.state().presenceStatus, "online");
+  await f.c.close();
+  f.store.db.close();
 });

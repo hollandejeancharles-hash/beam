@@ -149,6 +149,8 @@ export function createCollaboration(
     channel,
     revision = null,
     connected = false,
+    realtimeConnected = false,
+    lastSubscribeAttempt = 0,
     lastError = "",
     queue = Promise.resolve();
   const activityClients = new Map();
@@ -174,12 +176,18 @@ export function createCollaboration(
         (a.activity === "idle") - (b.activity === "idle") ||
         b.interactedAt - a.interactedAt,
     )[0];
-    await channel.track?.({
+    const tracked = await channel.track?.({
       online: true,
       interactedAt: current?.interactedAt || now,
       activity: recentActivity([...activityClients.values()], now),
       updatedAt: now,
     });
+    if (tracked && tracked !== "ok") {
+      realtimeConnected = false;
+      presence = [];
+      presenceActivity = {};
+      lastError = "Présence interrompue. Reconnexion en cours.";
+    }
     emit();
     return state();
   }
@@ -304,7 +312,7 @@ export function createCollaboration(
       replaceItems(store, row.items);
       revision = row.revision;
       connected = true;
-      lastError = "";
+      if (realtimeConnected) lastError = "";
       if (changed) emit();
       return row;
     } catch (e) {
@@ -317,15 +325,25 @@ export function createCollaboration(
   }
   async function subscribe() {
     presence = [];
+    presenceActivity = {};
+    realtimeConnected = false;
+    lastSubscribeAttempt = Date.now();
     if (client.realtime?.setAuth)
       await client.realtime.setAuth(session.access_token);
-    if (channel) await client.removeChannel(channel);
-    channel = client
-      .channel("beam:" + workspace.id, {
-        config: { private: true, presence: { key: session.user.id } },
-      })
+    const previousChannel = channel;
+    channel = null;
+    if (previousChannel) await client.removeChannel(previousChannel);
+    const nextChannel = client.channel("beam:" + workspace.id, {
+      config: {
+        private: true,
+        presence: { key: session.user.id, enabled: true },
+      },
+    });
+    channel = nextChannel;
+    nextChannel
       .on("presence", { event: "sync" }, () => {
-        const peers = channel.presenceState?.() || {};
+        if (channel !== nextChannel) return;
+        const peers = nextChannel.presenceState?.() || {};
         presence = Object.keys(peers);
         presenceActivity = Object.fromEntries(
           Object.entries(peers).map(([id, entries]) => [
@@ -410,24 +428,37 @@ export function createCollaboration(
         },
       )
       .subscribe((status) => {
-        if (status === "SUBSCRIBED")
-          void channel.track?.({
+        if (channel !== nextChannel) return;
+        if (status === "SUBSCRIBED") {
+          realtimeConnected = true;
+          lastError = "";
+          emit();
+          void nextChannel.track?.({
             online: true,
             activity: "browsing",
             updatedAt: Date.now(),
           });
+        }
         if (["CHANNEL_ERROR", "TIMED_OUT", "CLOSED"].includes(status)) {
-          connected = false;
-          lastError = "Connexion interrompue. Reconnexion en cours.";
+          realtimeConnected = false;
+          presence = [];
+          presenceActivity = {};
+          lastError = "Présence interrompue. Reconnexion en cours.";
           emit();
         }
       });
   }
+  async function recoverRealtime() {
+    if (!realtimeConnected && Date.now() - lastSubscribeAttempt >= 15000)
+      await subscribe();
+  }
+
   function state() {
     session = get("beam_shared_session");
     return {
       configured: !!config,
       presence,
+      presenceStatus: realtimeConnected ? "online" : "reconnecting",
       presenceActivity: {
         ...presenceActivity,
         ...(session?.user?.id && activityClients.size
@@ -500,6 +531,10 @@ export function createCollaboration(
         );
         session = result.session;
         put("beam_shared_session", session);
+        if (session && workspace) {
+          await pull();
+          await subscribe();
+        }
         return { ...state(), confirmationRequired: !session };
       }
       await authenticate();
@@ -627,6 +662,7 @@ export function createCollaboration(
       if (method === "GET") {
         try {
           await pull();
+          await recoverRealtime();
         } catch {
           /* Keep the last local cache readable offline. */
         }
@@ -735,7 +771,11 @@ export function createCollaboration(
       }).catch(() => {})
     : Promise.resolve();
   const timer = setInterval(() => {
-    if (workspace) void exclusive(pull).catch(() => {});
+    if (workspace)
+      void exclusive(async () => {
+        await pull();
+        await recoverRealtime();
+      }).catch(() => {});
   }, 30000);
   timer.unref();
   return {
@@ -826,7 +866,9 @@ export function createCollaboration(
       if (!workspace) return { profiles: [], comments: [], activity: [] };
       await authenticate();
       let warning = "";
-      await syncIdentity().catch(() => { warning = "Votre profil sera synchronisé à la reconnexion."; });
+      await syncIdentity().catch(() => {
+        warning = "Votre profil sera synchronisé à la reconnexion.";
+      });
       const profiles = check(
         await client.rpc("beam_team_members", { p_workspace: workspace.id }),
       );

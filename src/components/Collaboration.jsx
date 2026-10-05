@@ -196,7 +196,9 @@ export default function Collaboration({
                 >
                   {state.presence?.includes(member.user_id)
                     ? "En ligne"
-                    : "Hors ligne"}
+                    : state.presenceStatus === "reconnecting"
+                      ? "Présence indisponible"
+                      : "Hors ligne"}
                 </span>
               </div>
             ))}
