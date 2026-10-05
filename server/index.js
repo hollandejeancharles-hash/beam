@@ -578,7 +578,12 @@ const server = http.createServer(async (req, res) => {
         if (url.pathname === "/api/admin/intake")
           return send(200, await collaboration.intakeStatus());
         if (url.pathname === "/api/admin/demands")
-          return send(200, await demands.list());
+          return send(
+            200,
+            await demands.list({
+              cached: url.searchParams.get("cached") === "1",
+            }),
+          );
         if (url.pathname === "/api/admin/suggestions")
           return send(
             200,

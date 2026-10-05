@@ -216,3 +216,74 @@ test("a pasted manual source survives publishing and idempotent retries", async 
   assert.equal(a.data.sources[0].quote, input.excerpt);
   store.db.close();
 });
+
+test("cached demands are immediately available without waiting for cloud or team", async () => {
+  let remoteCalls = 0,
+    teamCalls = 0;
+  const shared = {
+    active: () => true,
+    state: () => ({ workspace: { id: "w", role: "owner" }, userId: "u" }),
+    team: async () => {
+      teamCalls++;
+      throw Error("offline");
+    },
+    demands: async (method, payload) => {
+      remoteCalls++;
+      if (method === "POST")
+        return {
+          id: payload.id,
+          revision: 0,
+          data: payload.data,
+          created_at: "2026-10-05",
+          updated_at: "2026-10-05",
+        };
+      return [];
+    },
+  };
+  const { store, demands } = fixture(shared);
+  await demands.create({
+    request_id: "aa000000-0000-4000-8000-000000000002",
+    title: "Translation",
+    description: "Product translations",
+  });
+  assert.equal(remoteCalls, 1);
+  const snapshot = await demands.list({ cached: true });
+  assert.equal(snapshot.demands.length, 1);
+  assert.equal(snapshot.cached, true);
+  assert.equal(remoteCalls, 1);
+  assert.equal(teamCalls, 0);
+  await demands.list();
+  assert.equal(remoteCalls, 2);
+  assert.equal(teamCalls, 1);
+  store.db.close();
+});
+test("a demand creates its feature under the selected initiative", async () => {
+  const { store, demands } = fixture();
+  const base = {
+    title: "Translation",
+    description: "Product translations",
+    category: "Éditeur",
+    priority: "high",
+    status: "planned",
+    visibility: "private",
+    quarter: "T4 2026",
+  };
+  const parent = store.save({ ...base, type: "initiative" });
+  const request = await demands.create({
+    title: "Translate content",
+    description: "Translate the product",
+  });
+  const id = demands.createFeature({
+    ...base,
+    type: "feature",
+    parent_id: parent,
+    _demand_id: request.id,
+    _demand_revision: request.revision,
+  });
+  const feature = store.list().find((item) => item.id === id);
+  assert.equal(feature.parent_id, parent);
+  assert.equal(feature.type, "feature");
+  assert.equal((await demands.list()).demands[0].data.item_id, id);
+  assert.notEqual(id, parent);
+  store.db.close();
+});

@@ -31,7 +31,8 @@ export function DemandCapture({ note, api, onClose, onError, onDone }) {
       { title: "", description: "", request_id: crypto.randomUUID() },
     ]),
     [busy, setBusy] = useState(false),
-    [sent, setSent] = useState([]);
+    [sent, setSent] = useState([]),
+    [analyzing, setAnalyzing] = useState(false);
   const captureRef = useRef(null);
   useEffect(() => {
     const previous = document.activeElement;
@@ -70,6 +71,7 @@ export function DemandCapture({ note, api, onClose, onError, onDone }) {
   }
   async function analyze() {
     setBusy(true);
+    setAnalyzing(true);
     try {
       const result = await api("admin/demands/analyze", {
         method: "POST",
@@ -82,6 +84,7 @@ export function DemandCapture({ note, api, onClose, onError, onDone }) {
       onError(e.message);
     } finally {
       setBusy(false);
+      setAnalyzing(false);
     }
   }
   async function publish(e) {
@@ -162,7 +165,9 @@ export function DemandCapture({ note, api, onClose, onError, onDone }) {
         Préparer avec l’IA locale{" "}
         <AIProgress
           scope="demand"
-          fallback={busy ? { state: "running", phase: "Analyse locale" } : null}
+          fallback={
+            analyzing ? { state: "running", phase: "Analyse locale" } : null
+          }
         />
       </button>
       {drafts.map((d, i) => (
@@ -222,7 +227,11 @@ export function DemandCapture({ note, api, onClose, onError, onDone }) {
             busy || drafts.some((d) => !d.title.trim() || !d.description.trim())
           }
         >
-          {busy ? "Traitement…" : "Envoyer à examiner"}
+          {busy
+            ? analyzing
+              ? "Analyse locale…"
+              : "Envoi…"
+            : "Envoyer à examiner"}
           <ArrowRight size={16} />
         </button>
       </footer>
@@ -257,22 +266,38 @@ export default function Demands({
     [error, setError] = useState("");
   const apiRef = useRef(api);
   apiRef.current = api;
-  async function load() {
-    try {
-      const next = await apiRef.current("admin/demands");
-      setData(next);
-      setLoaded(true);
-      onQueueChanged?.(next.demands.filter((d) => d.data.state === "review"));
-      setError("");
-    } catch (e) {
-      setError(e.message);
-    }
+  const loadingRef = useRef(null),
+    mountedRef = useRef(true);
+  function receive(next) {
+    if (!mountedRef.current) return;
+    setData(next);
+    setLoaded(true);
+    onQueueChanged?.(next.demands.filter((d) => d.data.state === "review"));
+  }
+  function load() {
+    if (loadingRef.current) return loadingRef.current;
+    loadingRef.current = (async () => {
+      try {
+        const next = await apiRef.current("admin/demands");
+        receive(next);
+        if (mountedRef.current) setError("");
+      } catch (e) {
+        if (mountedRef.current) setError(e.message);
+      }
+    })().finally(() => (loadingRef.current = null));
+    return loadingRef.current;
   }
   useEffect(() => {
-    load();
-    const timer = setInterval(load, 5000);
+    mountedRef.current = true;
+    apiRef
+      .current("admin/demands?cached=1")
+      .then(receive)
+      .catch(() => {})
+      .finally(load);
+    const timer = setInterval(load, 10000);
     window.addEventListener("beam-demands-changed", load);
     return () => {
+      mountedRef.current = false;
       clearInterval(timer);
       window.removeEventListener("beam-demands-changed", load);
     };
@@ -305,6 +330,42 @@ export default function Demands({
         .toLowerCase()
         .includes(query.toLowerCase()),
   );
+  async function prepareFeature(parent) {
+    setBusy(true);
+    try {
+      let request = current;
+      if (
+        current.data.item_id ||
+        !["review", "clarify"].includes(current.data.state)
+      ) {
+        request = await api(`admin/demands/${current.id}`, {
+          method: "PATCH",
+          body: JSON.stringify({
+            state: "review",
+            item_id: null,
+            reason,
+            revision: current.revision,
+          }),
+        });
+        receive({
+          ...data,
+          demands: data.demands.map((d) => (d.id === request.id ? request : d)),
+        });
+      }
+      onPrepare({
+        ...request.data,
+        parent_id: parent?.id || null,
+        _demand_id: request.id,
+        _demand_revision: request.revision,
+        _change_reason: reason,
+      });
+    } catch (e) {
+      onError(e.message);
+      await load();
+    } finally {
+      setBusy(false);
+    }
+  }
   async function update(fields) {
     setBusy(true);
     try {
@@ -445,6 +506,7 @@ export default function Demands({
             )}
             <small>
               {data.shared ? "PARTAGÉ AVEC LE WORKSPACE" : "SUR CE MAC"}
+              {data.cached ? " · Synchronisation…" : ""}
             </small>
             {shown.map((r) => (
               <button
@@ -724,11 +786,18 @@ export default function Demands({
                     <section>
                       <h3>Décider de la suite</h3>
                       <label>
-                        Relier à un élément existant
+                        Créer sous une initiative ou relier à une feature
                         <select
                           disabled={busy}
                           value={current.data.item_id || ""}
                           onChange={(e) => {
+                            const destination = items.find(
+                              (item) => item.id === e.target.value,
+                            );
+                            if (destination && destination.type !== "feature") {
+                              void prepareFeature(destination);
+                              return;
+                            }
                             if (e.target.value)
                               update({
                                 item_id: e.target.value,
@@ -754,6 +823,24 @@ export default function Demands({
                           <strong>
                             Cette demande est déjà reliée à la roadmap.
                           </strong>
+                          {items.find(
+                            (item) => item.id === current.data.item_id,
+                          )?.type !== "feature" && (
+                            <button
+                              className="button primary"
+                              disabled={busy}
+                              onClick={() =>
+                                prepareFeature(
+                                  items.find(
+                                    (item) => item.id === current.data.item_id,
+                                  ),
+                                )
+                              }
+                            >
+                              Créer une feature sous cet élément
+                              <ArrowRight size={14} />
+                            </button>
+                          )}
                           <p>
                             Vous pouvez ouvrir l’élément ou choisir un autre
                             rattachement ci-dessus.

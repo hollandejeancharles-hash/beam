@@ -301,7 +301,7 @@ function App() {
         ]);
         setProduct(localProduct);
         setProfile(localProfile);
-        if (pageRef.current === "notes") setLoading(false);
+        if (["notes", "feedback"].includes(pageRef.current)) setLoading(false);
       }
       if (pagesMode) {
         try {
@@ -519,6 +519,15 @@ function App() {
       setSelected(null);
       await refresh();
       window.dispatchEvent(new Event("beam-demands-changed"));
+      if (fromDemand) {
+        setCategory("all");
+        setTypeFilter("all");
+        setStatusFilter("all");
+        setPriority("all");
+        setQuery("");
+        setShowArchives(false);
+        setPage("gantt");
+      }
       setToast(
         fromDemand
           ? "Feature créée et reliée à la demande"
@@ -1257,9 +1266,10 @@ function App() {
                 )}
               </>
             )}
-          {loading && (page !== "notes" || !workspaceList) ? (
+          {loading &&
+          (!["notes", "feedback"].includes(page) || !workspaceList) ? (
             <div className="empty">Chargement de votre roadmap…</div>
-          ) : error && !auth && page !== "notes" ? (
+          ) : error && !auth && !["notes", "feedback"].includes(page) ? (
             <div className="empty">
               {error}
               <button className="button" onClick={refresh}>
@@ -1396,6 +1406,10 @@ function App() {
                   priority: ["low", "medium", "high"].includes(d.priority)
                     ? d.priority
                     : "medium",
+                  parent_id: d.parent_id || null,
+                  quarter:
+                    items.find((item) => item.id === d.parent_id)?.quarter ||
+                    blank.quarter,
                   _change_reason: d._change_reason,
                   _demand_id: d._demand_id,
                   _demand_revision: d._demand_revision,

@@ -51,7 +51,7 @@ with tempfile.TemporaryDirectory(prefix='beam-mac-') as scratch:
     subprocess.run(['iconutil', '-c', 'icns', str(iconset), '-o', str(contents / 'Resources' / 'Beam.icns')], check=True)
     shutil.copy2(repo / 'scripts/macos/install-update.mjs', contents / 'Resources' / 'install-update.mjs')
     version = json.loads((repo / 'shared/version.json').read_text())['version']
-    info = {'CFBundleName': 'Beam', 'CFBundleDisplayName': 'Beam', 'CFBundleIdentifier': 'local.beam.desktop', 'CFBundleExecutable': 'Beam', 'CFBundlePackageType': 'APPL', 'CFBundleShortVersionString': version.split('-')[0], 'CFBundleVersion': '47', 'BeamVersion': version, 'CFBundleIconFile': 'Beam.icns', 'NSHighResolutionCapable': True, 'LSMinimumSystemVersion': '14.0', 'BeamRepository': str(repo), 'BeamNode': node}
+    info = {'CFBundleName': 'Beam', 'CFBundleDisplayName': 'Beam', 'CFBundleIdentifier': 'local.beam.desktop', 'CFBundleExecutable': 'Beam', 'CFBundlePackageType': 'APPL', 'CFBundleShortVersionString': version.split('-')[0], 'CFBundleVersion': '48', 'BeamVersion': version, 'CFBundleIconFile': 'Beam.icns', 'NSHighResolutionCapable': True, 'LSMinimumSystemVersion': '14.0', 'BeamRepository': str(repo), 'BeamNode': node}
     info['CFBundleURLTypes'] = [{'CFBundleURLName': 'local.beam.invitation', 'CFBundleURLSchemes': ['beam']}]
     if args.portable:
         runtime = contents / 'Resources' / 'runtime'

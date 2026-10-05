@@ -90,6 +90,7 @@ export function createDemands(
   const sharedId = () => collaboration.state?.().workspace?.id || "";
   let running = false;
   const retries = new Map();
+  let profiles = [];
   const analyzed = () =>
     store.db
       .prepare("SELECT * FROM demand_analyses")
@@ -193,8 +194,24 @@ export function createDemands(
   const service = {
     busy: () => running,
     cached: localRows,
-    async list() {
+    async list({ cached = false } = {}) {
+      if (cached)
+        return {
+          demands: localRows(),
+          analyses: analyzed(),
+          shared: collaboration.active(),
+          userId: collaboration.state?.().userId,
+          profiles,
+          cached: true,
+        };
+      const teamLoad = collaboration
+        .team()
+        .then((team) => {
+          profiles = team.profiles;
+        })
+        .catch(() => {});
       let all = await rows();
+      let imported = false;
       if (
         !collaboration.active() ||
         collaboration.state().workspace?.role !== "viewer"
@@ -215,11 +232,12 @@ export function createDemands(
                 },
               ],
             });
+            imported = true;
           } catch (e) {
             if (!e.message.includes("changé")) throw e;
           }
         }
-        all = await rows();
+        if (imported) all = await rows();
       }
       const analyses = analyzed().filter((a) =>
         all.some((r) => r.id === a.id && r.revision === a.revision),
@@ -234,12 +252,13 @@ export function createDemands(
         retries.set(next.id, Date.now() + 300000);
         void service.analyze({ id: next.id }).catch(() => {});
       }
+      await teamLoad;
       return {
         demands: all,
         analyses,
         shared: collaboration.active(),
         userId: collaboration.state?.().userId,
-        profiles: (await collaboration.team()).profiles,
+        profiles,
       };
     },
     async create(body) {
@@ -264,7 +283,7 @@ export function createDemands(
                 (s) => s.kind === "manual" && s.quote === body.excerpt,
               )
             : !(r.data.sources || []).length);
-      const previous = (await rows()).find((r) => r.id === id);
+      const previous = localRows().find((r) => r.id === id);
       if (previous) {
         if (!same(previous))
           throw Error(
