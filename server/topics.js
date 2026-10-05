@@ -41,7 +41,7 @@ export function createTopics(
             )
             .all(n.id)
             .map((r) => JSON.parse(r.result).summary),
-          ...createAttachments(store)
+          ...(notes.attachmentStore || createAttachments(store))
             .context(n.id)
             .map((a) => a.text),
         ]

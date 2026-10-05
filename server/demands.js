@@ -263,6 +263,7 @@ export function createDemands(
     },
     async create(body) {
       const data = validateDemand({ ...body, state: "review" });
+      if(body.suggested_item_id) {if(!store.list().some(i=>i.id===body.suggested_item_id&&!i.archived)) throw Error("Rattachement proposé introuvable");data.suggested_item_id=body.suggested_item_id;}
       if (
         body.request_id &&
         !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(

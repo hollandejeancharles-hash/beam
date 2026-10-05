@@ -51,7 +51,7 @@ export default function AIProgress({
         (j) =>
           ["queued", "running"].includes(j.state) &&
           (!scope || j.scope === scope) &&
-          (!jobId || j.id === jobId) &&
+          (!jobId || j.id === jobId || j.original_id === jobId) &&
           (!noteId ||
             j.notes?.includes(noteId) ||
             j.sources?.includes("note:" + noteId)) &&

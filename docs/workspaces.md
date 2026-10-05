@@ -1,6 +1,6 @@
 # Plusieurs workspaces
 
-Le sélecteur en haut du menu permet de créer un workspace, de changer d’espace et d’ouvrir ses réglages. Chaque workspace possède sa roadmap, ses notes, ses pièces jointes, ses sources et ses publications.
+Le sélecteur en haut du menu permet de créer un workspace, de changer d’espace et d’ouvrir ses réglages. Chaque workspace possède sa roadmap, ses sources et ses publications. Les notes et leurs pièces jointes appartiennent au carnet personnel commun ; les dossiers par workspace sont des vues de leurs rattachements.
 
 ## Personnel ou partagé
 
@@ -16,7 +16,7 @@ Le compte et le profil sont communs aux workspaces. Le nom et la photo suivent v
 
 Chaque fenêtre conserve son workspace dans son adresse. Changer d’espace dans une fenêtre ne recharge pas les autres. Le dernier espace choisi devient celui de la capture de notes dans la barre de menu Mac.
 
-Les brouillons des éléments, du profil, des réglages et du texte des nouvelles notes sont conservés par fenêtre et par workspace. Les fichiers sélectionnés avant l’enregistrement ne sont pas des pièces jointes sauvegardées : enregistrez la note pour les conserver. Les anciens brouillons ne doivent pas servir à écraser les changements d’une équipe : les contrôles de révision restent actifs.
+Les brouillons des éléments, du profil, des réglages sont conservés par fenêtre et par workspace. Les brouillons des notes sont personnels et communs aux workspaces dans chaque fenêtre. Les fichiers sélectionnés avant l’enregistrement ne sont pas des pièces jointes sauvegardées : enregistrez la note pour les conserver. Les anciens brouillons ne doivent pas servir à écraser les changements d’une équipe : les contrôles de révision restent actifs.
 
 ## Diffusion publique
 

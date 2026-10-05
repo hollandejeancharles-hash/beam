@@ -32,7 +32,7 @@ export function validateDecisions(values, context) {
     return { ...d, item_ids: [...new Set(d.item_ids)] };
   });
 }
-export function createDecisions(store) {
+export function createDecisions(store, {notes} = {}) {
   const db = store.db;
   db.exec(
     `CREATE TABLE IF NOT EXISTS decisions(id TEXT PRIMARY KEY,title TEXT,reason TEXT,kind TEXT,note_id TEXT,quote TEXT,source_text TEXT,item_ids TEXT,state TEXT,created TEXT,confirmed TEXT,fingerprint TEXT UNIQUE);`,
@@ -44,7 +44,7 @@ export function createDecisions(store) {
       .all()
       .map(read);
   const insert = (d, state) => {
-    const note = db.prepare("SELECT * FROM notes WHERE id=?").get(d.note_id);
+    const note = notes ? notes.list().find(n=>n.id===d.note_id) : db.prepare("SELECT * FROM notes WHERE id=?").get(d.note_id);
     if (!note || note.state === "archived" || note.text !== d.source_text)
       throw Error("La note source a changé. Relancez l’analyse.");
     const fingerprint = createHash("sha256")
@@ -128,7 +128,7 @@ export function createDecisions(store) {
     },
     save(input) {
       const context = {
-        notes: db.prepare("SELECT * FROM notes WHERE state<>?").all("archived"),
+        notes: notes ? notes.list().filter(n=>n.state!=="archived") : db.prepare("SELECT * FROM notes WHERE state<>?").all("archived"),
         items: store.list().filter((i) => !i.archived),
       };
       const [d] = validateDecisions([input], context);
@@ -147,7 +147,7 @@ export function createDecisions(store) {
       if (!d) throw Error("Décision introuvable");
       if (state === "confirmed") {
         if (d.state !== "proposed") throw Error("Décision déjà traitée");
-        const n = db.prepare("SELECT * FROM notes WHERE id=?").get(d.note_id);
+        const n = notes ? notes.list().find(n=>n.id===d.note_id) : db.prepare("SELECT * FROM notes WHERE id=?").get(d.note_id);
         if (!n || n.state === "archived" || n.text !== d.source_text)
           throw Error("La note source a changé. Relancez l’analyse.");
         if (

@@ -1,11 +1,12 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { spawn } from "node:child_process";
+import {createHash} from "node:crypto";
 import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
-test("Workspace API isolates roadmap, notes, sources and public links; pinned windows can write independently", async () => {
+test("Workspace API isolates roadmap, sources and public links while sharing the personal notebook; pinned windows can write independently", async () => {
   const dir = mkdtempSync(join(tmpdir(), "beam-spaces-api-"));
   const server = spawn(process.execPath, ["server/index.js"], {
     env: {
@@ -64,9 +65,23 @@ test("Workspace API isolates roadmap, notes, sources and public links; pinned wi
       409,
     );
     assert.deepEqual((await call("admin/items")).data, []);
-    assert.deepEqual((await call("admin/notes")).data, []);
+    assert.equal((await call("admin/notes")).data.length, 1);
+    assert.deepEqual((await call("admin/notes")).data[0].workspace_ids, []);
     assert.deepEqual((await call("admin/sources")).data, []);
     assert.equal((await call("admin/profile")).data.name, "One person");
+    const personal = (await call("admin/notes", "POST", {text:"Une tâche pour le second workspace",workspace_ids:[second]},"default")).data;
+    const task = await call("admin/items","POST",{type:"task",title:"Tâche issue du carnet commun",description:personal.text,category:"Éditeur",status:"planned",priority:"medium",visibility:"private",quarter:"T4 2026",_source_note_id:personal.id},second);
+    assert.equal(task.status,201,JSON.stringify(task.data));
+    assert.equal((await call("admin/items","GET",undefined,second)).data[0].id,task.data.id);
+    assert.equal((await call("admin/items","GET",undefined,"default")).data.length,1);
+    const globalNote=(await call("admin/notes","GET",undefined,"default")).data.find(n=>n.id===personal.id);
+    assert.ok(globalNote.references.some(r=>r.workspace_id===second&&r.item_id===task.data.id));
+    const demand=await call("admin/demands","POST",{title:"Demande contextualisée",description:personal.text,note_id:personal.id,note_hash:createHash('sha256').update(personal.text).digest('hex'),excerpt:personal.text,suggested_item_id:task.data.id},second);
+    assert.equal(demand.status,201,JSON.stringify(demand.data));
+    assert.equal(demand.data.data.state,'review');
+    assert.equal(demand.data.data.suggested_item_id,task.data.id);
+    const globalSubjects=await call("admin/notebook/topics","GET",undefined,second);
+    assert.equal(globalSubjects.status,200);
     const beforeJoin = (await call("admin/workspaces")).data.workspaces.length;
     assert.equal(
       (
@@ -124,7 +139,7 @@ test("Workspace API isolates roadmap, notes, sources and public links; pinned wi
     );
     await call("admin/workspaces/select", "POST", { id: "default" }, second);
     assert.equal((await call("admin/items")).data[0].title, "PULS original");
-    assert.equal((await call("admin/notes")).data.length, 2);
+    assert.equal((await call("admin/notes")).data.length, 3);
     const bundle = (await call("admin/backup/all", "GET", undefined, "default"))
       .data;
     assert.equal(bundle.workspaces.length, 2);

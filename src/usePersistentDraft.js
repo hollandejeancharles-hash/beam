@@ -5,7 +5,7 @@ export function usePersistentDraft(name, initial, personal = false) {
   const key = `beam-draft:${personal ? "personal" : workspace}:${name}`;
   const read = () => {
     try {
-      return JSON.parse(sessionStorage.getItem(key)) ?? initial;
+      return JSON.parse(sessionStorage.getItem(key) ?? (personal ? sessionStorage.getItem(`beam-draft:${workspace}:${name}`) : null)) ?? initial;
     } catch {
       return initial;
     }
@@ -17,6 +17,7 @@ export function usePersistentDraft(name, initial, personal = false) {
       setEntry({ key, value });
       return;
     }
+    if (personal) sessionStorage.removeItem(`beam-draft:${workspace}:${name}`);
     if (value == null) sessionStorage.removeItem(key);
     else sessionStorage.setItem(key, JSON.stringify(value));
   }, [key, value, entry.key]);

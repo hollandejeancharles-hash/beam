@@ -398,7 +398,7 @@ export function createAI(
       }
       const st = await status();
       const attachedImages = c.notes.flatMap((n) =>
-        createAttachments(store)
+        (notes.attachmentStore || createAttachments(store))
           .context(n.id)
           .flatMap((a) => a.images),
       );
@@ -412,7 +412,7 @@ export function createAI(
             ? "Installez Ministral 3 8B pour lancer l’analyse."
             : "Ollama est indisponible. La note est bien conservée.",
         );
-      const memory = createDecisions(store);
+      const memory = createDecisions(store, {notes});
       const prompt = {
         confirmed_decisions: memory.context(c.items, c.notes),
         date: now().toLocaleDateString("en-CA", { timeZone: "Europe/Paris" }),
@@ -429,7 +429,7 @@ export function createAI(
           id: n.id,
           text: n.text,
           created: n.created,
-          attachments: createAttachments(store)
+          attachments: (notes.attachmentStore || createAttachments(store))
             .context(n.id)
             .map(({ images, ...a }) => a),
           hints: interpretNote(n.text, c.items, new Date(n.created)),

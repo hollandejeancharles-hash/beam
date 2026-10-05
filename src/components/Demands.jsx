@@ -25,14 +25,15 @@ async function hash(text) {
     .map((n) => n.toString(16).padStart(2, "0"))
     .join("");
 }
-export function DemandCapture({ note, api, onClose, onError, onDone }) {
+export function DemandCapture({ note, api, onClose, onError, onDone, onBusyChange, contextual = false }) {
   const [excerpt, setExcerpt] = useState((note?.text || "").slice(0, 5000)),
     [drafts, setDrafts] = useState([
-      { title: "", description: "", request_id: crypto.randomUUID() },
+      { title: note?.text?.split("\n")[0]?.slice(0,140) || "", description: note?.text || "", request_id: crypto.randomUUID() },
     ]),
     [busy, setBusy] = useState(false),
     [sent, setSent] = useState([]),
     [analyzing, setAnalyzing] = useState(false);
+  useEffect(()=>{onBusyChange?.(busy);},[busy,onBusyChange]);
   const captureRef = useRef(null);
   useEffect(() => {
     const previous = document.activeElement;
@@ -48,7 +49,7 @@ export function DemandCapture({ note, api, onClose, onError, onDone }) {
     }
     if (e.key === "Tab") {
       const fields = [
-        ...captureRef.current.querySelectorAll(
+        ...(captureRef.current.closest(".note-demand-context") || captureRef.current).querySelectorAll(
           "button:not(:disabled),input:not(:disabled),textarea:not(:disabled),select:not(:disabled)",
         ),
       ].filter((el) => el.offsetParent !== null);
@@ -66,7 +67,7 @@ export function DemandCapture({ note, api, onClose, onError, onDone }) {
   }
   async function payload() {
     return note
-      ? { note_id: note.id, note_hash: await hash(note.text), excerpt }
+      ? { note_id: note.id, note_hash: await hash(note.source_text || note.text), suggested_item_id:note.suggested_item_id || null, excerpt }
       : { excerpt };
   }
   async function analyze() {
@@ -118,8 +119,8 @@ export function DemandCapture({ note, api, onClose, onError, onDone }) {
   return (
     <form
       ref={captureRef}
-      role="dialog"
-      aria-modal="true"
+      role={contextual ? undefined : "dialog"}
+      aria-modal={contextual ? undefined : "true"}
       aria-label={note ? "Partager une demande" : "Nouvelle demande"}
       className="demand-capture"
       onSubmit={publish}
@@ -792,6 +793,7 @@ export default function Demands({
                         setBusy(true);
                         try {await api(`admin/demands/${current.id}`,{method:current.data.deleted ? "PATCH" : "DELETE",body:JSON.stringify({revision:current.revision,restore:true})});setSelected(null);await load();}catch(e){onError(e.message);}finally{setBusy(false);}
                       }}>{current.data.deleted ? "Restaurer la demande" : "Supprimer la demande"}</button>
+                      {!current.data.item_id && current.data.suggested_item_id && items.some(i=>i.id===current.data.suggested_item_id) && <div className="demand-linked-result"><small>Rattachement proposé depuis la note</small><strong>{items.find(i=>i.id===current.data.suggested_item_id)?.title}</strong><button className="button" disabled={busy} onClick={()=>{const destination=items.find(i=>i.id===current.data.suggested_item_id);if(['initiative','project'].includes(destination.type))void prepareFeature(destination);else update({item_id:destination.id,state:'accepted',reason});}}>Utiliser ce rattachement</button></div>}
                       <label>
                         Créer sous une initiative ou un projet, ou relier à un élément
                         <select

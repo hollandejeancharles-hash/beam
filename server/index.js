@@ -21,7 +21,7 @@ import { createTopics } from "./topics.js";
 import { createAttachments } from "./attachments.js";
 import { startLocalAI } from "./ai-runtime.js";
 import { createAI } from "./ai.js";
-import { createNotes } from "./notes.js";
+import { createNotebook } from "./notebook.js";
 import http from "node:http";
 import { mkdirSync, readFileSync, existsSync } from "node:fs";
 import { resolve, extname, dirname } from "node:path";
@@ -40,6 +40,7 @@ const databasePath = process.env.BEAM_DB || "data/beam.sqlite";
 const rootStore = createStore(databasePath);
 const personalProfile = createProfile(rootStore);
 const workspaces = createWorkspaces(rootStore, databasePath);
+const notebook = createNotebook(workspaces);
 const contexts = new Map();
 function inspectWorkspaceBackup(file) {
   if (
@@ -88,8 +89,8 @@ function context(id) {
         };
         const profile = personalProfile;
         const integrations = createIntegrations(store);
-        const notes = createNotes(store);
-        const decisions = createDecisions(store);
+        const notes = notebook.scoped(id);
+        const decisions = createDecisions(store, {notes:notebook});
         const notifications = createNotifications(store);
         const attachments = createAttachments(store);
         const ai = createAI(store, notes, integrations);
@@ -123,7 +124,7 @@ function context(id) {
           publications,
           integrations,
         });
-        const topics = createTopics(store, notes, integrations, ai);
+        const topics = createTopics(store, id === "default" ? notebook : notes, integrations, ai);
         const productFlows = createProductFlows(store, {
           topics,
           integrations,
@@ -131,11 +132,11 @@ function context(id) {
           publications,
           ai,
         });
-        const demands = createDemands(store, { collaboration, notes, ai });
+        const demands = createDemands(store, { collaboration, notes: notebook, ai });
         const searchIndex = createSearch({
           decisions,
           store,
-          notes,
+          notes: notebook,
           topics,
           integrations,
           publications,
@@ -168,6 +169,10 @@ function context(id) {
   return contexts.get(id);
 }
 context(workspaces.active());
+function analyzePersonalNote(note) {
+  const target=note.references?.find(r=>r.item_id)?.workspace_id || note.workspace_ids?.[0] || note.storage_workspace_id || "default";
+  setImmediate(()=>inWorkspace(target,()=>context(target).ai.auto(note)));
+}
 let organizingSources = false;
 const organizeSources = async () => {
   if (organizingSources) return;
@@ -185,6 +190,7 @@ const organizeSources = async () => {
         return;
       await associations.refresh();
       if (!ai.busy()) await topics.refresh();
+      if (id !== "default") await inWorkspace("default", () => context("default").topics.refresh());
     });
   } finally {
     organizingSources = false;
@@ -310,8 +316,10 @@ const server = http.createServer(async (req, res) => {
         });
       return send(401, { error: "Clé d’accès incorrecte" });
     }
+    const notebookTopicRoute = url.pathname.startsWith("/api/admin/notebook/topics");
+    if (notebookTopicRoute) url.pathname = url.pathname.replace("/admin/notebook/topics", "/admin/topics");
     const workspaceId =
-      req.headers["x-beam-workspace"] ||
+      (notebookTopicRoute ? "default" : null) || req.headers["x-beam-workspace"] ||
       url.searchParams.get("workspace") ||
       workspaces.active();
     const {
@@ -319,7 +327,7 @@ const server = http.createServer(async (req, res) => {
       collaboration,
       profile,
       integrations,
-      notes,
+      notes: scopedNotes,
       decisions,
       governance,
       productFlows,
@@ -335,7 +343,13 @@ const server = http.createServer(async (req, res) => {
       topics,
       searchIndex,
     } = context(workspaceId);
+    const notes = notebook;
     return await inWorkspace(workspaceId, async () => {
+      const personalReviews = () => workspaces.list().workspaces.flatMap(w=>context(w.id).ai.list().filter(r=>r.scope==='note').map(r=>({...r,workspace_id:w.id}))).sort((a,b)=>b.created.localeCompare(a.created));
+      if (url.pathname === "/api/admin/notebook/activity" && req.method === "GET") return send(200,inWorkspace(null,()=>activity()).filter(j=>j.scope==='note'||j.scope==='topics').map(j=>({...j,original_id:j.id,id:j.workspaceId+':'+j.id})));
+      if (url.pathname === "/api/admin/notebook/reviews" && req.method === "GET") return send(200,personalReviews());
+      if (url.pathname === "/api/admin/notebook/inbox" && req.method === "GET") return send(200,buildInbox({reviews:personalReviews(),notes:notebook.list(),items:notebook.catalog().flatMap(w=>w.items),topics:context('default').topics.list().topics}));
+      if (url.pathname === "/api/admin/notebook/catalog" && req.method === "GET") return send(200, notebook.catalog());
       if (url.pathname === "/api/admin/workspaces" && req.method === "GET")
         return send(200, workspaces.list());
       if (
@@ -476,7 +490,7 @@ const server = http.createServer(async (req, res) => {
         /^\/api\/admin\/attachments\/([a-f0-9-]+)$/,
       );
       if (attachmentFile && req.method === "GET") {
-        const file = attachments.get(attachmentFile[1]);
+        const file = notebook.getAttachment(attachmentFile[1]);
         if (!file) return send(404, { error: "Fichier introuvable" });
         res.setHeader("Content-Type", file.mime);
         res.setHeader(
@@ -641,8 +655,11 @@ const server = http.createServer(async (req, res) => {
         req.method === "POST"
       )
         return send(200, await demands.analyze(body));
-      if (url.pathname === "/api/admin/demands" && req.method === "POST")
-        return send(201, await demands.create(body));
+      if (url.pathname === "/api/admin/demands" && req.method === "POST") {
+        const result=await demands.create(body);
+        if(body.note_id){const note=notebook.list().find(n=>n.id===body.note_id);if(note)notebook.save({workspace_ids:[...new Set([...note.workspace_ids,workspaceId])]},note.id);}
+        return send(201,result);
+      }
       const demandMatch = url.pathname.match(
         /^\/api\/admin\/demands\/([0-9a-f-]{36})$/,
       );
@@ -912,7 +929,7 @@ const server = http.createServer(async (req, res) => {
         )
           productFlows.linkBrief(body.brief_id, result.data.id);
         if (result.status < 300 && req.method === "POST" && url.pathname === "/api/admin/items" && body._source_note_id)
-          notes.linkItem(body._source_note_id, result.data.id);
+          notes.linkItem(body._source_note_id, result.data.id, workspaceId);
         return send(result.status, result.data);
       }
       if (
@@ -1039,18 +1056,16 @@ const server = http.createServer(async (req, res) => {
       if (url.pathname === "/api/admin/notes" && req.method === "POST") {
         const note = notes.save(body);
         send(201, note);
-        setImmediate(() => ai.auto(note));
+        analyzePersonalNote(note);
         return;
       }
       const noteFiles = url.pathname.match(
         /^\/api\/admin\/notes\/([a-f0-9-]+)\/attachments$/,
       );
       if (noteFiles && req.method === "POST") {
-        const file = await attachments.add(noteFiles[1], body);
+        const file = await notebook.addAttachment(noteFiles[1], body);
         send(201, file);
-        setImmediate(() =>
-          ai.auto(notes.list().find((n) => n.id === noteFiles[1])),
-        );
+        analyzePersonalNote(notes.list().find((n) => n.id === noteFiles[1]));
         return;
       }
       const noteMatch = url.pathname.match(
@@ -1059,7 +1074,7 @@ const server = http.createServer(async (req, res) => {
       if (noteMatch && req.method === "PATCH") {
         const note = notes.save(body, noteMatch[1]);
         send(200, note);
-        if (body.text !== undefined) setImmediate(() => ai.auto(note));
+        if (body.text !== undefined) analyzePersonalNote(note);
         return;
       }
       if (url.pathname === "/api/admin/decisions" && req.method === "POST")
@@ -1126,7 +1141,7 @@ const server = http.createServer(async (req, res) => {
           ? demands.createFeature(body)
           : store.save(body);
         if (body.brief_id) productFlows.linkBrief(body.brief_id, id);
-        if (body._source_note_id) notes.linkItem(body._source_note_id, id);
+        if (body._source_note_id) notes.linkItem(body._source_note_id, id, workspaceId);
         return send(201, { id });
       }
       const archiveItem = url.pathname.match(

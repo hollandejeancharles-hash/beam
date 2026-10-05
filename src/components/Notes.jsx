@@ -2,14 +2,15 @@ import { notebookFolders } from "../../shared/notebook-folders";
 import { loadNotebook } from "../../shared/notebook-load";
 import NoteImage, { DraftImages } from "./NoteImage";
 import useVisiblePolling, { unchangedData } from "../hooks/useVisiblePolling";
-import { DemandCapture } from "./Demands";
+import NoteConversion from "./NoteConversion";
+import {conversionContext} from "../../shared/notebook-context";
 import { receiveNoteTransfer } from "../../shared/note-transfer";
 import { usePersistentDraft } from "../usePersistentDraft";
 import ProductBrief from "./ProductBrief";
 import DecisionMemory from "./DecisionMemory";
 import ReviewInbox from "./ReviewInbox";
 import { includesSearch } from "../../shared/search";
-import AIProgress from "./AIProgress";
+import AIProgress, {AIActivityProvider} from "./AIProgress";
 import React, { lazy, Suspense, useEffect, useRef, useState } from "react";
 const richEditorModule = import("./RichNoteEditor");
 const LazyRichNoteEditor = lazy(() => richEditorModule);
@@ -42,14 +43,11 @@ const dateLabel = (d) =>
     month: "short",
   });
 export function useDraft(workspaceId) {
-  const key =
-    "beam_note_draft:" +
-    (workspaceId ||
-      new URLSearchParams(location.search).get("workspace") ||
-      "default");
+  const legacyKey = "beam_note_draft:" + (workspaceId || new URLSearchParams(location.search).get("workspace") || "default");
+  const key = "beam_note_draft:personal";
   const [entry, setEntry] = useState(() => ({
     key,
-    text: localStorage.getItem(key) || "",
+    text: localStorage.getItem(key) || localStorage.getItem(legacyKey) || "",
   }));
   const text = entry.key === key ? entry.text : localStorage.getItem(key) || "";
   useEffect(() => {
@@ -259,7 +257,27 @@ export default function Notes({
 }) {
   const workspaceId =
     new URLSearchParams(location.search).get("workspace") || "default";
-  const [demandNote, setDemandNote] = useState(null);
+  const [conversion,setConversion]=useState(null);
+  const [catalog,setCatalog]=useState([]),[workspaceFolder,setWorkspaceFolder]=useState(null);
+
+  const notebookApi=(path,options={})=>{
+    if(path==='admin/ai/activity')return api('admin/notebook/activity',options);
+    if(path==='admin/ai/reviews' && !options.method)return api('admin/notebook/reviews',options);
+    if(path==='admin/inbox')return api('admin/notebook/inbox',options);
+    if(path.startsWith('admin/topics'))return api(path.replace('admin/topics','admin/notebook/topics'),options);
+    const reviewId=path.match(/^admin\/ai\/reviews\/([^/]+)/)?.[1];
+    let target=data.reviews.find(r=>r.id===reviewId)?.workspace_id;
+    if(path==='admin/ai/analyze' && options.body){const input=JSON.parse(options.body);const note=notes.find(n=>n.id===input.id);if(input.scope==='note'&&note)target=conversionContext(note,catalog,workspaceId,'task').workspaceId;}
+    return api(path,{...options,...(target?{headers:{...options.headers,'X-Beam-Workspace':target}}:{})});
+  };
+  function openReference(ref) {
+    if(!ref.workspace_id)return;
+    const target=catalog.find(w=>w.id===ref.workspace_id)?.items.find(i=>i.id===ref.item_id);
+    if(ref.workspace_id===workspaceId && target)onOpen?.(target);
+    else if(target){const url=new URL(location.href);url.searchParams.set('workspace',ref.workspace_id);url.hash='element-'+target.id;location.assign(url.href);}else {setWorkspaceFolder(ref.workspace_id);setFolder(null);setView('all');}
+  }
+  function convert(type,n,excerpt) {setConversion({type,note:{...n,...(excerpt?{excerpt}:{})}});}
+
   const notebookRoot = useRef(null);
   const [focusNote, setFocusNote] = useState(false);
   useEffect(() => {onFocusMode?.(focusNote); return () => onFocusMode?.(false);}, [focusNote,onFocusMode]);
@@ -304,9 +322,10 @@ export default function Notes({
   const [richDraft, setRichDraft] = usePersistentDraft(
     composerKey + ":document",
     null,
+    true,
   );
   const [notes, setNotes] = useState([]),
-    [text, setText] = usePersistentDraft(composerKey, ""),
+    [text, setText] = usePersistentDraft(composerKey, "", true),
     [files, setFiles] = useState([]),
     [busy, setBusy] = useState(false),
     [view, setView] = useState("all"),
@@ -376,8 +395,9 @@ export default function Notes({
     };
   }, []);
   async function load() {
+    void api('admin/notebook/catalog').then(value=>{if(mounted.current)setCatalog(previous=>unchangedData(previous,value));}).catch(()=>{});
     await loadNotebook(
-      api,
+      notebookApi,
       (section, value) => {
         if (!mounted.current) return;
         if (section === "notes") {
@@ -472,6 +492,7 @@ export default function Notes({
       (view !== "review" || pending(n)) &&
       (topic === "Tous" || n.tags.includes(topic)) &&
       (!activeFolder || activeFolder.noteIds.includes(n.id)) &&
+      (!workspaceFolder || n.workspace_ids?.includes(workspaceFolder)) &&
       (!query ||
         includesSearch(query, [
           n.text,
@@ -488,7 +509,7 @@ export default function Notes({
           ? visible[0] || null
           : null,
       );
-  }, [loaded, notes, view, topic, query, composing, subject, folder, subjects]);
+  }, [loaded, notes, view, topic, query, composing, subject, folder, subjects,workspaceFolder]);
   function newNote() {
     setFolder(null);
     setTopic("Tous");
@@ -520,16 +541,18 @@ export default function Notes({
       });
     }
   }
-  async function save(e) {
+  async function save(e, snapshot, commandType) {
     e?.preventDefault();
-    if (busy || (!text.trim() && !files.length)) return;
+    const value=snapshot?.text ?? text, doc=snapshot?.document ?? richDraft;
+    if (busy || (!value.trim() && !files.length)) return;
     setBusy(true);
     try {
       const n = await api("admin/notes", {
         method: "POST",
         body: JSON.stringify({
-          text: text.trim() || files.map((f) => f.name).join(", "),
-          ...(text.trim() && richDraft ? { document: richDraft } : {}),
+          text: value.trim() || files.map((f) => f.name).join(", "),
+          ...(value.trim() && doc ? { document: doc } : {}),
+          workspace_ids:workspaceFolder ? [workspaceFolder] : [],
         }),
       });
       setText("");
@@ -542,11 +565,18 @@ export default function Notes({
       setComposing(false);
       sessionStorage.removeItem("beam-capture-composer:" + workspaceId);
       setComposerKey("note-composer");
+      if(commandType) convert(commandType,n);
+      return n;
     } catch (e) {
       onError(e.message);
     } finally {
       setBusy(false);
     }
+  }
+  function removeWorkspace(n,id) {
+    const strip=node=>node.type==='mention' && node.attrs.workspace_id===id ? {type:'text',text:'@'+node.attrs.label} : {...node,...(node.content?{content:node.content.map(strip)}:{})};
+    const remaining=(n.references || []).filter(r=>r.workspace_id!==id);
+    return update(n,{workspace_ids:n.workspace_ids.filter(w=>w!==id),references:remaining,...(n.document?{document:strip(n.document)}:{}),classification:{linked:(n.linked || []).filter(item=>!catalog.find(w=>w.id===id)?.items.some(i=>i.id===item))}});
   }
   async function update(n, body) {
     try {
@@ -582,11 +612,13 @@ export default function Notes({
     }
   }
   return (
+    <AIActivityProvider api={notebookApi} enabled className="notebook-personal-activity">
     <div
       ref={notebookRoot}
       style={{"--note-index-width":`${paneWidths.index}px`,"--note-list-width":`${paneWidths.list}px`}}
       className={`notes-notebook ${focusNote ? "note-focus" : ""} ${composing || current || subject || settings || view === "review" ? "has-detail" : ""}`}
     >
+      {conversion && <NoteConversion key={conversion.note.id+conversion.type} {...conversion} catalog={catalog} active={workspaceId} api={api} onClose={()=>setConversion(null)} onError={onError} onDone={({type,workspace})=>{void load();onRefresh?.();onError?.(`${type==='demand'?'Demande':type==='task'?'Tâche':'Feature'} créée dans ${catalog.find(w=>w.id===workspace)?.name || 'le workspace'}.`);}} />}
       {columnSeparator("index", "Largeur des dossiers")}
       {columnSeparator("list", "Largeur de la liste des notes")}
       <aside className="notebook-index" aria-label="Votre carnet">
@@ -618,6 +650,7 @@ export default function Notes({
               onClick={() => {
                 setView(id);
                 setFolder(null);
+                setWorkspaceFolder(null);
                 setTopic("Tous");
                 setComposing(false);
                 setSubject(null);
@@ -631,6 +664,11 @@ export default function Notes({
             </button>
           ))}
         </nav>
+        <section className="notebook-workspaces" aria-label="Dossiers par workspace">
+          <div className="notebook-folders-heading"><span>Workspaces</span></div>
+          {catalog.map(w=><button key={w.id} className={workspaceFolder===w.id?'active':''} aria-pressed={workspaceFolder===w.id} onClick={()=>{setWorkspaceFolder(w.id);setFolder(null);setView('all');setComposing(false);setSubject(null);setQuery('');setTopic('Tous');}}><span>{w.name}</span><small>{notes.filter(n=>n.workspace_ids?.includes(w.id)&&!['archived','deleted'].includes(n.state)).length}</small></button>)}
+          <small className="notebook-hint">Votre carnet reste personnel.</small>
+        </section>
         <section
           className="notebook-folders"
           aria-label="Dossiers intelligents"
@@ -648,7 +686,7 @@ export default function Notes({
                   aria-pressed={folder === t.id}
                   title={t.summary}
                   onClick={() => {
-                    setFolder(t.id);
+                    setFolder(t.id);setWorkspaceFolder(null);
                     setTopic("Tous");
                     setView("all");
                     setSubject(null);
@@ -703,7 +741,7 @@ export default function Notes({
                 disabled={subjects.running}
                 onClick={async () => {
                   try {
-                    await api("admin/topics/refresh", {
+                    await notebookApi("admin/topics/refresh", {
                       method: "POST",
                       body: "{}",
                     });
@@ -747,7 +785,7 @@ export default function Notes({
         <div className="notebook-list-heading">
           <div>
             <strong>
-              {activeFolder?.title ||
+              {catalog.find(w=>w.id===workspaceFolder)?.name || activeFolder?.title ||
                 {
                   all: "Toutes les notes",
                   followup: "À suivre",
@@ -936,7 +974,7 @@ export default function Notes({
               Revenir au carnet
             </button>
             <LocalAssistant
-              api={api}
+              api={notebookApi}
               items={items}
               settingsOnly
               onData={setData}
@@ -948,8 +986,8 @@ export default function Notes({
               key={subject.id}
               topic={subject}
               topics={subjects.topics}
-              items={items}
-              api={api}
+              items={catalog.find(w=>w.id==='default')?.items || []}
+              api={notebookApi}
               refresh={load}
               onError={onError}
               onNote={(id) => {
@@ -973,6 +1011,9 @@ export default function Notes({
             <RichNoteEditor
               text={text}
               document={richDraft}
+              catalog={catalog}
+              onReference={openReference}
+              onCommand={(type,snapshot)=>void save(null,snapshot,type)}
               label="Nouvelle note"
               toolbarTarget={toolbarTarget}
               autoFocus
@@ -1029,6 +1070,9 @@ export default function Notes({
           <div className="notebook-paper" key={current.id}>
             <InlineNoteEditor
               note={current}
+              catalog={catalog}
+              onReference={openReference}
+              onCommand={async (type,snapshot)=>{try {const n=await api(`admin/notes/${current.id}`,{method:'PATCH',body:JSON.stringify(snapshot)});await load();convert(type,n);}catch(e){onError(e.message);}}}
               update={update}
               pending={pending(current)}
               toolbarTarget={toolbarTarget}
@@ -1104,36 +1148,22 @@ export default function Notes({
                   ))}
               </section>
             )}
+            <div className="note-workspace-links" aria-label="Workspaces associés">
+              {(current.workspace_ids || []).map(id=><span key={id}><button className="text-button" onClick={()=>{setWorkspaceFolder(id);setFolder(null);setView('all');}}>@{catalog.find(w=>w.id===id)?.name || 'Workspace'}</button><button className="text-button" aria-label="Retirer ce workspace de la note" onClick={()=>void removeWorkspace(current,id)}>×</button></span>)}
+              {(current.proposed_workspace_ids || []).map(id=><button key={'proposal:'+id} className="text-button" onClick={()=>void update(current,{workspace_ids:[...current.workspace_ids,id]})}>Associer à {catalog.find(w=>w.id===id)?.name} ?</button>)}
+            </div>
             <div className="note-conversion-actions" hidden={current.state === "deleted"}>
               <span>Transformer cette note</span>
               <div>
-                <button className="button" onClick={() => setDemandNote(current)}>En demande</button>
-                {["task", "feature"].map((type) => (
-                  <button key={type} className="button" disabled={!onPrepare} onClick={() => {
-                    const parents = items.filter((i) => current.linked?.includes(i.id) && (type === "task" ? ["initiative", "project", "feature"].includes(i.type) : i.type === "initiative"));
-                    onPrepare?.({type, title: current.text.split("\n").find((line) => line.trim())?.slice(0,140) || "Nouvel élément", description: current.text, parent_id: parents.length === 1 ? parents[0].id : null, _source_note_id: current.id});
-                  }}>En {type === "task" ? "tâche" : "feature"}</button>
-                ))}
+                {['demand','task','feature'].map(type=><button key={type} className="button" onClick={()=>{const excerpt=window.getSelection()?.toString();convert(type,current,excerpt&&current.text.includes(excerpt)?excerpt:undefined);}}>En {type==='demand'?'demande':type==='task'?'tâche':'feature'}</button>)}
               </div>
               <small>La note reste dans votre carnet. Vérifiez le contenu avant de le partager dans la roadmap.</small>
             </div>
-            {demandNote && (
-              <div className="demand-overlay">
-                <DemandCapture
-                  key={demandNote.id}
-                  note={demandNote}
-                  api={api}
-                  onError={onError}
-                  onClose={() => setDemandNote(null)}
-                  onDone={() => onRefresh?.()}
-                />
-              </div>
-            )}
             <DecisionMemory
               key={current.id}
-              api={api}
+              api={(path,options={})=>api(path,{...options,headers:{...options.headers,"X-Beam-Workspace":conversionContext(current,catalog,workspaceId,"task").workspaceId}})}
               note={current}
-              items={items}
+              items={catalog.find(w=>w.id===conversionContext(current,catalog,workspaceId,"task").workspaceId)?.items || items}
               onError={onError}
               onChange={load}
               hideEmptyMessage
@@ -1252,7 +1282,7 @@ export default function Notes({
 
                 <LocalAssistant
                   key={current.id}
-                  api={api}
+                  api={notebookApi}
                   items={items}
                   scope="note"
                   entity={current}
@@ -1271,7 +1301,7 @@ export default function Notes({
               rows={inbox}
               loading={!loaded}
               query={query}
-              api={api}
+              api={notebookApi}
               onRefresh={load}
               onError={onError}
               onExamine={(row) => {
@@ -1315,6 +1345,7 @@ export default function Notes({
         )}
       </section>
     </div>
+    </AIActivityProvider>
   );
 }
 function NoteStateLabels({ note, pending }) {
@@ -1353,8 +1384,8 @@ function NoteTopicLabels({ tags = [], limit = 3 }) {
     </span>
   ) : null;
 }
-function InlineNoteEditor({ note, update, pending, onFiles, toolbarTarget }) {
-  const [draft, setDraft] = usePersistentDraft("note-edit:" + note.id, null);
+function InlineNoteEditor({ note, update, pending, onFiles, toolbarTarget,catalog,onCommand,onReference }) {
+  const [draft, setDraft] = usePersistentDraft("note-edit:" + note.id, null, true);
   const [saving, setSaving] = useState(false);
   const value = typeof draft === "string" ? draft : (draft?.text ?? note.text);
   const document =
@@ -1391,6 +1422,9 @@ function InlineNoteEditor({ note, update, pending, onFiles, toolbarTarget }) {
       </div>
       <RichNoteEditor
         text={value}
+        catalog={catalog}
+        onReference={onReference}
+        onCommand={async (type,snapshot)=>{await onCommand?.(type,snapshot);}}
         toolbarTarget={toolbarTarget}
         document={document}
         readOnly={["archived","deleted"].includes(note.state)}

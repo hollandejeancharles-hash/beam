@@ -1,6 +1,7 @@
 import { createPortal } from "react-dom";
-import React, { useEffect, useRef } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { useEditor, EditorContent } from "@tiptap/react";
+import { Node, mergeAttributes } from "@tiptap/core";
 import StarterKit from "@tiptap/starter-kit";
 import Highlight from "@tiptap/extension-highlight";
 import TaskList from "@tiptap/extension-task-list";
@@ -17,9 +18,54 @@ import {
   plainNoteDocument,
   noteDocumentText,
 } from "../../shared/note-document";
+const Mention = Node.create({
+  name: "mention",
+  group: "inline",
+  inline: true,
+  atom: true,
+  addAttributes() {
+    return {
+      workspace_id: { default: null },
+      item_id: { default: null },
+      label: { default: "" },
+    };
+  },
+  parseHTML() {
+    return [{ tag: "span[data-note-mention]" }];
+  },
+  renderHTML({ node, HTMLAttributes }) {
+    return [
+      "span",
+      mergeAttributes(HTMLAttributes, {
+        "data-note-mention": "true",
+        class: "note-mention",
+        role: "link",
+        tabindex: "0",
+      }),
+      "@" + node.attrs.label,
+    ];
+  },
+});
+const commands = [
+  ["demande", "Préparer une demande", "demand"],
+  ["feature", "Préparer une feature", "feature"],
+  ["tâche", "Préparer une tâche", "task"],
+  ["décision", "Consigner une décision", "decision"],
+  ["checklist", "Liste à cocher", "checklist"],
+  ["tableau", "Insérer un tableau", "table"],
+  ["joindre", "Image ou PDF", "attach"],
+];
+const normalize = (value) =>
+  value
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase();
 export default function RichNoteEditor({
   text,
   document,
+  catalog = [],
+  onCommand,
+  onReference,
   onChange,
   onSave,
   onFiles,
@@ -28,12 +74,25 @@ export default function RichNoteEditor({
   autoFocus = false,
   label = "Texte de la note",
 }) {
-  const callbacks = useRef({ onChange, onSave, onFiles });
+  const [menu, setMenu] = useState(null),
+    [menuIndex, setMenuIndex] = useState(0);
+  const menuRef = useRef(null),
+    dismissed = useRef(null),
+    editorRef = useRef(null),
+    fileInput = useRef(null);
+  const callbacks = useRef({
+    onChange,
+    onSave,
+    onFiles,
+    onCommand,
+    onReference,
+  });
   const container = useRef(null);
   const toolbar = useRef(null);
-  callbacks.current = { onChange, onSave, onFiles };
+  callbacks.current = { onChange, onSave, onFiles, onCommand, onReference };
   const editor = useEditor({
     extensions: [
+      Mention,
       StarterKit.configure({ link: false, heading: { levels: [1, 2, 3] } }),
       Highlight,
       TaskList,
@@ -55,9 +114,47 @@ export default function RichNoteEditor({
         "aria-label": label,
         role: "textbox",
         "aria-multiline": "true",
-        "data-placeholder": "Une idée, un échange, une suite à donner…",
+        "data-placeholder": "Écrivez librement. @ pour relier, / pour agir.",
+      },
+      handleClick: (_view, _pos, e) => {
+        const mention = e.target.closest?.("[data-note-mention]");
+        if (mention) {
+          callbacks.current.onReference?.({
+            workspace_id: mention.getAttribute("workspace_id"),
+            item_id: mention.getAttribute("item_id"),
+          });
+          return true;
+        }
+        return false;
       },
       handleKeyDown: (_view, e) => {
+        const current = menuRef.current;
+        if (current && !e.isComposing) {
+          if (e.key === "Escape") {
+            e.preventDefault();
+            dismissed.current = current.trigger;
+            setMenu(null);
+            return true;
+          }
+          if (["ArrowDown", "ArrowUp"].includes(e.key)) {
+            e.preventDefault();
+            setMenuIndex(
+              (i) =>
+                (i +
+                  (e.key === "ArrowDown" ? 1 : -1) +
+                  Math.max(1, current.options.length)) %
+                Math.max(1, current.options.length),
+            );
+            return true;
+          }
+          if (e.key === "Enter" && current.options.length) {
+            e.preventDefault();
+            current.choose(
+              current.options[current.index] || current.options[0],
+            );
+            return true;
+          }
+        }
         if (e.key === "Enter" && (e.metaKey || e.ctrlKey) && !e.isComposing) {
           e.preventDefault();
           callbacks.current.onSave?.();
@@ -101,6 +198,125 @@ export default function RichNoteEditor({
     if (JSON.stringify(next) !== JSON.stringify(editor.getJSON()))
       editor.commands.setContent(next, { emitUpdate: false });
   }, [editor, text, document, readOnly]);
+  editorRef.current = editor;
+  function detectMenu() {
+    if (
+      !editor ||
+      readOnly ||
+      editor.state.selection.from !== editor.state.selection.to
+    ) {
+      setMenu(null);
+      return;
+    }
+    const pos = editor.state.selection.$from;
+    const before = pos.parent.textBetween(0, pos.parentOffset, "", " ");
+    const match =
+      before.match(/(?:^|\s)@([^@\n]{0,80})$/) ||
+      before.match(/^\/([^/\s]{0,30})$/);
+    if (!match) {
+      dismissed.current = null;
+      setMenu(null);
+      return;
+    }
+    const kind =
+      before.startsWith("/") && /^\/[^/\s]*$/.test(before)
+        ? "command"
+        : "mention";
+    const trigger = kind + ":" + before;
+    if (dismissed.current === trigger) return;
+    const from = pos.pos - match[1].length - 1;
+    setMenu((previous) =>
+      previous?.trigger === trigger
+        ? previous
+        : { kind, query: match[1], from, to: pos.pos, trigger },
+    );
+    setMenuIndex(0);
+  }
+  useEffect(() => {
+    if (!editor) return;
+    editor.on("selectionUpdate", detectMenu);
+    editor.on("update", detectMenu);
+    return () => {
+      editor.off("selectionUpdate", detectMenu);
+      editor.off("update", detectMenu);
+    };
+  }, [editor, readOnly]);
+  const options =
+    menu?.kind === "command"
+      ? commands
+          .filter((c) => normalize(c[0]).includes(normalize(menu.query)))
+          .map((c) => ({ label: c[0], subtitle: c[1], command: c[2] }))
+      : menu
+        ? catalog
+            .flatMap((w) => [
+              { label: w.name, workspace_id: w.id, subtitle: "Workspace" },
+              ...(w.items || []).map((i) => ({
+                label: i.title,
+                workspace_id: w.id,
+                item_id: i.id,
+                subtitle:
+                  w.name +
+                  " · " +
+                  ({
+                    initiative: "Initiative",
+                    project: "Projet",
+                    feature: "Feature",
+                    task: "Tâche",
+                  }[i.type] || "Élément"),
+              })),
+            ])
+            .filter((o) =>
+              normalize(o.label + " " + o.subtitle).includes(
+                normalize(menu.query),
+              ),
+            )
+            .slice(0, 12)
+        : [];
+  function choose(option) {
+    if (!editor || !menu) return;
+    const range = { from: menu.from, to: menu.to };
+    dismissed.current = menu.trigger;
+    setMenu(null);
+    if (option.workspace_id) {
+      editor
+        .chain()
+        .focus()
+        .deleteRange(range)
+        .insertContent([
+          {
+            type: "mention",
+            attrs: {
+              workspace_id: option.workspace_id,
+              item_id: option.item_id || null,
+              label: option.label,
+            },
+          },
+          { type: "text", text: " " },
+        ])
+        .run();
+      return;
+    }
+    editor.chain().focus().deleteRange(range).run();
+    if (option.command === "checklist")
+      editor.chain().focus().toggleTaskList().run();
+    else if (option.command === "table")
+      editor
+        .chain()
+        .focus()
+        .insertTable({ rows: 3, cols: 3, withHeaderRow: true })
+        .run();
+    else if (option.command === "attach") fileInput.current?.click();
+    else if (option.command === "decision")
+      editor.chain().focus().insertContent("Décision : ").run();
+    else
+      callbacks.current.onCommand?.(option.command, {
+        text: noteDocumentText(editor.getJSON()),
+        document: editor.getJSON(),
+      });
+  }
+  menuRef.current = menu
+    ? { ...menu, options, index: menuIndex, choose }
+    : null;
   if (!editor) return null;
   const action = (run) => {
     if (editor.isDestroyed) return;
@@ -272,6 +488,74 @@ export default function RichNoteEditor({
           </div>,
         )}
       <EditorContent editor={editor} />
+      {!readOnly && (
+        <input
+          ref={fileInput}
+          className="note-command-file"
+          type="file"
+          multiple
+          accept="image/png,image/jpeg,image/webp,application/pdf"
+          onChange={(e) => {
+            callbacks.current.onFiles?.(Array.from(e.target.files));
+            e.target.value = "";
+          }}
+        />
+      )}
+      {menu && (
+        <div
+          className="note-command-menu"
+          style={(() => {
+            const point = editor.view.coordsAtPos(menu.to),
+              rect = container.current?.getBoundingClientRect();
+            return rect
+              ? {
+                  top: point.bottom - rect.top + 8,
+                  left: Math.max(
+                    0,
+                    Math.min(point.left - rect.left, rect.width - 320),
+                  ),
+                }
+              : {};
+          })()}
+          role="listbox"
+          aria-label={
+            menu.kind === "mention"
+              ? "Relier une information"
+              : "Actions de la note"
+          }
+        >
+          <small>
+            {menu.kind === "mention"
+              ? "Relier une information"
+              : "Actions de la note"}
+          </small>
+          {options.map((option, i) => (
+            <button
+              type="button"
+              role="option"
+              aria-selected={i === menuIndex}
+              className={i === menuIndex ? "active" : ""}
+              key={
+                (option.workspace_id || option.command) +
+                ":" +
+                (option.item_id || "")
+              }
+              onMouseDown={(e) => e.preventDefault()}
+              onClick={() => choose(option)}
+            >
+              <strong>
+                {menu.kind === "command" ? "/" : ""}
+                {option.label}
+              </strong>
+              <span>{option.subtitle}</span>
+            </button>
+          ))}
+          {!options.length && <p>Aucun résultat</p>}
+          <small>
+            ↑ ↓ pour choisir · Entrée pour valider · Échap pour fermer
+          </small>
+        </div>
+      )}
     </div>
   );
 }

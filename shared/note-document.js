@@ -1,4 +1,5 @@
 const TYPES = new Set([
+  "mention",
   "doc",
   "paragraph",
   "heading",
@@ -41,8 +42,8 @@ const CHILDREN = {
   blockquote: BLOCKS,
   listItem: BLOCKS,
   taskItem: BLOCKS,
-  paragraph: ["text", "hardBreak"],
-  heading: ["text", "hardBreak"],
+  paragraph: ["text", "hardBreak", "mention"],
+  heading: ["text", "hardBreak", "mention"],
   codeBlock: ["text"],
   bulletList: ["listItem"],
   orderedList: ["listItem"],
@@ -51,6 +52,7 @@ const CHILDREN = {
   tableRow: ["tableCell", "tableHeader"],
   tableCell: BLOCKS,
   tableHeader: BLOCKS,
+  mention: [],
   text: [],
   hardBreak: [],
   horizontalRule: [],
@@ -63,6 +65,23 @@ export function validateNoteDocument(input) {
     if (++count > 2000 || depth > 16 || !node || !TYPES.has(node.type))
       throw Error("Document de note invalide");
     const out = { type: node.type };
+    if (node.type === "mention") {
+      if (
+        typeof node.attrs?.workspace_id !== "string" ||
+        node.attrs.workspace_id.length > 80 ||
+        typeof node.attrs?.label !== "string" ||
+        node.attrs.label.length > 220 ||
+        (node.attrs.item_id &&
+          (typeof node.attrs.item_id !== "string" ||
+            node.attrs.item_id.length > 80))
+      )
+        throw Error("Mention invalide");
+      out.attrs = {
+        workspace_id: node.attrs.workspace_id,
+        item_id: node.attrs.item_id || null,
+        label: node.attrs.label,
+      };
+    }
     if (node.type === "text") {
       if (typeof node.text !== "string") throw Error("Texte invalide");
       out.text = node.text;
@@ -106,6 +125,7 @@ export function validateNoteDocument(input) {
   return result;
 }
 export function noteDocumentText(node) {
+  if (node.type === "mention") return "@" + node.attrs.label;
   if (node.type === "text") return node.text;
   if (node.type === "hardBreak") return "\n";
   const children = (node.content || []).map(noteDocumentText);

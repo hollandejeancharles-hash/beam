@@ -230,7 +230,9 @@ function App() {
       options.method !== "GET"
     ) {
       const body = options.body ? JSON.parse(options.body) : {};
-      const revision =
+      const foreignWorkspace = options.headers?.["X-Beam-Workspace"] && options.headers["X-Beam-Workspace"] !== workspaceIdRef.current;
+      const targetState = foreignWorkspace ? await api("admin/collaboration", {headers:options.headers}) : null;
+      const revision = foreignWorkspace ? body._revision ?? targetState?.workspace?.revision :
         body._revision ??
         (path.match(/^admin\/items\/[a-f0-9-]+$/)
           ? selected?._revision

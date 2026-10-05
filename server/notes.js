@@ -89,6 +89,9 @@ export function createNotes(store) {
           .map((m) => m.item_id);
         details.linked = details.linked.filter((id) => !rejected.includes(id));
       }
+      if (document) { const labels=[]; const visit=n=>{if(n.type==="mention")labels.push(n.attrs.label.split(/\s/)[0]);for(const c of n.content || [])visit(c);};visit(document);details.people=details.people.filter(p=>!labels.includes(p)); }
+      details.workspace_ids = input.workspace_ids ?? previous.workspace_ids;
+      details.references = input.references ?? previous.references ?? [];
       details.manual_fields = automatic
         ? locked
         : [...new Set([...locked, ...Object.keys(input.classification || {})])];
@@ -110,6 +113,7 @@ export function createNotes(store) {
             new Date(details.due).toISOString().slice(0, 10) !== details.due))
       )
         throw Error("Classement invalide");
+      if (!input.classification?.linked) details.linked = details.linked.filter(id=>store.list().some(i=>i.id===id));
       if (details.linked.some((id) => !store.list().some((i) => i.id === id)))
         throw Error("Élément de roadmap introuvable");
       const state = input.state || old?.state || "open";
