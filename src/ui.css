@@ -309,3 +309,13 @@
 .conversation-intake-help {margin-top:14px;max-width:760px;font-size:13px;line-height:1.7;}
 .conversation-intake-help ol {padding-left:20px;color:var(--muted, #9598a7);}
 @media(max-width:650px){.conversation-intake-providers{grid-template-columns:1fr;}}
+
+/* Separate the decision, linked result and follow-up actions. */
+.demand-detail .demand-decision { display: grid; gap: 24px; padding-top: 24px; }
+.demand-decision > h3, .demand-decision > label, .demand-decision > p { margin: 0; }
+.demand-decision > label { gap: 12px; }
+.demand-linked-result { display: flex; flex-direction: column; align-items: flex-start; gap: 16px; padding: 20px; border: 1px solid var(--line); border-radius: 12px; background: rgba(255,255,255,.025); }
+.demand-linked-result strong, .demand-linked-result p { margin: 0; line-height: 1.6; }
+.demand-linked-result .button, .demand-decision > .button { max-width: 100%; white-space: normal; text-align: left; }
+.demand-decision > .button { justify-self: start; }
+.demand-decision .demand-actions { display: flex; flex-wrap: wrap; gap: 12px; }

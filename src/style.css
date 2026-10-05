@@ -6836,3 +6836,18 @@ main.notes-workspace{height:100dvh;display:flex;flex-direction:column;overflow:h
 .member-offline { color: var(--muted, #999bad); font-size: 12px; }
 
 .notebook-folder-row .notebook-folder-proposal{display:block;margin-top:3px;font-size:10px;color:#afa1df;white-space:normal}
+
+/* Keep onboarding actions on their own lines with a clear vertical rhythm. */
+.welcome-team-step { display: grid; gap: 24px; }
+.welcome-team-step > .button { justify-self: start; }
+.welcome-team-step > .modal-copy { margin: 0; line-height: 1.7; }
+.welcome-team-step .collaboration-settings { display: flex; flex-direction: column; align-items: stretch; gap: 20px; }
+.welcome-team-step .collaboration-settings > h3,
+.welcome-team-step .collaboration-settings > p { margin: 0; }
+.welcome-team-step .collaboration-settings form { display: grid; gap: 16px; margin: 4px 0; padding: 24px 0; border-top: 1px solid var(--line); }
+.welcome-team-step .collaboration-settings form > p,
+.welcome-team-step .collaboration-settings form > label { margin: 0; }
+.welcome-team-step .collaboration-settings form > label { display: grid; gap: 12px; }
+.welcome-team-step .collaboration-settings small { display: block; line-height: 1.7; }
+.welcome-team-step .collaboration-settings .button { align-self: flex-start; justify-self: start; margin: 0; max-width: 100%; white-space: normal; }
+.welcome-team-step + .welcome-footer { margin-top: 32px; padding-top: 24px; border-top: 1px solid var(--line); }

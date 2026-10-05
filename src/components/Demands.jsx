@@ -783,7 +783,7 @@ export default function Demands({
                         </div>
                       ))}
                     </section>
-                    <section>
+                    <section className="demand-decision">
                       <h3>Décider de la suite</h3>
                       <label>
                         Créer sous une initiative ou relier à une feature

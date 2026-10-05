@@ -66,7 +66,7 @@ export default function Welcome({
         />
       )}
       {step === 1 && (
-        <>
+        <section className="welcome-team-step">
           <Collaboration api={api} profile={profile} onChange={onChange} />
           <button className="button primary" onClick={() => setStep(2)}>
             Continuer
@@ -74,7 +74,7 @@ export default function Welcome({
           <p className="modal-copy">
             Vous pouvez aussi commencer seul et rejoindre une équipe plus tard.
           </p>
-        </>
+        </section>
       )}
       {step === 2 && (
         <section className="welcome-assistant-step">
