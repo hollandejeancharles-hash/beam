@@ -1,0 +1,13 @@
+import React,{useEffect,useState} from 'react';
+export default function MyWork({api,profile}) {
+ const [data,setData]=useState(null),[error,setError]=useState('');
+ async function load(){setError('');try {const catalog=await api('admin/notebook/catalog');const results=await Promise.allSettled(catalog.map(async w=>({workspace:w,queue:await api('admin/demands?cached=1',{headers:{'X-Beam-Workspace':w.id}})})));setData({catalog,results});}catch(e){setError(e.message);}}
+ useEffect(()=>{void load();},[]);
+ const identity=[profile.name,profile.email].filter(Boolean).map(x=>x.trim().toLocaleLowerCase());
+ const today=new Date().toISOString().slice(0,10),limit=new Date(Date.now()+7*86400000).toISOString().slice(0,10);
+ const rows=data?.catalog.flatMap(w=>w.items.filter(i=>!i.archived && i.status!=='done' && (identity.includes((i.owner||'').trim().toLocaleLowerCase()) || (i.end_date && i.end_date<=limit))).map(i=>({...i,workspace:w,mine:identity.includes((i.owner||'').trim().toLocaleLowerCase())}))) || [];
+ const requests=data?.results.flatMap(r=>r.status==='fulfilled' ? r.value.queue.demands.filter(d=>!d.data.deleted && ['review','clarify'].includes(d.data.state) && r.value.queue.userId && d.data.reviewer===r.value.queue.userId).map(d=>({...d,workspace:r.value.workspace})) : []) || [];
+ function group(title,entries,render){return <section><h2>{title} <small>{entries.length}</small></h2>{entries.length ? entries.map(render) : <p className="subtle">Rien à traiter ici.</p>}</section>;}
+ const item=i=><a key={i.workspace.id+':'+i.id} href={`?workspace=${encodeURIComponent(i.workspace.id)}#element-${i.id}`} className="my-work-row"><strong>{i.title}</strong><span>{i.workspace.name} · {i.owner || 'Non assigné'}{i.end_date ? ` · ${i.end_date < today ? 'En retard' : 'Échéance'} ${new Date(i.end_date+'T12:00:00').toLocaleDateString('fr-FR')}` : ''}</span></a>;
+ return <div className="my-work"><header><div><h1>Pour moi</h1><p className="subtle">Vos actions et les échéances proches, tous workspaces confondus.</p></div><button className="button" onClick={load}>Actualiser</button></header>{error && <p role="alert">{error}</p>}{!data ? <p>Chargement…</p> : <>{data.results.some(r=>r.status==='rejected') && <p role="status">Certaines demandes sont indisponibles. Les autres résultats restent visibles.</p>}{group('Assignés à moi',rows.filter(i=>i.mine),item)}{group('Demandes à examiner',requests,d=><a className="my-work-row" key={d.workspace.id+':'+d.id} href={`?workspace=${encodeURIComponent(d.workspace.id)}#feedback`}><strong>{d.data.title}</strong><span>{d.workspace.name}</span></a>)}{group('Échéances dans les 7 jours et retards',rows.filter(i=>i.end_date&&i.end_date<=limit),item)}</>}</div>;
+}

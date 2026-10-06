@@ -49,6 +49,8 @@ export function createUpdates(fetcher = fetch) {
       url: release
         ? `https://github.com/hollandejeancharles-hash/beam/releases/tag/${encodeURIComponent(release.tag_name)}`
         : "https://github.com/hollandejeancharles-hash/beam/releases",
+      notes: release?.body || "",
+      published: release?.published_at || null,
       checked: new Date(checked).toISOString(),
     };
     return cache;

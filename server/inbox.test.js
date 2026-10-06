@@ -89,3 +89,10 @@ test("uncertain topic and roadmap links appear once, confirmed links stay out", 
   );
   assert.equal(new Set(rows.map((r) => r.id)).size, 2);
 });
+
+test("uncertain folder links expose the actual note and target folder context", () => {
+  const rows=buildInbox({notes:[note],topics:[{id:"t",title:"Recherche",summary:"Retours sur la recherche",sources:[{id:"note:n",title:"Titre tronqué",confidence:"review",kind:"Note"}]}]});
+  assert.equal(rows[0].note_id,note.id);
+  assert.equal(rows[0].sources[0].text,note.text);
+  assert.equal(rows[0].topic_summary,"Retours sur la recherche");
+});

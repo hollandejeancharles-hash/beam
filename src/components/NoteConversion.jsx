@@ -44,7 +44,7 @@ export default function NoteConversion({
       if (parent && !latest.some((i) => i.id === parent))
         throw Error("Le rattachement a changé. Choisissez un autre élément.");
       const now = new Date();
-      await targetApi("admin/items", {
+      const created = await targetApi("admin/items", {
         method: "POST",
         body: JSON.stringify({
           type,
@@ -60,7 +60,7 @@ export default function NoteConversion({
           _source_note_id: note.id,
         }),
       });
-      onDone({ type, workspace });
+      onDone({ type, workspace, item: created, parentTitle: parents.find(i=>i.id===parent)?.title });
       onClose();
     } catch (e) {
       onError(e.message);
@@ -104,6 +104,7 @@ export default function NoteConversion({
           aria-modal="true"
           aria-label="Préparer une demande"
         >
+          <div className="conversion-destination">Créer une {type === "task" ? "tâche" : type === "demand" ? "demande" : "feature"} dans <strong>{selected?.name}</strong>{parent && <> → <strong>{parents.find(i=>i.id===parent)?.title}</strong></>}</div>
           {workspaceControl}
           <label className="note-conversion-workspace">
             Rattachement proposé
@@ -157,6 +158,7 @@ export default function NoteConversion({
               Fermer
             </button>
           </div>
+          <div className="conversion-destination">Créer une {type === "task" ? "tâche" : type === "demand" ? "demande" : "feature"} dans <strong>{selected?.name}</strong>{parent && <> → <strong>{parents.find(i=>i.id===parent)?.title}</strong></>}</div>
           {workspaceControl}
           <label>
             Rattachement

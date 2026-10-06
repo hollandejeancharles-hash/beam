@@ -1,3 +1,4 @@
+import QuickItemActions from "./QuickItemActions";
 import { DATE_KINDS } from "../../shared/roadmap-impact";
 import AIProgress from "./AIProgress";
 import React, { useEffect, useMemo, useRef, useState } from "react";
@@ -34,6 +35,7 @@ export default function Gantt({
   allItems,
   readOnly,
   onOpen,
+  onQuickChange,
   onCreate,
   onSchedule,
   onScenario,
@@ -486,6 +488,7 @@ export default function Gantt({
                         {late ? " · En retard" : ""}
                       </small>
                     </button>
+                    {!readOnly && <QuickItemActions item={item} onChange={onQuickChange} onCreate={item.type === 'task' ? undefined : onCreate}/>}
                     <span
                       className="gantt-progress"
                       title={
@@ -615,7 +618,7 @@ export default function Gantt({
           Dépendance
         </div>
         {!readOnly && (
-          <button className="text-button" onClick={onCreate}>
+          <button className="text-button" onClick={()=>onCreate()}>
             <Plus size={14} />
             Ajouter un élément
           </button>

@@ -1,3 +1,4 @@
+import { Paperclip } from "lucide-react";
 import { createPortal } from "react-dom";
 import React, { useEffect, useRef, useState } from "react";
 import { useEditor, EditorContent } from "@tiptap/react";
@@ -212,16 +213,13 @@ export default function RichNoteEditor({
     const before = pos.parent.textBetween(0, pos.parentOffset, "", " ");
     const match =
       before.match(/(?:^|\s)@([^@\n]{0,80})$/) ||
-      before.match(/^\/([^/\s]{0,30})$/);
+      before.match(/(?:^|\s)\/([^/\s]{0,30})$/);
     if (!match) {
       dismissed.current = null;
       setMenu(null);
       return;
     }
-    const kind =
-      before.startsWith("/") && /^\/[^/\s]*$/.test(before)
-        ? "command"
-        : "mention";
+    const kind = /(?:^|\s)\/[^/\s]*$/.test(before) ? "command" : "mention";
     const trigger = kind + ":" + before;
     if (dismissed.current === trigger) return;
     const from = pos.pos - match[1].length - 1;
@@ -317,6 +315,7 @@ export default function RichNoteEditor({
   menuRef.current = menu
     ? { ...menu, options, index: menuIndex, choose }
     : null;
+  const [compactToolsOpen, setCompactToolsOpen] = useState(false);
   if (!editor) return null;
   const action = (run) => {
     if (editor.isDestroyed) return;
@@ -331,6 +330,8 @@ export default function RichNoteEditor({
     <div className="rich-note-editor" ref={container}>
       {!readOnly &&
         placeToolbar(
+          <div className={`note-tools-group ${compactToolsOpen ? 'is-open' : ''}`} onKeyDown={e=>{if(e.key==='Escape')setCompactToolsOpen(false);}}>
+          <button className="note-tools-toggle" type="button" aria-label="Mise en forme et pièces jointes" aria-expanded={compactToolsOpen} onClick={()=>setCompactToolsOpen(!compactToolsOpen)}>Aa <span aria-hidden="true">⌄</span></button>
           <div
             ref={toolbar}
             className="note-editor-toolbar"
@@ -453,7 +454,7 @@ export default function RichNoteEditor({
                 className="note-toolbar-attach"
                 title="Ajouter une image ou un PDF"
               >
-                <Link2 size={18} />
+                <Paperclip size={18} />
                 <input
                   aria-label="Ajouter une image ou un PDF"
                   type="file"
@@ -485,7 +486,7 @@ export default function RichNoteEditor({
             >
               <ArrowRight size={16} />
             </button>
-          </div>,
+          </div></div>,
         )}
       <EditorContent editor={editor} />
       {!readOnly && (
@@ -501,61 +502,66 @@ export default function RichNoteEditor({
           }}
         />
       )}
-      {menu && (
-        <div
-          className="note-command-menu"
-          style={(() => {
-            const point = editor.view.coordsAtPos(menu.to),
-              rect = container.current?.getBoundingClientRect();
-            return rect
-              ? {
-                  top: point.bottom - rect.top + 8,
-                  left: Math.max(
-                    0,
-                    Math.min(point.left - rect.left, rect.width - 320),
-                  ),
+      {menu &&
+        createPortal(
+          <div
+            className="note-command-menu"
+            style={(() => {
+              const point = editor.view.coordsAtPos(menu.to);
+              return {
+                position: "fixed",
+                top: Math.max(
+                  8,
+                  Math.min(point.bottom + 8, window.innerHeight - 330),
+                ),
+                left: Math.max(
+                  8,
+                  Math.min(point.left, window.innerWidth - 340),
+                ),
+                width: Math.min(320, window.innerWidth - 16),
+                zIndex: 10000,
+              };
+            })()}
+            role="listbox"
+            aria-label={
+              menu.kind === "mention"
+                ? "Relier une information"
+                : "Actions de la note"
+            }
+          >
+            <small>
+              {menu.kind === "mention"
+                ? "Relier une information"
+                : "Actions de la note"}
+            </small>
+            {options.map((option, i) => (
+              <button
+                type="button"
+                role="option"
+                aria-selected={i === menuIndex}
+                className={i === menuIndex ? "active" : ""}
+                key={
+                  (option.workspace_id || option.command) +
+                  ":" +
+                  (option.item_id || "")
                 }
-              : {};
-          })()}
-          role="listbox"
-          aria-label={
-            menu.kind === "mention"
-              ? "Relier une information"
-              : "Actions de la note"
-          }
-        >
-          <small>
-            {menu.kind === "mention"
-              ? "Relier une information"
-              : "Actions de la note"}
-          </small>
-          {options.map((option, i) => (
-            <button
-              type="button"
-              role="option"
-              aria-selected={i === menuIndex}
-              className={i === menuIndex ? "active" : ""}
-              key={
-                (option.workspace_id || option.command) +
-                ":" +
-                (option.item_id || "")
-              }
-              onMouseDown={(e) => e.preventDefault()}
-              onClick={() => choose(option)}
-            >
-              <strong>
-                {menu.kind === "command" ? "/" : ""}
-                {option.label}
-              </strong>
-              <span>{option.subtitle}</span>
-            </button>
-          ))}
-          {!options.length && <p>Aucun résultat</p>}
-          <small>
-            ↑ ↓ pour choisir · Entrée pour valider · Échap pour fermer
-          </small>
-        </div>
-      )}
+                onMouseDown={(e) => e.preventDefault()}
+                onClick={() => choose(option)}
+              >
+                <strong>
+                  {menu.kind === "command" ? "/" : ""}
+                  {option.label}
+                </strong>
+                <span>{option.subtitle}</span>
+              </button>
+            ))}
+            {!options.length && <p>Aucun résultat</p>}
+            <small>
+              ↑ ↓ pour choisir · Entrée pour valider · Échap pour fermer
+            </small>
+          </div>,
+          window.document.body,
+        )}
     </div>
   );
 }

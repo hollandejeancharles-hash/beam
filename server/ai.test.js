@@ -284,17 +284,13 @@ test("note analysis excludes unrelated imported signals even when they mention t
     t.store.db.close();
   }
 });
-test("background analysis organizes notes without approving roadmap changes", async () => {
-  const { store, notes, ai, n } = setup();
+test("saving a note never starts background analysis", async () => {
+  const { store, ai, n } = setup();
   ai.configure(true);
   ai.auto(n);
-  const id = ai.list()[0].id;
-  const review = await ready(ai, id);
-  assert.equal(review.state, "ready");
-  assert.equal(review.result.classification_applied, true);
-  assert.deepEqual(notes.list()[0].tags, ["preview"]);
-  assert.equal(store.list()[0].priority, "medium");
-  assert.equal(review.result.proposals[0].applied, undefined);
+  assert.equal(ai.list().length, 0);
+  assert.equal(ai.busy(), false);
+  ai.close();
   store.db.close();
 });
 

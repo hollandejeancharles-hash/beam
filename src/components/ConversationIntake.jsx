@@ -1,3 +1,4 @@
+import IntegrationLogo from "./IntegrationLogo";
 import React, { useEffect, useState } from "react";
 import { Integration, RefreshCw } from "../icons";
 export default function ConversationIntake({ api }) {
@@ -60,7 +61,8 @@ export default function ConversationIntake({ api }) {
           const c = state?.connections.find((c) => c.provider === provider);
           return (
             <div key={provider}>
-              <strong>
+              <strong className="conversation-provider-name">
+                <IntegrationLogo provider={provider} />
                 {provider === "slack" ? "Slack" : "Microsoft Teams"}
               </strong>
               <span>

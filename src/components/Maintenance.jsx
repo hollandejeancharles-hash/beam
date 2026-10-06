@@ -1,3 +1,4 @@
+import versionInfo from "../../shared/version.json";
 import React, { useEffect, useState } from "react";
 import { ArrowUpRight, FileText, RefreshCw } from "../icons";
 export default function Maintenance({ product, api, onRestore, onWelcome }) {
@@ -49,7 +50,7 @@ export default function Maintenance({ product, api, onRestore, onWelcome }) {
           <p className="modal-copy">
             {update
               ? `Version ${update.current} · ${update.available ? "Nouvelle version disponible" : "À jour"}`
-              : "Vérifiez si une nouvelle version est disponible."}
+              : `Version installée : ${versionInfo.version} · Vérification à effectuer` }
           </p>
         </div>
         <button
@@ -63,6 +64,9 @@ export default function Maintenance({ product, api, onRestore, onWelcome }) {
           Vérifier
         </button>
       </div>
+      {update?.checked && <p className="subtle">Dernière vérification : {new Date(update.checked).toLocaleString('fr-FR')}</p>}
+      {update?.available && <section className="update-release-notes"><h4>Ce qui change dans {update.latest}</h4><p style={{whiteSpace:'pre-wrap'}}>{update.notes || 'Consultez les détails de cette version sur GitHub.'}</p><a href={update.url} target="_blank" rel="noreferrer">Voir la version</a></section>}
+      <p className="subtle">Après le redémarrage, la version installée affichée ici permet de vérifier que la mise à jour a bien été appliquée.</p>
       {window.webkit?.messageHandlers?.beamUpdate && (
         <div className="modal-actions">
           <button

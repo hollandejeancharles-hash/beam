@@ -1,3 +1,4 @@
+import QuickItemActions from "./QuickItemActions";
 import AIProgress from "./AIProgress";
 import React, { useMemo } from "react";
 import { KanbanBoard } from "./ui/kanban-board";
@@ -15,6 +16,8 @@ export default function BeamKanban({
   readOnly,
   onChange,
   onOpen,
+  onQuickChange,
+  onCreateChild,
   onCreate,
 }) {
   const signature = JSON.stringify(items);
@@ -33,7 +36,7 @@ export default function BeamKanban({
             id: item.id,
             title: item.title,
             accessory: (
-              <AIProgress itemId={item.id} scope="feature" size={16} />
+              <><AIProgress itemId={item.id} scope="feature" size={16} />{!readOnly && <QuickItemActions item={item} onChange={onQuickChange} onCreate={item.type === "task" ? undefined : onCreateChild}/>}</>
             ),
             note: TYPES[item.type || "feature"] || "Feature",
             category: item.category,
@@ -53,7 +56,7 @@ export default function BeamKanban({
             progress: item.status === "done" ? 100 : item.progress || 0,
           })),
       })),
-    [signature, sort],
+    [signature, sort, readOnly, onQuickChange, onCreateChild],
   );
   return (
     <div className="beam-kanban dark" data-readonly={readOnly}>

@@ -1,3 +1,6 @@
+import installedVersion from "../shared/version.json";
+import MyWork from "./components/MyWork";
+import { fetchLocalJson } from "../shared/local-fetch";
 import ElementDetails from "./components/ElementDetails";
 import Demands from "./components/Demands";
 import { ActivityDropdown } from "./components/ui/activity-dropdown";
@@ -10,7 +13,7 @@ import WorkspaceSwitcher from "./components/WorkspaceSwitcher";
 import AccountAccess from "./components/ui/neural-access-login";
 import WorkspaceSettings from "./components/WorkspaceSettings";
 import Welcome from "./components/Welcome";
-import { TeamPresence } from "./components/Team";
+import { TeamPresence, ItemPresence } from "./components/Team";
 import PlanningImpact from "./components/PlanningImpact";
 import RoadmapScenario from "./components/RoadmapScenario";
 import { DATE_KINDS } from "../shared/roadmap-impact";
@@ -135,6 +138,7 @@ function App() {
       (publicMode
         ? ["gantt", "kanban", "publications"]
         : [
+            "mine",
             "gantt",
             "kanban",
             "feedback",
@@ -200,6 +204,10 @@ function App() {
     if (element) setSelected(element);
     else setToast("Cet élément n’est plus disponible dans ce workspace.");
   }, [loading, items]);
+  useEffect(()=>{
+    if(publicMode) return;
+    try {const previous=localStorage.getItem('beam:last-running-version');if(previous && previous!==installedVersion.version)setToast(`Beam ${installedVersion.version} est lancé · version précédente : ${previous}`);localStorage.setItem('beam:last-running-version',installedVersion.version);}catch{}
+  },[]);
   const workspaceIdRef = useRef(
     new URLSearchParams(location.search).get("workspace"),
   );
@@ -244,7 +252,7 @@ function App() {
         body: JSON.stringify({ ...body, _revision: revision }),
       };
     }
-    const response = await fetch("/api/" + path, {
+    const {response, data} = await fetchLocalJson("/api/" + path, {
       ...options,
       headers: {
         "Content-Type": "application/json",
@@ -254,8 +262,7 @@ function App() {
         Authorization: "Bearer " + key,
         ...options.headers,
       },
-    });
-    const data = await response.json();
+    }, fetch, options.method && options.method !== "GET" ? 120000 : 10000);
     if (!response.ok) {
       if (response.status === 401) setAuth(true);
       if (response.status === 409) void refresh();
@@ -270,6 +277,18 @@ function App() {
       current ? latest.find((i) => i.id === current.id) || null : null,
     );
   }
+  const editBaseline = useRef(null);
+  const [editConflict,setEditConflict] = useState(false);
+  const itemContent = value => JSON.stringify(Object.fromEntries(Object.entries(value || {}).filter(([key])=>!key.startsWith('_')).sort(([a],[b])=>a.localeCompare(b))));
+  useEffect(()=>{
+    if(!edit?.id){editBaseline.current=null;setEditConflict(false);return;}
+    if(editBaseline.current?.id!==edit.id){editBaseline.current={id:edit.id,content:itemContent(items.find(i=>i.id===edit.id) || edit)};setEditConflict(false);}
+  },[edit?.id]);
+  useEffect(()=>{
+    if(!edit?.id || editBaseline.current?.id!==edit.id)return;
+    const latest=items.find(i=>i.id===edit.id);
+    setEditConflict(!latest || itemContent(latest)!==editBaseline.current.content);
+  },[items,edit?.id]);
   const refreshInFlight = useRef(null);
   const pageRef = useRef(page);
   pageRef.current = page;
@@ -383,19 +402,13 @@ function App() {
       state = { ...state, active: workspaceIdRef.current };
       setWorkspaceList(state);
     };
-    if (!key) {
-      const events = new EventSource("/api/admin/workspaces/events");
-      events.onmessage = (event) => apply(JSON.parse(event.data));
-      return () => events.close();
-    }
-    const timer = setInterval(
-      () =>
-        api("admin/workspaces")
-          .then(apply)
-          .catch(() => {}),
-      3000,
-    );
-    return () => clearInterval(timer);
+    // Workspace metadata does not need a permanent HTTP connection.
+    // Keep the collaboration stream available for actual shared changes.
+    let alive=true;
+    const refresh = () => api("admin/workspaces").then(state => {if(alive) apply(state);}).catch(() => {});
+    void refresh();
+    const timer=setInterval(() => {if(!document.hidden) void refresh();}, 30000);
+    return () => {alive=false; clearInterval(timer);};
   }, [key]);
   useEffect(() => {
     if (publicMode) return;
@@ -552,6 +565,14 @@ function App() {
     } catch (e) {
       setToast(e.message);
     }
+  }
+  function createChild(parent) {
+    setEdit({...blank, type: parent && ['initiative','project'].includes(parent.type) ? 'feature' : parent ? 'task' : blank.type, parent_id:parent?.id || null});
+  }
+  async function quickChange(item, body) {
+    if(roadmapReadOnly) return;
+    try {await api('admin/items/'+item.id,{method:'PATCH',body:JSON.stringify({...body,_revision:item._revision})});await refresh();setToast('Modification enregistrée');}
+    catch(e){setToast(e.message);}
   }
   async function move(item, status) {
     if (item.status === status) return;
@@ -727,6 +748,7 @@ function App() {
             <TreeNav
               activeHref={"#" + page}
               items={[
+                {label:"Pour moi",href:"#mine",icon:<CheckCheck size={17}/>},
                 {
                   label: "Planification",
                   href: "#gantt",
@@ -761,8 +783,7 @@ function App() {
               onSelect={(item, event) => {
                 event.preventDefault();
                 setPage(item.href.slice(1));
-                if (item.href === "#notes" && inboxCount)
-                  setSearchTarget({ kind: "review" });
+                if (item.href === "#notes") setSearchTarget(null);
               }}
             />
           </nav>
@@ -857,7 +878,7 @@ function App() {
       )}
       <main
         className={
-          page === "notes" && !publicMode ? "notes-workspace" : undefined
+          page === "notes" && !publicMode ? "notes-workspace" : page === "mine" ? "my-work-workspace" : undefined
         }
       >
         <header className="topbar">
@@ -897,7 +918,7 @@ function App() {
             <div className="breadcrumbs">
               {product.name} <ChevronRight size={13} />{" "}
               <span>
-                {page === "notes"
+                {page === "mine" ? "Pour moi" : page === "notes"
                   ? "Notes"
                   : page === "gantt"
                     ? "Planification"
@@ -969,6 +990,8 @@ function App() {
               <TeamPresence
                 api={api}
                 state={sharedConnection}
+                itemId={edit?.id || selected?.id || null}
+                editing={!!edit?.id}
                 activity={
                   workspaceOpen || profileOpen || accountOpen
                     ? "settings"
@@ -1102,7 +1125,7 @@ function App() {
           {page !== "feedback" &&
             page !== "integrations" &&
             page !== "notes" &&
-            page !== "publications" && (
+            page !== "publications" && page !== "mine" && (
               <>
                 <div className="section-title">
                   <div>
@@ -1117,6 +1140,7 @@ function App() {
                       {publicMode ? "Public" : product.name}
                     </span>
                   </div>
+                  {!publicMode && page === "gantt" && <button className="button primary planning-create-button" disabled={roadmapReadOnly} onClick={()=>setEdit({...blank})} title="Créer une initiative, une feature, un projet ou une tâche"><Plus size={17}/>Créer un élément</button>}
                   <span className="subtle">
                     {publicMode
                       ? pagesMode
@@ -1334,7 +1358,7 @@ function App() {
                 />
               )}
             </>
-          ) : page === "notes" && !publicMode ? (
+          ) : page === "mine" && !publicMode ? <MyWork api={api} profile={profile}/> : page === "notes" && !publicMode ? (
             <Notes
               onFocusMode={setNotesFocused}
               onInboxCount={setInboxCount}
@@ -1377,7 +1401,8 @@ function App() {
               allItems={items}
               readOnly={roadmapReadOnly}
               onOpen={setSelected}
-              onCreate={() => setEdit({ ...blank })}
+              onCreate={createChild}
+              onQuickChange={quickChange}
               onScenario={() => setScenarioOpen(true)}
               onSchedule={schedule}
               onReorder={async (id, target_id, after) => {
@@ -1395,6 +1420,7 @@ function App() {
             />
           ) : page === "feedback" ? (
             <Demands
+              workspaceId={workspaceIdRef.current}
               key={workspaceIdRef.current}
               api={api}
               items={items}
@@ -1432,6 +1458,8 @@ function App() {
               readOnly={roadmapReadOnly || showArchives || kanbanSaving}
               onOpen={setSelected}
               onCreate={(status) => setEdit({ ...blank, status })}
+              onQuickChange={quickChange}
+              onCreateChild={createChild}
               onChange={async (columns) => {
                 setKanbanSaving(true);
                 try {
@@ -1936,7 +1964,10 @@ function App() {
           side
           close={() => setEdit(null)}
         >
-          <form onSubmit={save}>
+          <ItemPresence api={api} state={sharedConnection} itemId={edit.id}/>
+          {editConflict && <div className="editing-conflict" role="alert"><strong>Cet élément a changé pendant votre édition.</strong><p>Votre brouillon est conservé. Charger la dernière version remplacera ce brouillon par les changements enregistrés.</p><button className="button" type="button" onClick={()=>{const latest=items.find(i=>i.id===edit.id);if(latest){editBaseline.current={id:latest.id,content:itemContent(latest)};setEdit({...latest});setEditConflict(false);}else setEdit(null);}}>Charger la dernière version</button></div>}
+          {!edit.id && (edit._source_note_id || edit._demand_id) && <div className="conversion-destination">Créer une {TYPES[edit.type].toLowerCase()} dans <strong>{product.name}</strong>{edit.parent_id && <> → <strong>{items.find(i=>i.id===edit.parent_id)?.title}</strong></>}</div>}
+          <form onSubmit={e=>{if(editConflict){e.preventDefault();return;}save(e);}}>
             <div className="form-grid">
               <label>
                 Type d’élément
@@ -2238,7 +2269,7 @@ function App() {
               >
                 Annuler
               </button>
-              <button className="button primary" disabled={saving}>
+              <button className="button primary" disabled={saving || editConflict}>
                 {saving
                   ? "Enregistrement…"
                   : edit._demand_id

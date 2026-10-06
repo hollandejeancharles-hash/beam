@@ -1,3 +1,5 @@
+import IntegrationLogo from "./IntegrationLogo";
+import AuditLog from "./ui/audit-log";
 import ConversationIntake from "./ConversationIntake";
 import { includesSearch } from "../../shared/search";
 import AIProgress from "./AIProgress";
@@ -233,7 +235,7 @@ export function SignalLinks({
       ))}
       {!linked.length && !automaticNoteCount && !expanded && (
         <p className="feature-source-help">
-          Les nouvelles sources seront rapprochées automatiquement.
+          Cliquez sur Analyser pour rapprocher les sources avec l’IA locale.
         </p>
       )}
       {expanded && (
@@ -547,7 +549,7 @@ export default function Integrations({
               <article className="integration-card" key={id}>
                 <div className="integration-card-head">
                   <span className={"provider-mark " + id}>
-                    {id === "github" ? <Github size={23} /> : p.mark}
+                    <IntegrationLogo provider={id} />
                   </span>
                   <span className="integration-state">
                     {sources.some((s) => s.provider === id)
@@ -582,7 +584,7 @@ export default function Integrations({
               sources.map((s) => (
                 <article key={s.id}>
                   <span className={"provider-mark " + s.provider}>
-                    {providers[s.provider].mark}
+                    <IntegrationLogo provider={s.provider} />
                   </span>
                   <div>
                     <strong>{s.label}</strong>
@@ -737,33 +739,12 @@ export default function Integrations({
       ) : (
         <div className="sync-history">
           {runs.length ? (
-            runs.map((r) => (
-              <article key={r.id}>
-                <span
-                  className={
-                    r.status === "success" ? "sync-ok" : "source-error"
-                  }
-                >
-                  {r.status === "success" ? (
-                    <Check size={17} />
-                  ) : (
-                    <Activity size={17} />
-                  )}
-                </span>
-                <div>
-                  <strong>{r.label}</strong>
-                  <small>
-                    {new Date(r.started).toLocaleString("fr-FR")} ·{" "}
-                    {r.status === "success"
-                      ? `${r.count} informations lues`
-                      : r.status === "running"
-                        ? "Lecture en cours"
-                        : "Échec"}
-                  </small>
-                  {r.message && <p>{r.message}</p>}
-                </div>
-              </article>
-            ))
+            <AuditLog items={runs.map(r=>({id:r.id, title:r.label, at:r.started, type:"Synchronisation",
+              status:r.status === "success" ? "Réussie" : r.status === "running" ? "En cours" : "Échec",
+              description:[r.status === "success" ? `${r.count} informations lues` : null,r.message].filter(Boolean).join(" · "),
+              tone:r.status === "success" ? "green" : r.status === "running" ? "amber" : "red",
+            }))}/>
+
           ) : (
             <div className="integration-empty">
               <RefreshCw size={22} />

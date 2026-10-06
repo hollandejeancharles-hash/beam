@@ -5,3 +5,5 @@ Adaptations Beam : imports relatifs pour Vite, labels français, icônes Lucide 
 Tailwind 4 est utilisé pour les composants fournis, sans preflight pour conserver le style des écrans existants. `motion` était déjà présent dans Beam.
 
 Morphing Popover et use-click-outside : composant fourni par l’utilisateur (pièce jointe du 2 octobre 2026). Adapté à React/Vite, aux imports locaux, à la capture privée de Beam et à un popover non modal avec focus clavier et conservation du brouillon. La démo n’est pas utilisée comme stockage.
+
+AuditLog : composant fourni le 5 octobre 2026, adapté à React/Vite et aux styles de Beam. Chronologie, recherche, filtres auteur/type/état, couleurs sémantiques et détails réels des changements. Les actions existantes restent visibles et accessibles au clavier.

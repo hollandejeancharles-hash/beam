@@ -20,7 +20,7 @@ import { createProductFlows } from "./product-flows.js";
 import { createTopics } from "./topics.js";
 import { createAttachments } from "./attachments.js";
 import { startLocalAI } from "./ai-runtime.js";
-import { createAI } from "./ai.js";
+import { createAI, storedNoteReviews } from "./ai.js";
 import { createNotebook } from "./notebook.js";
 import http from "node:http";
 import { mkdirSync, readFileSync, existsSync } from "node:fs";
@@ -169,35 +169,6 @@ function context(id) {
   return contexts.get(id);
 }
 context(workspaces.active());
-function analyzePersonalNote(note) {
-  const target=note.references?.find(r=>r.item_id)?.workspace_id || note.workspace_ids?.[0] || note.storage_workspace_id || "default";
-  setImmediate(()=>inWorkspace(target,()=>context(target).ai.auto(note)));
-}
-let organizingSources = false;
-const organizeSources = async () => {
-  if (organizingSources) return;
-  organizingSources = true;
-  try {
-    const id = workspaces.active();
-    await inWorkspace(id, async () => {
-      const { associations, topics, ai, productFlows } = context(id);
-      if (
-        productFlows.busy() ||
-        ai.busy() ||
-        associations.list().running ||
-        topics.list().running
-      )
-        return;
-      await associations.refresh();
-      if (!ai.busy()) await topics.refresh();
-      if (id !== "default") await inWorkspace("default", () => context("default").topics.refresh());
-    });
-  } finally {
-    organizingSources = false;
-  }
-};
-setTimeout(() => void organizeSources(), 5000).unref();
-setInterval(() => void organizeSources(), 60000).unref();
 if (process.env.BEAM_SEED === "true") seed(context(workspaces.active()).store);
 const vite = prod
   ? null
@@ -345,7 +316,7 @@ const server = http.createServer(async (req, res) => {
     } = context(workspaceId);
     const notes = notebook;
     return await inWorkspace(workspaceId, async () => {
-      const personalReviews = () => workspaces.list().workspaces.flatMap(w=>context(w.id).ai.list().filter(r=>r.scope==='note').map(r=>({...r,workspace_id:w.id}))).sort((a,b)=>b.created.localeCompare(a.created));
+      const personalReviews = () => workspaces.list().workspaces.flatMap(w=>storedNoteReviews(workspaces.store(w.id).db).map(r=>({...r,workspace_id:w.id}))).sort((a,b)=>b.created.localeCompare(a.created));
       if (url.pathname === "/api/admin/notebook/activity" && req.method === "GET") return send(200,inWorkspace(null,()=>activity()).filter(j=>j.scope==='note'||j.scope==='topics').map(j=>({...j,original_id:j.id,id:j.workspaceId+':'+j.id})));
       if (url.pathname === "/api/admin/notebook/reviews" && req.method === "GET") return send(200,personalReviews());
       if (url.pathname === "/api/admin/notebook/inbox" && req.method === "GET") return send(200,buildInbox({reviews:personalReviews(),notes:notebook.list(),items:notebook.catalog().flatMap(w=>w.items),topics:context('default').topics.list().topics}));
@@ -1056,7 +1027,7 @@ const server = http.createServer(async (req, res) => {
       if (url.pathname === "/api/admin/notes" && req.method === "POST") {
         const note = notes.save(body);
         send(201, note);
-        analyzePersonalNote(note);
+
         return;
       }
       const noteFiles = url.pathname.match(
@@ -1065,7 +1036,7 @@ const server = http.createServer(async (req, res) => {
       if (noteFiles && req.method === "POST") {
         const file = await notebook.addAttachment(noteFiles[1], body);
         send(201, file);
-        analyzePersonalNote(notes.list().find((n) => n.id === noteFiles[1]));
+
         return;
       }
       const noteMatch = url.pathname.match(
@@ -1074,7 +1045,7 @@ const server = http.createServer(async (req, res) => {
       if (noteMatch && req.method === "PATCH") {
         const note = notes.save(body, noteMatch[1]);
         send(200, note);
-        if (body.text !== undefined) analyzePersonalNote(note);
+
         return;
       }
       if (url.pathname === "/api/admin/decisions" && req.method === "POST")

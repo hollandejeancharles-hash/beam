@@ -1,8 +1,14 @@
 import { usePresenceActivity } from "./Team";
 import React, { useEffect, useRef, useState } from "react";
+const RichNoteEditor = React.lazy(() => import("./RichNoteEditor"));
 import Notes, { useDraft } from "./Notes";
 import { Close, ArrowRight, FileText, ArrowUpRight } from "../icons";
 export default function MenuBarCapture() {
+  const [document, setDocument] = useState(() => {try {return JSON.parse(localStorage.getItem("beam-quick-note-document") || "null");} catch {return null;}});
+  useEffect(() => {if(document) localStorage.setItem("beam-quick-note-document", JSON.stringify(document)); else localStorage.removeItem("beam-quick-note-document");}, [document]);
+  const [captureSession, setCaptureSession] = useState("initial");
+  const [files, setFiles] = useState([]);
+  const [catalog, setCatalog] = useState([]);
   const [workspace, setWorkspace] = useState(null);
   const [text, setText] = useDraft(workspace?.id),
     [busy, setBusy] = useState(false),
@@ -47,25 +53,34 @@ export default function MenuBarCapture() {
     };
   }, [workspace?.id]);
   usePresenceActivity(captureApi, presenceState, "notes");
+  useEffect(() => {
+    captureApi("admin/notebook/catalog")
+      .then(setCatalog)
+      .catch(() => {});
+  }, []);
   const input = useRef(null);
+  const documentFocus = () =>
+    window.document
+      .querySelector('.menubar-capture>form [contenteditable="true"]')
+      ?.focus();
   const close = () =>
     window.webkit?.messageHandlers?.beamCapture?.postMessage("close");
   useEffect(() => {
     window.__beamFocusCapture = () =>
       expanded
-        ? document
+        ? window.document
             .querySelector(
               '.capture-notebook .notebook-detail [contenteditable="true"], .capture-notebook .notebook-detail textarea',
             )
             ?.focus()
-        : input.current?.focus();
-    input.current?.focus();
+        : documentFocus();
+    documentFocus();
     return () => {
       delete window.__beamFocusCapture;
     };
   }, [expanded]);
   useEffect(() => {
-    if (!busy) input.current?.focus();
+    if (!busy) documentFocus();
   }, [busy]);
   useEffect(() => {
     const apply = (state) => {
@@ -80,13 +95,16 @@ export default function MenuBarCapture() {
       .then((r) => r.json())
       .then(apply)
       .catch(() => {});
-    const events = new EventSource("/api/admin/workspaces/events");
-    events.onmessage = (event) => apply(JSON.parse(event.data));
-    return () => events.close();
+    const refresh = () => {if(!window.document.hidden) fetch("/api/admin/workspaces", {headers:{Authorization:"Bearer " + (sessionStorage.getItem("beam_key") || "")}}).then(r=>r.json()).then(apply).catch(()=>{});};
+    const timer=setInterval(refresh, 15000);
+    window.document.addEventListener("visibilitychange", refresh);
+    return () => {clearInterval(timer); window.document.removeEventListener("visibilitychange",refresh);};
   }, []);
-  async function save(e) {
+  async function save(e, snapshot, commandType) {
     e?.preventDefault();
-    if (busy || !text.trim()) return;
+    const value = snapshot?.text ?? text;
+    const doc = snapshot?.document ?? document;
+    if (busy || (!value.trim() && !files.length)) return;
     setBusy(true);
     setError("");
     setMessage("");
@@ -114,15 +132,46 @@ export default function MenuBarCapture() {
           "X-Beam-Workspace": workspaceState.active,
           Authorization: "Bearer " + (sessionStorage.getItem("beam_key") || ""),
         },
-        body: JSON.stringify({ text }),
+        body: JSON.stringify({
+          text: value || files.map((f) => f.name).join(", "),
+          document: doc,
+          workspace_ids: [],
+        }),
       });
       const result = await response.json();
       if (!response.ok)
         throw Error(result.error || "Impossible d’enregistrer la note.");
+      for (const file of files) {
+        const data = await new Promise((resolve, reject) => {
+          const reader = new FileReader();
+          reader.onload = () => resolve(reader.result.split(",")[1]);
+          reader.onerror = reject;
+          reader.readAsDataURL(file);
+        });
+        await captureApi(`admin/notes/${result.id}/attachments`, {
+          method: "POST",
+          body: JSON.stringify({ name: file.name, mime: file.type, data }),
+        });
+      }
+      setFiles([]);
       setLastSaved({ id: result.id, workspaceId: workspaceState.active });
       setText("");
+      setDocument(null);
+      if (commandType) {
+        setCaptureSession(result.id);
+        setTarget({ kind: "note", id: result.id, commandType });
+        setNotebookOpened(true);
+        setExpanded(true);
+        captureApi("admin/items")
+          .then(setItems)
+          .catch(() => {});
+        window.webkit?.messageHandlers?.beamCapture?.postMessage({
+          action: "resize",
+          mode: "notebook",
+        });
+      }
       setMessage("Note enregistrée");
-      input.current?.focus();
+      documentFocus();
     } catch (e) {
       setError(e.message);
     } finally {
@@ -140,7 +189,7 @@ export default function MenuBarCapture() {
         payload.transferId = crypto.randomUUID();
         localStorage.setItem(
           "beam-note-transfer:" + payload.transferId,
-          JSON.stringify({ workspaceId: workspace.id, text }),
+          JSON.stringify({ workspaceId: workspace.id, text, document }),
         );
       }
       const url = new URL(location.href);
@@ -187,19 +236,23 @@ export default function MenuBarCapture() {
             }
             disabled={
               busy ||
+              files.length > 0 ||
               !workspace ||
               (expanded && (captureDraft?.hasFiles || captureDraft?.busy))
             }
             onClick={() => {
               if (!expanded) return expand();
               setText(captureDraft?.composing ? captureDraft.text : "");
+              setDocument(
+                captureDraft?.composing ? captureDraft.document : null,
+              );
               setLastSaved(null);
               setExpanded(false);
               window.webkit?.messageHandlers?.beamCapture?.postMessage({
                 action: "resize",
                 mode: "quick",
               });
-              requestAnimationFrame(() => input.current?.focus());
+              requestAnimationFrame(() => documentFocus());
             }}
           >
             <span className={expanded ? "capture-shrink-icon" : ""}>
@@ -218,6 +271,7 @@ export default function MenuBarCapture() {
       {notebookOpened ? (
         <div hidden={!expanded} className="capture-notebook-content">
           <Notes
+            key={captureSession}
             api={captureApi}
             items={items}
             initialTarget={target}
@@ -240,35 +294,33 @@ export default function MenuBarCapture() {
         </div>
       ) : null}
       <form onSubmit={save} hidden={expanded}>
-        <textarea
-          ref={input}
-          aria-label="Votre note"
-          placeholder="Une note, simplement.
-Une pensée, un échange, une suite à donner…"
-          value={text}
-          disabled={busy || !workspace}
-          onChange={(e) => {
-            setText(e.target.value);
-            setMessage("");
-            setLastSaved(null);
-          }}
-          onKeyDown={(e) => {
-            if (e.key === "Escape") {
-              e.preventDefault();
-              close();
-            } else if (
-              e.key === "Enter" &&
-              (e.metaKey || e.ctrlKey) &&
-              !e.nativeEvent.isComposing
-            ) {
-              e.preventDefault();
-              save();
+        <React.Suspense fallback={<p>Ouverture de la note…</p>}>
+          <RichNoteEditor
+            text={text}
+            document={document}
+            catalog={catalog}
+            autoFocus
+            readOnly={busy || !workspace}
+            onChange={({ text, document }) => {
+              setText(text);
+              setDocument(document);
+              setMessage("");
+              setLastSaved(null);
+            }}
+            onSave={(snapshot) => save(null, snapshot)}
+            onCommand={(type, snapshot) => save(null, snapshot, type)}
+            onFiles={(chosen) =>
+              setFiles((previous) => [...previous, ...Array.from(chosen)])
             }
-          }}
-        />
+          />
+        </React.Suspense>
+        {files.length > 0 && <small>{files.length} fichier(s) à joindre</small>}
         <div className="menubar-capture-footer">
           <small>⌘ Entrée pour enregistrer</small>
-          <button className="button primary" disabled={busy || !text.trim()}>
+          <button
+            className="button primary"
+            disabled={busy || (!text.trim() && !files.length)}
+          >
             {busy ? "Enregistrement…" : "Enregistrer"}
             <ArrowRight size={14} />
           </button>

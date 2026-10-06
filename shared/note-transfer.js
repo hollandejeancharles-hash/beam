@@ -28,6 +28,8 @@ export function receiveNoteTransfer({
   )
     throw Error("Le brouillon appartient à un autre workspace.");
   session.setItem(draftKey, JSON.stringify(payload.text));
+  if (payload.document?.type === "doc")
+    session.setItem(draftKey + ":document", JSON.stringify(payload.document));
   session.setItem("beam-capture-composer:" + workspaceId, slot);
   const quickKey = "beam_note_draft:" + workspaceId;
   if (local.getItem(quickKey) === payload.text) local.setItem(quickKey, "");

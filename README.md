@@ -1,6 +1,6 @@
 # Beam
 
-Beam est un espace de pilotage produit : organisez vos initiatives, projets et features dans un Gantt ou un Kanban, capturez vos notes et collaborez avec votre équipe. L’assistant IA tourne sur votre Mac ; la roadmap et les demandes peuvent être partagées via Supabase.
+Beam est un espace de pilotage produit : organisez vos initiatives, projets, features et tâches dans un Gantt ou un Kanban, capturez vos notes et collaborez avec votre équipe. L’assistant IA tourne sur votre Mac ; la roadmap et les demandes peuvent être partagées via Supabase.
 
 Le carnet personnel est commun à tous les workspaces : dossiers par workspace, sujets intelligents transversaux, mentions `@` et commandes `/` pour préparer une demande, une feature ou une tâche. Les conversions reprennent le workspace et le parent de la note, avec validation avant création.
 
@@ -24,14 +24,18 @@ Mac **M1 ou plus récent**, **macOS 14+**. Pour l’IA locale, **16 Go de mémoi
 
 Pour garder Beam dans le Dock, ouvrez-la depuis Applications, puis choisissez **Options → Garder dans le Dock**. L’icône de la barre de menus permet de capturer une note dans une petite fenêtre dédiée, agrandissable en carnet.
 
+## État de la distribution
+
+La dernière application publiée est **2.0.0-beta.52**. Le code source inclut les améliorations jusqu’à **2.0.0-beta.76**, mais elles ne sont pas encore disponibles dans le téléchargement GitHub. Ne considérez pas le remplacement du code du dépôt comme une mise à jour de l’installateur : un nouveau DMG doit être construit, vérifié et publié.
+
 ## Ce que vous pouvez faire
 
-- **Planification** : Gantt avec initiatives, projets et features imbriqués, dates cibles ou engagements, dépendances, déplacement des éléments, scénarios et aperçu des impacts.
+- **Planification** : Gantt avec initiatives, projets, features et tâches imbriqués, dates cibles ou engagements, dépendances, déplacement des éléments, scénarios et aperçu des impacts.
 - **Détails des éléments** : résumé fixe, couleurs de statut et de priorité, onglets Vue d’ensemble, Sources, Décisions et Activité, accès direct aux points proposés par l’assistant.
 - **Kanban** : écran distinct pour suivre les statuts et réorganiser les éléments par glisser-déposer.
 - **Notes** : carnet privé en pleine largeur, avec dossiers, liste des notes et éditeur dans trois colonnes, capture rapide, titres et mise en forme, listes à cocher, tableaux, images visibles dans les notes et PDF, dossiers intelligents issus des sujets, classement dans plusieurs dossiers, renommage, fusion et masquage ; regroupements proposés par l’assistant local.
 - **Demandes** : qualifier les retours, assigner un responsable, clarifier, différer, refuser, regrouper les doublons ou préparer une feature avec son contexte.
-- **Assistant local** : proposer des liens entre sources et roadmap, faire ressortir les décisions et signaler les contradictions. Les changements de roadmap nécessitent une validation.
+- **Assistant local** : proposer des liens entre sources et roadmap, faire ressortir les décisions et signaler les contradictions. Les analyses IA sont déclenchées explicitement par un clic : aucun regroupement ou examen permanent en arrière-plan. Les changements de roadmap nécessitent une validation.
 - **Intégrations** : informations GitHub, Azure DevOps, Notion et Confluence ; mentions Slack et Teams vers Demandes après configuration des applications.
 - **Publications** : préparer avec l’IA des release notes orientées utilisateurs à partir des commits d’une version GitHub, puis relire et publier.
 - **Recherche** : retrouver les éléments, notes, demandes et informations disponibles dans votre workspace avec **⌘K / Ctrl+K**.
@@ -128,3 +132,11 @@ Les initiatives, projets et features peuvent contenir des tâches, visibles dans
 Les initiatives et projets sont masqués par défaut dans le menu latéral. Pour les afficher : **Mon profil → Navigation → Afficher les initiatives et projets dans le menu**, puis enregistrer.
 
 Dans le carnet, glissez les séparateurs pour ajuster les colonnes. Leurs largeurs sont mémorisées sur ce Mac. **Agrandir la note** masque le menu et les colonnes ; **Afficher le carnet** les restaure. Les séparateurs acceptent aussi les flèches gauche/droite au clavier et un double-clic rétablit les largeurs par défaut.
+
+### Évolutions du code en attente d’un nouvel installateur
+
+- Écran **Pour moi**, actions rapides dans le Gantt et le Kanban, création d’un enfant depuis son parent.
+- Notes personnelles liées aux éléments dans l’onglet **Sources**, destination explicite des conversions.
+- IA uniquement à la demande, cache local des vues et conservation du contexte du carnet.
+- Présence de consultation ou d’édition sur une fiche et alerte si l’élément change pendant votre édition. Les deux collègues doivent utiliser une version compatible ; le fonctionnement entre deux Mac reste à vérifier.
+- Compteurs alignés dans le carnet, total des notes actives, compteurs des archives et de la corbeille.

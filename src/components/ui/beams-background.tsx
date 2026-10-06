@@ -31,6 +31,7 @@ export function BeamsBackground({
       height = 0,
       frame = 0,
       last = 0,
+      focused = true,
       beams: Beam[] = [];
     const strength = { subtle: 0.7, medium: 0.7, strong: 1 }[intensity];
     function create(): Beam {
@@ -50,10 +51,12 @@ export function BeamsBackground({
     function size() {
       width = window.innerWidth;
       height = window.innerHeight;
-      const dpr = Math.min(window.devicePixelRatio || 1, 2);
+      // The blurred background needs no Retina backing buffer.
+      const dpr = 1;
       canvas!.width = width * dpr;
       canvas!.height = height * dpr;
       ctx!.setTransform(dpr, 0, 0, dpr, 0, 0);
+      last = 0;
       beams = Array.from({ length: width < 700 ? 12 : 20 }, create);
       if (reduced) draw(0);
     }
@@ -91,7 +94,13 @@ export function BeamsBackground({
       });
     }
     function loop(now: number) {
-      const delta = last ? Math.min((now - last) / 16.67, 2) : 0;
+      // Keep the same motion speed while rendering at 30 fps, including on
+      // ProMotion screens. Foreground interactions keep their native frame rate.
+      if (last && now - last < 1000 / 30) {
+        frame = requestAnimationFrame(loop);
+        return;
+      }
+      const delta = last ? Math.min((now - last) / 16.67, 4) : 0;
       last = now;
       draw(delta);
       frame = requestAnimationFrame(loop);
@@ -99,16 +108,22 @@ export function BeamsBackground({
     function visibility() {
       cancelAnimationFrame(frame);
       last = 0;
-      if (!document.hidden && !reduced) frame = requestAnimationFrame(loop);
+      if (!document.hidden && focused && !reduced) frame = requestAnimationFrame(loop);
     }
+    const focus = () => {focused = true; visibility();};
+    const blur = () => {focused = false; visibility();};
     size();
     draw(0);
     visibility();
     window.addEventListener("resize", size);
+    window.addEventListener("focus", focus);
+    window.addEventListener("blur", blur);
     document.addEventListener("visibilitychange", visibility);
     return () => {
       cancelAnimationFrame(frame);
       window.removeEventListener("resize", size);
+      window.removeEventListener("focus", focus);
+      window.removeEventListener("blur", blur);
       document.removeEventListener("visibilitychange", visibility);
     };
   }, [intensity, reduced]);

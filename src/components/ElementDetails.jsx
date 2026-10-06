@@ -1,3 +1,4 @@
+import RelatedContext from "./RelatedContext";
 import { unchangedData } from "../hooks/useVisiblePolling";
 import React, { useEffect, useRef, useState } from "react";
 import { TYPES, progressValue } from "../../shared/planning";
@@ -19,7 +20,7 @@ import ProductOutcome from "./ProductOutcome";
 import DecisionMemory from "./DecisionMemory";
 import ItemGovernance from "./ItemGovernance";
 import LocalAssistant from "./LocalAssistant";
-import TeamActivity from "./Team";
+import TeamActivity, {ItemPresence} from "./Team";
 import { SignalLinks } from "./Integrations";
 import { initials } from "./Profile";
 const states = { planned: "À venir", progress: "En cours", done: "Livré" };
@@ -254,6 +255,7 @@ export default function ElementDetails({
             </button>
           )}
         </div>
+        {!publicMode && <ItemPresence api={api} state={sharedConnection} itemId={item.id}/> }
         <div className="element-properties">
           <span className={"element-state state-" + item.status}>
             <i />
@@ -478,6 +480,7 @@ export default function ElementDetails({
                 Les informations qui éclairent cet élément, avec leur
                 provenance.
               </p>
+              {tab === "sources" && <RelatedContext item={item} api={api} onOpenNote={onOpenNote}/>}
               <SignalLinks
                 signals={signals}
                 item={item}

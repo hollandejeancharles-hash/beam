@@ -1,3 +1,4 @@
+import AuditLog from "./ui/audit-log";
 import useVisiblePolling, { unchangedData } from "../hooks/useVisiblePolling";
 import React, { useState } from "react";
 import { DATE_KINDS } from "../../shared/roadmap-impact";
@@ -157,47 +158,18 @@ export default function ItemGovernance({
             Changements observés sur ce Mac. Les modifications de l’équipe
             restent aussi disponibles dans son activité.
           </p>
-          {!rows.length ? (
-            <p className="subtle">
-              Les prochaines modifications seront conservées ici.
-            </p>
-          ) : (
-            rows.map((r) => (
-              <article key={r.id}>
-                <small>
-                  {r.actor} · {new Date(r.created).toLocaleString("fr-FR")}
-                </small>
-                {r.reason && <p>{r.reason}</p>}
-                <dl>
-                  {Object.keys(r.after).map((k) => (
-                    <div key={k}>
-                      <dt>{labels[k] || k}</dt>
-                      <dd>
-                        <span>
-                          {["parent_id", "dependency_id"].includes(k)
-                            ? items.find((i) => i.id === r.before[k])?.title ||
-                              "Aucun"
-                            : String(value(k, r.before[k]))}
-                        </span>{" "}
-                        →{" "}
-                        <strong>
-                          {["parent_id", "dependency_id"].includes(k)
-                            ? items.find((i) => i.id === r.after[k])?.title ||
-                              "Aucun"
-                            : String(value(k, r.after[k]))}
-                        </strong>
-                      </dd>
-                    </div>
-                  ))}
-                </dl>
-                {!readOnly && r.can_undo && (
-                  <button className="text-button" onClick={() => setUndo(r)}>
-                    Annuler cette modification
-                  </button>
-                )}
-              </article>
-            ))
-          )}
+          <AuditLog key={item.id} items={rows.map(r=>{
+            const keys=Object.keys(r.after);
+            const scheduling=keys.some(k=>["start_date","end_date","date_kind","position","kanban_position"].includes(k));
+            const title=keys.length===1 ? `${labels[keys[0]] || keys[0]} modifié` : scheduling ? "Planification mise à jour" : "Élément mis à jour";
+            return { id:r.id, title, at:r.created, actor:r.actor, description:r.reason,
+              type:scheduling ? "Planification" : "Modification", status:r.can_undo ? "Annulation possible" : "Conservée", tone:scheduling ? "blue" : "purple",
+              searchText:keys.map(k=>labels[k] || k).join(" "),
+              content:<dl>{keys.map(k=><div key={k}><dt>{labels[k] || k}</dt><dd><span>{["parent_id","dependency_id"].includes(k) ? items.find(i=>i.id===r.before[k])?.title || "Aucun" : String(value(k,r.before[k]))}</span> → <strong>{["parent_id","dependency_id"].includes(k) ? items.find(i=>i.id===r.after[k])?.title || "Aucun" : String(value(k,r.after[k]))}</strong></dd></div>)}</dl>,
+              ...(!readOnly && r.can_undo ? {actionLabel:"Annuler cette modification",onAction:()=>setUndo(r)} : {}),
+            };
+          })}/>
+
         </details>
       )}
       {undo && (

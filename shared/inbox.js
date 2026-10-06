@@ -95,9 +95,11 @@ export function buildInbox({
         topic_id: t.id,
         source: s.id,
         title: t.title,
+        topic_summary: t.summary || "",
+        note_id: s.id.startsWith("note:") ? s.id.slice(5) : null,
         reason:
           "Cette source pourrait appartenir à ce sujet. Vérifiez le rapprochement avant de le confirmer.",
-        sources: [{ id: s.id, title: s.title, kind: s.kind, url: s.url }],
+        sources: [{ id: s.id, title: s.title, text: noteById.get(s.id.slice(5))?.text || s.text || s.title, kind: s.kind, url: s.url }],
       });
   for (const d of decisions.filter((d) => d.state === "proposed")) {
     const note = noteById.get(d.note_id);

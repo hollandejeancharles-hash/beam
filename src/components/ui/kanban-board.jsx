@@ -696,7 +696,7 @@ function Card({
       layout
       data-kanban-card={task.id}
       tabIndex={0}
-      role="button"
+      role="group"
       aria-roledescription="Carte déplaçable"
       aria-grabbed={grabbed}
       aria-label={`${task.title}. Entr\xE9e pour ouvrir, Espace puis les fl\xE8ches pour d\xE9placer.`}
@@ -757,10 +757,10 @@ function CardShell({ task, floating }) {
         )}
       </div>
 
-      <p className="m-0 mt-2.5 text-[14px] font-medium leading-snug tracking-[-0.005em]">
+      <div className="m-0 mt-2.5 text-[14px] font-medium leading-snug tracking-[-0.005em]">
         {task.title}
         {task.accessory}
-      </p>
+      </div>
 
       {task.note && (
         <p className="m-0 mt-1 text-[12px] font-normal leading-snug text-neutral-500 beam-dark:text-neutral-400">

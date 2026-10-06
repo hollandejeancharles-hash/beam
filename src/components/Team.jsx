@@ -1,3 +1,4 @@
+import AuditLog from "./ui/audit-log";
 import useVisiblePolling, { unchangedData } from "../hooks/useVisiblePolling";
 import React, { useEffect, useState } from "react";
 import { activityPhrase } from "../../shared/presence";
@@ -45,7 +46,7 @@ const values = {
   private: "Interne",
   public: "Publique",
 };
-export function usePresenceActivity(api, state, activity) {
+export function usePresenceActivity(api, state, activity, itemId = null, editing = false) {
   useEffect(() => {
     if (!state?.workspace || !state?.signedIn) return;
     const clientId = crypto.randomUUID();
@@ -59,6 +60,8 @@ export function usePresenceActivity(api, state, activity) {
           action: "presence",
           clientId,
           interactedAt: lastInteraction,
+          itemId: document.hidden ? null : itemId,
+          editing: !document.hidden && editing,
           activity:
             document.hidden || Date.now() - lastInteraction > 120000
               ? "idle"
@@ -90,9 +93,9 @@ export function usePresenceActivity(api, state, activity) {
         }),
       }).catch(() => {});
     };
-  }, [state?.workspace?.id, state?.signedIn, activity]);
+  }, [state?.workspace?.id, state?.signedIn, activity, itemId, editing]);
 }
-export function TeamPresence({ api, state, onOpen, activity = "browsing" }) {
+export function TeamPresence({ api, state, onOpen, activity = "browsing", itemId = null, editing = false }) {
   const [profiles, setProfiles] = useState([]);
   useEffect(() => {
     let alive = true;
@@ -117,7 +120,7 @@ export function TeamPresence({ api, state, onOpen, activity = "browsing" }) {
     15000,
     [state?.workspace?.id],
   );
-  usePresenceActivity(api, state, activity);
+  usePresenceActivity(api, state, activity, itemId, editing);
   if (!state?.workspace) return null;
   const online = profiles.filter((p) => state.presence?.includes(p.user_id));
   return (
@@ -262,48 +265,25 @@ export default function TeamActivity({ api, itemId, state }) {
         </>
       ) : (
         <>
-          {!data.activity.length && (
-            <p className="modal-copy">
-              Les prochaines modifications apparaîtront ici.
-            </p>
-          )}
-          {data.activity.map((a) => (
-            <article className="team-entry" key={a.id}>
-              <div>
-                <strong>
-                  {person(a.user_id)?.name || "Membre de l’équipe"}
-                </strong>
-                <time>{new Date(a.created_at).toLocaleString("fr-FR")}</time>
-                <p>
-                  {a.action === "created"
-                    ? "A créé cet élément"
-                    : a.action === "deleted"
-                      ? "A supprimé cet élément"
-                      : "A modifié cet élément"}
-                </p>
-                {a.action === "updated" && (
-                  <ul>
-                    {Object.entries(a.changes).map(([key, c]) => (
-                      <li key={key}>
-                        <b>{labels[key] || key}</b>
-                        {[
-                          "description",
-                          "parent_id",
-                          "dependency_id",
-                          "position",
-                          "kanban_position",
-                        ].includes(key)
-                          ? " mis à jour"
-                          : ` : ${values[c.before] ?? c.before ?? "Non défini"} → ${values[c.after] ?? c.after ?? "Non défini"}`}
-                      </li>
-                    ))}
-                  </ul>
-                )}
-              </div>
-            </article>
-          ))}
+          <AuditLog items={data.activity.map(a=>({
+            id:a.id, title:a.action === "created" ? "Élément créé" : a.action === "deleted" ? "Élément supprimé" : "Élément modifié",
+            at:a.created_at, actor:person(a.user_id)?.name || "Membre de l’équipe", type:"Équipe",
+            status:a.action === "created" ? "Création" : a.action === "deleted" ? "Suppression" : "Modification",
+            tone:a.action === "created" ? "green" : a.action === "deleted" ? "red" : "blue",
+            iconKind:a.action === "created" ? "created" : undefined,
+            content:a.action === "updated" && <ul>{Object.entries(a.changes || {}).map(([key,c])=><li key={key}><b>{labels[key] || key}</b>{["description","parent_id","dependency_id","position","kanban_position"].includes(key) ? " mis à jour" : ` : ${values[c.before] ?? c.before ?? "Non défini"} → ${values[c.after] ?? c.after ?? "Non défini"}`}</li>)}</ul>,
+          }))}/>
+
         </>
       )}
     </section>
   );
+}
+
+export function ItemPresence({api,state,itemId}) {
+ const [profiles,setProfiles]=useState([]);
+ useEffect(()=>{let alive=true;if(state?.workspace)api('admin/team').then(r=>{if(alive)setProfiles(r.profiles||[]);}).catch(()=>{});return ()=>{alive=false;};},[state?.workspace?.id,state?.changeVersion]);
+ const peers=profiles.filter(p=>p.user_id!==state?.userId && state?.presence?.includes(p.user_id) && state?.presenceItems?.[p.user_id]?.itemId===itemId);
+ if(!peers.length)return null;
+ return <div className="item-presence" role="status">{peers.map(p=><span key={p.user_id}><i/>{p.name || 'Un collègue'} {state.presenceItems[p.user_id].editing ? 'modifie' : 'consulte'} cet élément</span>)}</div>;
 }

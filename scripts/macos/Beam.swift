@@ -324,7 +324,7 @@ final class BeamDelegate: NSObject, NSApplicationDelegate, WKNavigationDelegate,
     }
     func loadLocal(_ view: WKWebView, _ url: URL) {
         let cookie = HTTPCookie(properties: [.name: "beam_local_session", .value: localToken, .domain: "127.0.0.1", .path: "/", HTTPCookiePropertyKey("HttpOnly"): "TRUE", HTTPCookiePropertyKey("SameSite"): "Strict"])!
-        view.configuration.websiteDataStore.httpCookieStore.setCookie(cookie) { view.load(URLRequest(url: url)) }
+        view.configuration.websiteDataStore.httpCookieStore.setCookie(cookie) { view.load(URLRequest(url: url, cachePolicy: .reloadIgnoringLocalCacheData)) }
     }
     func isLocal(_ url: URL) -> Bool {
         url.scheme == "http" && ["127.0.0.1", "localhost"].contains(url.host ?? "") && url.port == 5173
@@ -343,6 +343,24 @@ final class BeamDelegate: NSObject, NSApplicationDelegate, WKNavigationDelegate,
     }
     func webView(_ webView: WKWebView, didFailProvisionalNavigation navigation: WKNavigation!, withError error: Error) {
         if (error as NSError).code != NSURLErrorCancelled { fail("La fenêtre n’a pas pu charger Beam. Réouvrez Beam depuis la barre de menus pour réessayer.") }
+    }
+    func webView(_ webView: WKWebView, runOpenPanelWith parameters: WKOpenPanelParameters, initiatedByFrame frame: WKFrameInfo, completionHandler: @escaping ([URL]?) -> Void) {
+        guard let url = frame.request.url, isLocal(url) else { completionHandler(nil); return }
+        let panel = NSOpenPanel()
+        panel.title = "Joindre un fichier"
+        panel.prompt = "Joindre"
+        panel.canChooseFiles = true
+        panel.canChooseDirectories = parameters.allowsDirectories
+        panel.allowsMultipleSelection = parameters.allowsMultipleSelection
+        if let window = webView.window {
+            panel.beginSheetModal(for: window) { response in
+                completionHandler(response == .OK ? panel.urls : nil)
+            }
+        } else {
+            panel.begin { response in
+                completionHandler(response == .OK ? panel.urls : nil)
+            }
+        }
     }
     func webView(_ webView: WKWebView, runJavaScriptConfirmPanelWithMessage message: String, initiatedByFrame frame: WKFrameInfo, completionHandler: @escaping (Bool) -> Void) {
         let alert = NSAlert(); alert.messageText = "Confirmer l’action"; alert.informativeText = message

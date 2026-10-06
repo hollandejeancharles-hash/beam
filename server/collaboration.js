@@ -1,6 +1,6 @@
 import { sessionStorage } from "./session-vault.js";
 import { randomUUID } from "node:crypto";
-import { safeActivity, recentActivity } from "../shared/presence.js";
+import { safeActivity, recentActivity, safeItemContext, recentItemContext } from "../shared/presence.js";
 import { readFileSync } from "node:fs";
 import { createClient } from "@supabase/supabase-js";
 import { createStore } from "./store.js";
@@ -146,6 +146,7 @@ export function createCollaboration(
   let client,
     presence = [],
     presenceActivity = {},
+    presenceItems = {},
     channel,
     revision = null,
     connected = false,
@@ -166,6 +167,8 @@ export function createCollaboration(
       if (now - value.updatedAt >= 45000) activityClients.delete(id);
     activityClients.set(b.clientId, {
       activity: safeActivity(b.activity),
+      itemId: safeItemContext(b.itemId),
+      editing: b.editing === true,
       interactedAt: Number.isFinite(b.interactedAt)
         ? Math.min(now, b.interactedAt)
         : now,
@@ -178,6 +181,7 @@ export function createCollaboration(
     )[0];
     const tracked = await channel.track?.({
       online: true,
+      ...recentItemContext([...activityClients.values()], now),
       interactedAt: current?.interactedAt || now,
       activity: recentActivity([...activityClients.values()], now),
       updatedAt: now,
@@ -186,6 +190,7 @@ export function createCollaboration(
       realtimeConnected = false;
       presence = [];
       presenceActivity = {};
+    presenceItems = {};
       lastError = "Présence interrompue. Reconnexion en cours.";
     }
     emit();
@@ -331,6 +336,7 @@ export function createCollaboration(
   async function subscribe() {
     presence = [];
     presenceActivity = {};
+    presenceItems = {};
     realtimeConnected = false;
     lastSubscribeAttempt = Date.now();
     if (client.realtime?.setAuth)
@@ -350,6 +356,7 @@ export function createCollaboration(
         if (channel !== nextChannel) return;
         const peers = nextChannel.presenceState?.() || {};
         presence = Object.keys(peers);
+        presenceItems = Object.fromEntries(Object.entries(peers).map(([id,entries])=>[id,recentItemContext(entries)]));
         presenceActivity = Object.fromEntries(
           Object.entries(peers).map(([id, entries]) => [
             id,
@@ -448,6 +455,7 @@ export function createCollaboration(
           realtimeConnected = false;
           presence = [];
           presenceActivity = {};
+    presenceItems = {};
           lastError = "Présence interrompue. Reconnexion en cours.";
           emit();
         }
@@ -470,6 +478,7 @@ export function createCollaboration(
           ? { [session.user.id]: recentActivity([...activityClients.values()]) }
           : {}),
       },
+      presenceItems: { ...presenceItems, ...(session?.user?.id && activityClients.size ? {[session.user.id]:recentItemContext([...activityClients.values()])} : {}) },
       changeVersion,
       contentVersion,
       userId: session?.user?.id || null,

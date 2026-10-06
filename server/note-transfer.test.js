@@ -89,3 +89,11 @@ test("A newer quick draft is never cleared by an earlier transfer", () => {
   });
   assert.equal(local.getItem("beam_note_draft:default"), "Après");
 });
+
+test("Capture transfer preserves rich mentions and formatting", () => {
+  const document = {type:"doc", content:[{type:"paragraph",content:[{type:"mention",attrs:{workspace_id:"default",label:"Beam"}}]}]};
+  const local=storage({["beam-note-transfer:"+token]:JSON.stringify({workspaceId:"default",text:"@Beam",document})});
+  const session=storage();
+  const slot=receiveNoteTransfer({local,session,workspaceId:"default",transferId:token});
+  assert.deepEqual(JSON.parse(session.getItem(`beam-draft:default:${slot}:document`)),document);
+});

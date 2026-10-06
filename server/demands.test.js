@@ -296,3 +296,20 @@ test("demand trash preserves provenance and restores without recreating its feat
  const restored=await demands.trash(request.id,{revision:removed.revision},false);
  assert.equal(restored.data.deleted,false);assert.equal(restored.data.state,"review");assert.equal(store.list().length,0);store.db.close();
 });
+
+test("loading requests does not wait for slow team metadata", async () => {
+  let resolveTeam;
+  const team = new Promise(resolve => { resolveTeam = resolve; });
+  const { store, demands } = fixture({ active: () => false, team: () => team });
+  try {
+    await demands.create({ title: "Export", description: "Exporter les données" });
+    const result = await Promise.race([
+      demands.list(),
+      new Promise((_, reject) => { const timer = setTimeout(() => reject(new Error("Team blocked requests")), 300); timer.unref(); }),
+    ]);
+    assert.equal(result.demands.length, 1);
+  } finally {
+    resolveTeam({ profiles: [] });
+    store.db.close();
+  }
+});

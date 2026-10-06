@@ -42,3 +42,13 @@ export function recentActivity(entries, now = Date.now()) {
       )[0]?.activity || "idle"
   );
 }
+
+// Only public roadmap identifiers are carried by presence, never note content.
+export function safeItemContext(value) {
+  return typeof value === 'string' && /^[a-zA-Z0-9_-]{1,64}$/.test(value) ? value : null;
+}
+export function recentItemContext(entries, now = Date.now()) {
+  const entry = entries.filter(e => activities.has(e?.activity) && e.activity !== 'idle' && Number.isFinite(e.updatedAt) && e.updatedAt <= now + 10000 && now-e.updatedAt < 45000)
+    .sort((a,b)=>(b.interactedAt || b.updatedAt)-(a.interactedAt || a.updatedAt))[0];
+  return {itemId:safeItemContext(entry?.itemId), editing:!!entry?.editing && !!safeItemContext(entry?.itemId)};
+}

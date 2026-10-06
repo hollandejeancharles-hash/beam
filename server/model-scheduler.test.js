@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { createModelFetch, createAnalysisPacing } from "./model-scheduler.js";
+import { createModelFetch, createAnalysisPacing, economicalModelRequest } from "./model-scheduler.js";
 const url = "http://127.0.0.1:11434/api/chat";
 const tick = () => new Promise((resolve) => setImmediate(resolve));
 test("inference remains exclusive until its stream finishes and foreground jobs pass queued background jobs", async () => {
@@ -100,4 +100,13 @@ test("the inference timeout starts when a queued job gets its slot, not while it
   held.close();
   await first.text();
   assert.equal(await (await second).text(), "done");
+});
+
+test("manual model jobs release memory after completion without reducing context", () => {
+  const request={body:JSON.stringify({model:"local", keep_alive:"5m",options:{num_ctx:16384},messages:[{content:"Contexte"}]})};
+  const body=JSON.parse(economicalModelRequest(request).body);
+  assert.equal(body.keep_alive,0);
+  assert.equal(body.options.num_ctx,16384);
+  assert.equal(body.messages[0].content,"Contexte");
+  assert.equal(economicalModelRequest({body:"fixture"}).body,"fixture");
 });

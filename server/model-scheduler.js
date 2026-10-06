@@ -1,5 +1,15 @@
 // One inference at a time across every workspace and analysis type.
 // Keep the slot until the streamed response is consumed, not just its headers.
+export function economicalModelRequest(request) {
+  if (typeof request.body !== "string") return request;
+  try {
+    const body = JSON.parse(request.body);
+    if (!body || typeof body !== "object" || !body.model) return request;
+    // Manual analyses release model memory as soon as the response completes.
+    body.keep_alive = 0;
+    return {...request, body:JSON.stringify(body)};
+  } catch {return request;}
+}
 export function createModelFetch(fetcher = fetch) {
   let active = false;
   const queue = [];
@@ -50,7 +60,7 @@ export function createModelFetch(fetcher = fetch) {
               ? AbortSignal.any([request.signal, timeout])
               : timeout;
             signal.addEventListener("abort", finish, { once: true });
-            const response = await fetcher(url, { ...request, signal });
+            const response = await fetcher(url, { ...economicalModelRequest(request), signal });
             if (!response.ok || !response.body?.getReader) {
               finish();
               resolve(response);

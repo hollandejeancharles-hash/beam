@@ -1,6 +1,11 @@
+import {readViewCache,writeViewCache} from "../../shared/view-cache";
+import useViewPosition from "../hooks/useViewPosition";
+import AuditLog from "./ui/audit-log";
 import React, { useState, useEffect, useRef } from "react";
 import { Plus, ArrowRight, Close, MessageSquare } from "../icons";
 import AIProgress from "./AIProgress";
+const demandCache = new Map();
+const demandNavigation = new Map();
 const kinds = { request: "Demande", bug: "Bug", improvement: "Amélioration" };
 const priorities = {
   unrated: "À qualifier",
@@ -241,6 +246,7 @@ export function DemandCapture({ note, api, onClose, onError, onDone, onBusyChang
 }
 export default function Demands({
   api,
+  workspaceId,
   items,
   readOnly,
   onError,
@@ -249,14 +255,18 @@ export default function Demands({
   onOpenItem,
   onQueueChanged,
 }) {
-  const [data, setData] = useState({
+  const cached = demandCache.get(workspaceId) || readViewCache("demands:"+workspaceId, sessionStorage);
+  const navigation = demandNavigation.get(workspaceId) || {};
+  const root = useViewPosition("demands:"+workspaceId);
+  const [data, setData] = useState(() => cached || {
       demands: [],
       profiles: [],
       shared: false,
     }),
-    [loaded, setLoaded] = useState(false),
-    [selected, setSelected] = useState(null),
-    [view, setView] = useState("review"),
+    [loaded, setLoaded] = useState(() => !!cached),
+    [selected, setSelected] = useState(navigation.selected || null),
+    [detailTab, setDetailTab] = useState("decision"),
+    [view, setView] = useState(navigation.view || "review"),
     [query, setQuery] = useState(""),
     [mine, setMine] = useState(false),
     [editing, setEditing] = useState(null),
@@ -265,12 +275,15 @@ export default function Demands({
     [proposal, setProposal] = useState(null),
     [reason, setReason] = useState(""),
     [error, setError] = useState("");
+  useEffect(() => { demandNavigation.set(workspaceId,{selected,view}); }, [workspaceId,selected,view]);
   const apiRef = useRef(api);
   apiRef.current = api;
   const loadingRef = useRef(null),
     mountedRef = useRef(true);
   function receive(next) {
     if (!mountedRef.current) return;
+    demandCache.set(workspaceId, next);
+    writeViewCache("demands:"+workspaceId,next,sessionStorage);
     setData(next);
     setLoaded(true);
     onQueueChanged?.(next.demands.filter((d) => d.data.state === "review"));
@@ -295,7 +308,7 @@ export default function Demands({
       .then(receive)
       .catch(() => {})
       .finally(load);
-    const timer = setInterval(load, 10000);
+    const timer = setInterval(() => { if (!document.hidden) void load(); }, 30000);
     window.addEventListener("beam-demands-changed", load);
     return () => {
       mountedRef.current = false;
@@ -309,6 +322,7 @@ export default function Demands({
       setView("all");
     }
   }, [target]);
+  useEffect(() => { setDetailTab("decision"); setEditing(null); setProposal(null); setReason(""); }, [selected]);
   const current = data.demands.find((d) => d.id === selected),
     analysis =
       proposal ||
@@ -372,12 +386,13 @@ export default function Demands({
   async function update(fields) {
     setBusy(true);
     try {
-      await api(`admin/demands/${current.id}`, {
+      const updated = await api(`admin/demands/${current.id}`, {
         method: "PATCH",
         body: JSON.stringify({ ...fields, revision: current.revision }),
       });
+      receive({ ...data, demands: data.demands.map(d => d.id === updated.id ? updated : d) });
       setReason("");
-      await load();
+      void load();
     } catch (e) {
       onError(e.message);
       await load();
@@ -436,7 +451,7 @@ export default function Demands({
     }
   }
   return (
-    <div className="demands-screen">
+    <div className="demands-screen" ref={root}>
       <div className="toolbar">
         <div className="demand-tabs">
           {[
@@ -479,7 +494,8 @@ export default function Demands({
           </button>
         )}
       </div>
-      {error ? (
+      {error && loaded && <div className="demand-sync-warning" role="status">Actualisation interrompue. Vos demandes restent affichées. <button className="text-button" onClick={load}>Réessayer</button></div>}
+      {error && !loaded ? (
         <div className="empty">
           <h3>La file est indisponible</h3>
           <p>{error}</p>
@@ -555,12 +571,12 @@ export default function Demands({
               </div>
             )}
           </section>
-          <section className="demand-detail">
+          <section className="demand-detail demand-detail-compact">
             {current ? (
               <>
-                <small>{current.data.deleted ? "Supprimée" : labels[current.data.state]}</small>
+                <div className="demand-summary-badges"><span className={`demand-status-badge ${current.data.state}`}>{current.data.deleted ? "Supprimée" : labels[current.data.state]}</span><span className={`demand-kind-badge ${current.data.kind || "request"}`}>{kinds[current.data.kind || "request"]}</span><span className={`demand-priority-badge ${current.data.priority || "unrated"}`}>{priorities[current.data.priority || "unrated"]}</span></div>
                 <h2>{current.data.title}</h2>
-                <p className="demand-description">{current.data.description}</p>
+                <div className="demand-description">{current.data.description?.length > 240 ? <details><summary>{current.data.description.slice(0, 240)}… <span>Lire le besoin complet</span></summary><p>{current.data.description}</p></details> : current.data.description}</div>
                 {!readOnly && current.data.state !== "merged" && (
                   <>
                     {!editing ? (
@@ -638,7 +654,7 @@ export default function Demands({
                         </button>
                       </form>
                     )}
-                    <div className="demand-fields">
+                    <div className="demand-qualification"><div className="demand-fields">
                       <label>
                         Type
                         <select
@@ -667,10 +683,7 @@ export default function Demands({
                           ))}
                         </select>
                       </label>
-                    </div>
-                  </>
-                )}
-                <label>
+                <label className="demand-reviewer">
                   Responsable du triage
                   <select
                     disabled={readOnly || busy}
@@ -685,7 +698,16 @@ export default function Demands({
                     ))}
                   </select>
                 </label>
-                {current.data.sources?.length > 0 && (
+                    </div></div>
+                  </>
+                )}
+                <nav className="demand-detail-tabs" aria-label="Informations de la demande">
+                  {[["decision", "Décision"], ["analysis", "Analyse IA"], ["sources", `Sources · ${current.data.sources?.length || 0}`], ["history", "Historique"]].map(([id, label]) => <button key={id} className="button" aria-pressed={detailTab === id} onClick={() => setDetailTab(id)}>{label}</button>)}
+                </nav>
+                {readOnly && detailTab === "decision" && <p className="subtle">Cette demande est en lecture seule.</p>}
+                {current.data.state === "merged" && detailTab === "decision" && <p className="subtle">Cette demande a été regroupée avec une autre demande.</p>}
+                {detailTab === "sources" && !current.data.sources?.length && <p className="subtle">Aucune source jointe à cette demande.</p>}
+                {detailTab === "sources" && current.data.sources?.length > 0 && (
                   <section>
                     <h3>À l’origine de la demande</h3>
                     {current.data.sources.map((s, i) => (
@@ -710,7 +732,7 @@ export default function Demands({
                     ))}
                   </section>
                 )}
-                {current.data.item_id && (
+                {detailTab === "decision" && current.data.item_id && (
                   <button
                     className="text-button"
                     onClick={() =>
@@ -727,9 +749,9 @@ export default function Demands({
                 )}
                 {!readOnly && current.data.state !== "merged" && (
                   <>
-                    <section className="demand-intelligence">
+                    {detailTab === "analysis" && <section className="demand-intelligence">
                       <header>
-                        <h3>Éclairage de l’assistant</h3>
+                        <h3>Analyse de l’assistant</h3>
                         <button
                           className="button"
                           disabled={busy}
@@ -740,9 +762,8 @@ export default function Demands({
                         </button>
                       </header>
                       <p className="subtle">
-                        L’assistant local examine les demandes en arrière-plan
-                        lorsqu’il est activé. Ses propositions restent à
-                        valider.
+                        Cliquez sur Analyser pour examiner cette demande avec
+                        l’IA locale. Ses propositions restent à valider.
                       </p>
                       {analysis?.drafts.map((d, i) => (
                         <div key={i}>
@@ -786,9 +807,9 @@ export default function Demands({
                           )}
                         </div>
                       ))}
-                    </section>
-                    <section className={`demand-decision ${current.data.deleted ? "is-trash" : ""}`}>
-                      <h3>Décider de la suite</h3>
+                    </section>}
+                    {detailTab === "decision" && <section className={`demand-decision ${current.data.deleted ? "is-trash" : ""}`}>
+                      <h3>Décider de la suite</h3><p className="subtle">Créez un élément de roadmap, reliez le besoin à un élément existant ou choisissez une autre suite.</p>
                       <button className="button demand-trash-action" disabled={busy} onClick={async()=>{
                         setBusy(true);
                         try {await api(`admin/demands/${current.id}`,{method:current.data.deleted ? "PATCH" : "DELETE",body:JSON.stringify({revision:current.revision,restore:true})});setSelected(null);await load();}catch(e){onError(e.message);}finally{setBusy(false);}
@@ -970,7 +991,7 @@ export default function Demands({
                           </button>
                         )}
                       </div>
-                    </section>
+                    </section>}
                   </>
                 )}
                 {current.data.merged_into && (
@@ -985,18 +1006,15 @@ export default function Demands({
                     <ArrowRight size={14} />
                   </button>
                 )}
-                <section>
+                {detailTab === "history" && <section>
                   <h3>Historique</h3>
-                  {[...(current.data.history || [])].reverse().map((h, i) => (
-                    <div className="demand-history" key={i}>
-                      <strong>
-                        {labels[h.state]} · {profile(h.actor)}
-                      </strong>
-                      <small>{new Date(h.at).toLocaleString("fr-FR")}</small>
-                      {h.reason && <p>{h.reason}</p>}
-                    </div>
-                  ))}
-                </section>
+                  <AuditLog key={current.id} items={[...(current.data.history || [])].reverse().map((h,i)=>({
+                    id:`${current.id}:${i}`, title:labels[h.state] || "Demande mise à jour", at:h.at,
+                    actor:profile(h.actor), description:h.reason, type:"Demande", status:labels[h.state],
+                    tone:({accepted:"green",review:"amber",clarify:"amber",rejected:"red",deferred:"blue",merged:"purple"})[h.state] || "purple",
+                  }))}/>
+
+                </section>}
               </>
             ) : (
               <div className="empty">

@@ -1,11 +1,12 @@
 import useVisiblePolling, { unchangedData } from "../hooks/useVisiblePolling";
 import React, { useEffect, useState } from "react";
+import { BookmarkCheck, Link2, Search, FileText } from "lucide-react";
 const kinds = {
   defer: "Report",
   prioritize: "Priorité",
   approve: "Validation",
   reject: "Idée écartée",
-  decision: "Arbitrage",
+  decision: "Autre décision",
 };
 export default function DecisionMemory({
   api,
@@ -23,12 +24,14 @@ export default function DecisionMemory({
     [open, setOpen] = useState(false),
     [busy, setBusy] = useState(false),
     [history, setHistory] = useState(false),
+    [itemSearch, setItemSearch] = useState(""),
     [draft, setDraft] = useState({
       title: "",
       reason: "",
       kind: "decision",
       item_ids: [],
     });
+  useEffect(() => { setOpen(false); setItemSearch(""); setDraft({title:"",reason:"",kind:"decision",item_ids:[]}); }, [note?.id]);
   async function load() {
     try {
       const next = await api("admin/decisions");
@@ -92,21 +95,21 @@ export default function DecisionMemory({
   return (
     <section className="decision-memory" aria-label="Mémoire des décisions">
       <div className="decision-memory-head">
-        <h3>Décisions</h3>
+        <h3><BookmarkCheck size={18}/> Décisions prises</h3>
         {note && (
           <button
             className="text-button"
             disabled={busy || readOnly}
             onClick={() => setOpen(!open)}
           >
-            {open ? "Fermer" : "Noter une décision"}
+            {open ? "Masquer le formulaire" : "Ajouter une décision"}
           </button>
         )}
       </div>
       {!visible.length && !open && !hideEmptyMessage && (
         <p className="assistant-help">
-          Aucun arbitrage validé. Les décisions confirmées ici guideront les
-          prochaines analyses.
+          Gardez une trace des choix faits à partir de cette note : un report,
+          une validation ou une priorité.
         </p>
       )}
       {visible.map((d) => (
@@ -180,71 +183,32 @@ export default function DecisionMemory({
       )}
       {open && (
         <form className="decision-memory-form" onSubmit={save}>
-          <p className="assistant-help">
-            Enregistrez un choix acté. Il servira de contexte à l’IA sans
-            changer les dates ou les priorités du Gantt.
-          </p>
-          <label>
-            Décision
-            <input
-              required
-              maxLength={160}
-              value={draft.title}
-              placeholder="Reporter le zoom après la refonte"
-              onChange={(e) => setDraft({ ...draft, title: e.target.value })}
-            />
-          </label>
-          <label>
-            Type
-            <select
-              value={draft.kind}
-              onChange={(e) => setDraft({ ...draft, kind: e.target.value })}
-            >
-              {Object.entries(kinds).map(([id, label]) => (
-                <option key={id} value={id}>
-                  {label}
-                </option>
-              ))}
-            </select>
-          </label>
-          <label>
-            Pourquoi ? <span className="subtle">facultatif</span>
-            <textarea
-              maxLength={1000}
-              value={draft.reason}
-              onChange={(e) => setDraft({ ...draft, reason: e.target.value })}
-            />
-          </label>
-          <fieldset>
-            <legend>Éléments concernés</legend>
-            {items
-              .filter((i) => !i.archived)
-              .map((i) => (
-                <label key={i.id}>
-                  <input
-                    type="checkbox"
-                    checked={draft.item_ids.includes(i.id)}
-                    disabled={
-                      !draft.item_ids.includes(i.id) &&
-                      draft.item_ids.length >= 8
-                    }
-                    onChange={(e) =>
-                      setDraft({
-                        ...draft,
-                        item_ids: e.target.checked
-                          ? [...draft.item_ids, i.id]
-                          : draft.item_ids.filter((id) => id !== i.id),
-                      })
-                    }
-                  />
-                  {i.title}
-                </label>
-              ))}
+          <div className="decision-form-intro"><span className="decision-form-icon"><BookmarkCheck size={20}/></span><div><h4>Quel choix a été fait ?</h4><p>Enregistrez une décision déjà prise pour en retrouver le contexte plus tard.</p></div></div>
+          <fieldset className="decision-draft-fields" disabled={busy || readOnly}>
+            <label className="decision-title-field">La décision
+              <input required maxLength={160} value={draft.title} placeholder="Ex. Reporter le zoom après la refonte" onChange={e=>setDraft({...draft,title:e.target.value})}/>
+            </label>
+            <label>Nature du choix
+              <select value={draft.kind} onChange={e=>setDraft({...draft,kind:e.target.value})}>{Object.entries(kinds).map(([id,label])=><option key={id} value={id}>{label}</option>)}</select>
+            </label>
+            <label className="decision-reason-field"><span>Contexte <small>Facultatif</small></span>
+              <textarea rows={3} maxLength={1000} value={draft.reason} placeholder="Qu’est-ce qui a motivé ce choix ? Qui l’a validé ?" onChange={e=>setDraft({...draft,reason:e.target.value})}/>
+            </label>
           </fieldset>
-          <details>
-            <summary>Note conservée comme preuve</summary>
-            <blockquote>{note.text.slice(0, 3000)}</blockquote>
-          </details>
+          <div className="decision-targets">
+            <div className="decision-targets-head"><strong><Link2 size={15}/> Éléments concernés</strong><small>{draft.item_ids.length}/8 sélectionnés</small></div>
+            <p>Associez ce choix aux éléments de la roadmap qu’il concerne. Vous pouvez laisser cette liste vide.</p>
+            <label className="decision-target-search"><Search size={15}/><input aria-label="Rechercher un élément concerné" placeholder="Rechercher une initiative, un projet, une feature…" value={itemSearch} onChange={e=>setItemSearch(e.target.value)}/></label>
+            <div className="decision-target-list" role="group" aria-label="Éléments concernés">
+              {items.filter(i=>!i.archived && i.title.toLocaleLowerCase("fr").includes(itemSearch.toLocaleLowerCase("fr"))).map(i=><label key={i.id} className={draft.item_ids.includes(i.id) ? "selected" : ""}>
+                <input type="checkbox" checked={draft.item_ids.includes(i.id)} disabled={busy || readOnly || (!draft.item_ids.includes(i.id) && draft.item_ids.length>=8)} onChange={e=>setDraft({...draft,item_ids:e.target.checked ? [...draft.item_ids,i.id] : draft.item_ids.filter(id=>id!==i.id)})}/>
+                <span>{i.title}</span><small className={`decision-item-type ${i.type}`}>{{initiative:"Initiative",project:"Projet",feature:"Feature",task:"Tâche"}[i.type] || "Élément"}</small>
+              </label>)}
+              {!items.some(i=>!i.archived && i.title.toLocaleLowerCase("fr").includes(itemSearch.toLocaleLowerCase("fr"))) && <p className="decision-target-empty">Aucun élément correspondant.</p>}
+            </div>
+          </div>
+          <details className="decision-source-preview"><summary><FileText size={15}/> Note à l’origine de la décision</summary><blockquote>{note.text.slice(0,3000)}</blockquote></details>
+          <p className="decision-save-hint">La décision sera enregistrée avec cette note. Les dates, les statuts et les priorités de la roadmap restent inchangés.</p>
           <div className="modal-actions">
             <button
               type="button"
@@ -254,8 +218,8 @@ export default function DecisionMemory({
             >
               Annuler
             </button>
-            <button className="button primary" disabled={busy || readOnly}>
-              {busy ? "Enregistrement…" : "Valider la décision"}
+            <button className="button primary" disabled={busy || readOnly || !draft.title.trim()}>
+              {busy ? "Enregistrement…" : "Enregistrer la décision"}
             </button>
           </div>
         </form>

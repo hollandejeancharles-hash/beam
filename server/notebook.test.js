@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import { createStore } from "./store.js";
 import { createWorkspaces } from "./workspaces.js";
 import { createNotebook } from "./notebook.js";
+import { storedNoteReviews } from "./ai.js";
 import { createNotes } from "./notes.js";
 import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
@@ -174,4 +175,26 @@ test("mentions retain priority over links created by previous conversions", () =
     conversionContext(note, catalog, "a", "demand").parentId,
     "initiative",
   );
+});
+
+test("mentioning a task persists its workspace and roadmap link", () => {
+  const dir=mkdtempSync(join(tmpdir(), "beam-task-mention-"));
+  const path=join(dir,"test.sqlite"), root=createStore(path), workspaces=createWorkspaces(root,path);
+  try {
+    const workspace=workspaces.create({name:"Travail"}).active;
+    const id=workspaces.store(workspace).save({type:"task",title:"Vérifier le lancement",description:"",category:"Éditeur",priority:"medium",status:"planned",visibility:"private",quarter:"T4 2026"});
+    const notebook=createNotebook(workspaces);
+    const note=notebook.save({document:{type:"doc",content:[{type:"paragraph",content:[{type:"mention",attrs:{workspace_id:workspace,item_id:id,label:"Vérifier le lancement"}}]}]}});
+    assert.deepEqual(note.workspace_ids,[workspace]);
+    assert.deepEqual(note.linked,[id]);
+    assert.equal(notebook.catalog().find(w=>w.id===workspace).items.find(i=>i.id===id).type,"task");
+  } finally {root.db.close(); rmSync(dir,{recursive:true,force:true});}
+});
+
+test("reading reviews of an unused workspace does not initialize AI services", () => {
+  const root=createStore(":memory:");
+  try {
+    assert.deepEqual(storedNoteReviews(root.db),[]);
+    assert.equal(root.db.prepare("SELECT name FROM sqlite_master WHERE name='ai_reviews'").get(),undefined);
+  } finally {root.db.close();}
 });

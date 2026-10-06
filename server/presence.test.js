@@ -52,3 +52,12 @@ test("background window heartbeat does not override a more recently used window"
     "notes",
   );
 });
+
+
+test('item presence selects the active window and drops stale or invalid context', async()=>{
+ const {recentItemContext,safeItemContext}=await import('../shared/presence.js');
+ assert.equal(safeItemContext('private text with spaces'),null);
+ assert.deepEqual(recentItemContext([{activity:'gantt',updatedAt:99000,interactedAt:98000,itemId:'feature-1',editing:true},{activity:'notes',updatedAt:100000,interactedAt:99000}],100000),{itemId:null,editing:false});
+ assert.deepEqual(recentItemContext([{activity:'gantt',updatedAt:99000,itemId:'feature-1',editing:true}],100000),{itemId:'feature-1',editing:true});
+ assert.deepEqual(recentItemContext([{activity:'gantt',updatedAt:1000,itemId:'feature-1',editing:true}],100000),{itemId:null,editing:false});
+});

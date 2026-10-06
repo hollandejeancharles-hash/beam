@@ -216,6 +216,11 @@ export function validateAnswer(value, context) {
     proposals: merged,
   };
 }
+export const readAIReview = (r) => r && {...r, result:r.result ? JSON.parse(r.result) : null, context:JSON.parse(r.context), progress:progressFor(r.id)};
+export function storedNoteReviews(db) {
+  if (!db.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name='ai_reviews'").get()) return [];
+  return db.prepare("SELECT * FROM ai_reviews WHERE scope='note' ORDER BY created DESC LIMIT 100").all().map(readAIReview);
+}
 export function createAI(
   store,
   notes,
@@ -227,7 +232,7 @@ export function createAI(
     `CREATE TABLE IF NOT EXISTS ai_reviews(id TEXT PRIMARY KEY,scope TEXT NOT NULL,entity_id TEXT NOT NULL,created TEXT NOT NULL,state TEXT NOT NULL,result TEXT,context TEXT NOT NULL,error TEXT,model TEXT NOT NULL);`,
   );
   db.prepare(
-    "UPDATE ai_reviews SET state='error',error='Analyse interrompue. Relancez-la.' WHERE state='running'",
+    "UPDATE ai_reviews SET state='error',error='Analyse interrompue. Relancez-la.' WHERE state IN ('running','queued')",
   ).run();
   const enabled = () =>
     db.prepare("SELECT value FROM metadata WHERE key='ai_enabled'").get()
@@ -235,13 +240,7 @@ export function createAI(
   let active = false;
   let closed = false;
   let discovery = null;
-  const read = (r) =>
-    r && {
-      ...r,
-      result: r.result ? JSON.parse(r.result) : null,
-      context: JSON.parse(r.context),
-      progress: progressFor(r.id),
-    };
+  const read = readAIReview;
   async function request(path, body, timeout = 3000, progress, priority = 1) {
     const r = await fetcher(ENDPOINT + path, {
       method: body ? "POST" : "GET",
@@ -393,7 +392,7 @@ export function createAI(
         );
         if (!c.notes.length && !c.signals.length)
           throw Error(
-            "Aucune source pertinente trouvée. Ajoutez des notes ou synchronisez vos intégrations ; l’IA cherchera leurs liens automatiquement.",
+            "Aucune source pertinente trouvée. Ajoutez des notes ou synchronisez vos intégrations ; puis relancez l’analyse pour chercher leurs liens.",
           );
       }
       const st = await status();
@@ -791,13 +790,8 @@ export function createAI(
       );
       return row;
     },
-    auto(note) {
-      if (enabled()) {
-        try {
-          enqueue("note", note.id, true);
-        } catch {}
-      }
-    },
+    // Saving notes never starts inference. Analysis requires an explicit action.
+    auto() {},
     resume: () => void drain(),
   };
 }

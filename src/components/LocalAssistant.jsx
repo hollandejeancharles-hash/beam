@@ -1,6 +1,6 @@
 import useVisiblePolling, { unchangedData } from "../hooks/useVisiblePolling";
 import AIProgress from "./AIProgress";
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { Activity, RefreshCw, CheckCheck, Close, ArrowRight } from "../icons";
 import { NOTE_KINDS } from "../../shared/notes";
 const priorities = { high: "Haute", medium: "Normale", low: "Basse" };
@@ -13,6 +13,7 @@ export default function LocalAssistant({
   onRefresh,
   settingsOnly = false,
   onData,
+  sharedData,
   initialExpanded = false,
   readOnly = false,
 }) {
@@ -37,10 +38,16 @@ export default function LocalAssistant({
       setError(e.message);
     }
   }
+  useEffect(() => {
+    if (sharedData) {
+      setStatus(previous => unchangedData(previous, sharedData.status));
+      setReviews(previous => unchangedData(previous, sharedData.reviews || []));
+    }
+  }, [sharedData]);
   useVisiblePolling(
-    load,
+    sharedData ? async () => {} : load,
     reviews.some((r) => ["queued", "running"].includes(r.state)) ? 4000 : 12000,
-    [entity?.id],
+    [entity?.id, Boolean(sharedData)],
     "beam:notes",
   );
   async function action(task) {
@@ -247,10 +254,9 @@ export default function LocalAssistant({
           )}
           {!feature && !singleNote && status?.enabled && (
             <p className="assistant-help">
-              Les nouvelles notes et leurs pièces jointes sont analysées
-              automatiquement. Les sujets, personnes et intentions sont classés
-              en arrière-plan. Les changements de roadmap attendent votre
-              validation.
+              L’IA intervient uniquement lorsque vous lancez une analyse.
+              Les propositions restent à valider ; écrire ou ouvrir une note
+              ne déclenche aucun traitement.
             </p>
           )}
           {error && (

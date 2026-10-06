@@ -16,10 +16,13 @@ export default function useVisiblePolling(
     let alive = true,
       busy = false,
       timer,
-      rerun = false;
+      rerun = false,
+      initialized = false;
     async function refresh() {
       clearTimeout(timer);
-      if (!alive || document.hidden) return;
+      // WebKit may still report a newly mounted desktop view as hidden.
+      // Always load once; visibility only suspends subsequent refreshes.
+      if (!alive || (initialized && document.hidden)) return;
       if (busy) {
         rerun = true;
         return;
@@ -30,6 +33,7 @@ export default function useVisiblePolling(
       } catch {
         /* Consumers display their own errors. The next tick can recover. */
       } finally {
+        initialized = true;
         busy = false;
         if (alive && !document.hidden) {
           const next = rerun ? 0 : delay.current;

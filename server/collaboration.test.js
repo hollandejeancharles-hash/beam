@@ -297,7 +297,7 @@ test("Logging out retains shared workspace and roadmap while marking it offline"
   }
 });
 
-test("Presence shares only a screen category and follows the recently used window", async () => {
+test("Presence shares safe context and follows the recently used window", async () => {
   const f = fixture();
   try {
     await connect(f);
@@ -322,7 +322,9 @@ test("Presence shares only a screen category and follows the recently used windo
     assert.equal(f.c.state().presenceActivity.user, "notes");
     assert.deepEqual(Object.keys(f.remote.lastPresence).sort(), [
       "activity",
+      "editing",
       "interactedAt",
+      "itemId",
       "online",
       "updatedAt",
     ]);

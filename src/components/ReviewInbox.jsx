@@ -9,6 +9,7 @@ export default function ReviewInbox({
   onRefresh,
   onError,
   onExamine,
+  onOpenSource,
 }) {
   const [busy, setBusy] = useState(null);
   const visible = rows.filter((r) =>
@@ -59,10 +60,9 @@ export default function ReviewInbox({
   return (
     <section className="review-inbox" aria-label="Informations à examiner">
       <div className="review-inbox-intro">
-        <h2>Ce qui mérite votre attention</h2>
+        <h2>Propositions à vérifier</h2>
         <p>
-          L’assistant rapproche vos informations. Vous décidez des suites à
-          donner.
+          Vérifiez la note concernée et son classement proposé. Rien n’est validé sans votre accord.
         </p>
       </div>
       {loading ? (
@@ -90,13 +90,22 @@ export default function ReviewInbox({
                       ? "Nouvelle feature proposée"
                       : "Mise à jour proposée"
                     : row.kind === "topic"
-                      ? "Sujet · Rapprochement incertain"
+                      ? "Classement d’une note"
                       : "Roadmap · Rapprochement incertain"}
             </small>
-            <h3>{row.title}</h3>
-            <p>{row.reason}</p>
-            <details>
-              <summary>Sources · {row.sources.length}</summary>
+            <h3>{row.kind === "topic" ? "Classer cette note dans ce dossier ?" : row.title}</h3>
+            {row.kind === "topic" ? (
+              <>
+                <div className="review-placement">
+                  <span>Dossier proposé</span>
+                  <strong>{row.title}</strong>
+                  {row.topic_summary && <p>{row.topic_summary}</p>}
+                </div>
+                <p className="review-uncertainty">Beam a proposé ce classement, mais le lien reste incertain. Est-ce bien le même sujet ?</p>
+              </>
+            ) : <p>{row.reason}</p>}
+            <div className="review-evidence">
+              <small>{row.kind === "topic" ? "Note à classer" : "Informations concernées"}</small>
               {row.sources.map((s) => (
                 <div className="review-inbox-source" key={s.id}>
                   <small>{s.kind}</small>
@@ -105,25 +114,27 @@ export default function ReviewInbox({
                       {s.title}
                     </a>
                   ) : (
-                    <p>{s.title}</p>
+                    <blockquote>{s.text || s.title}</blockquote>
                   )}
+                  {s.id?.startsWith("note:") && onOpenSource && <button className="text-button" onClick={() => onOpenSource(s.id.slice(5))}>Ouvrir la note <ArrowRight size={13} /></button>}
                 </div>
               ))}
-            </details>
+            </div>
+            {row.kind === "topic" && <small className="review-consequence">Le contenu de la note reste inchangé. Ce classement remplace ses autres rattachements aux dossiers intelligents.</small>}
             <div className="review-inbox-actions">
               <button
                 className="text-button"
                 disabled={busy !== null}
                 onClick={() => decide(row, false)}
               >
-                Ignorer
+                {row.kind === "topic" ? "Ne pas regrouper" : "Ignorer cette proposition"}
               </button>
               <button
                 className="button"
                 disabled={busy !== null}
                 onClick={(event) => onExamine(row, event.currentTarget)}
               >
-                Examiner <ArrowRight size={14} />
+                {row.kind === "topic" ? "Voir le dossier" : row.kind === "proposal" ? "Voir la modification" : "Voir le contexte"} <ArrowRight size={14} />
               </button>
               {!["proposal", "contradiction"].includes(row.kind) && (
                 <button
@@ -135,7 +146,7 @@ export default function ReviewInbox({
                     ? "Enregistrement…"
                     : row.kind === "decision"
                       ? "Confirmer la décision"
-                      : "Confirmer le lien"}
+                      : row.kind === "topic" ? "Classer dans ce dossier" : "Associer à cet élément"}
                 </button>
               )}
             </div>

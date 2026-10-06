@@ -242,17 +242,8 @@ export function createDemands(
       const analyses = analyzed().filter((a) =>
         all.some((r) => r.id === a.id && r.revision === a.revision),
       );
-      const next = all.find(
-        (r) =>
-          ["review", "clarify"].includes(r.data.state) &&
-          !analyses.some((a) => a.id === r.id) &&
-          Date.now() > (retries.get(r.id) || 0),
-      );
-      if (next && !running && !ai.busy()) {
-        retries.set(next.id, Date.now() + 300000);
-        void service.analyze({ id: next.id }).catch(() => {});
-      }
-      await teamLoad;
+      // Team metadata refreshes independently; it must not delay the request queue.
+      void teamLoad;
       return {
         demands: all,
         analyses,
